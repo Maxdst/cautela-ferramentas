@@ -1,0 +1,2359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cautelix — Controle de Ferramentas</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1A2535">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cautela GPS">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+:root{--primary:#1A2535;--primary-light:#2E3F55;--primary-accent:#4A90A4;--silver:#8A9BB0;--silver-light:#C4CDD8;--accent:#A07C4E;--accent-dark:#8B6B3D;--success:#2E7D6B;--danger:#7A2E2E;--warning:#B8860B;--bg:#E8ECF0;--card:#F6F8FA;--border:#C4CDD8;--text:#0F1820;--text-secondary:#6B7B8F;--sidebar-w:240px;--bottom-nav-h:60px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+#root{display:flex;flex-direction:column;min-height:100vh}
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--primary) 0%,#0F1820 100%)}
+.login-box{background:white;border-radius:16px;padding:48px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo .icon{font-size:3rem;display:block;margin-bottom:8px}
+.login-logo h1{color:var(--primary);font-size:1.5rem;font-weight:700}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:var(--sidebar-w);background:var(--primary);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:50;transition:transform .3s}
+.sidebar-header{padding:20px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-logo{display:flex;align-items:center;gap:10px;color:white}
+.sidebar-logo .icon{font-size:1.6rem}
+.sidebar-logo h2{font-size:1rem;font-weight:700;line-height:1.2}
+.sidebar-logo p{font-size:.72rem;opacity:.7}
+.sidebar-user{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-user .name{color:white;font-size:.88rem;font-weight:600}
+.sidebar-user .role{font-size:.75rem;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.sidebar-nav{flex:1;overflow-y:auto;padding:8px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 16px;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;font-size:.9rem;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.1);color:white}
+.nav-item.active{background:rgba(74,144,164,.15);color:var(--primary-accent);border-right:3px solid var(--primary-accent)}
+.nav-item .nav-icon{width:24px;display:inline-flex;align-items:center;justify-content:center}
+.nav-badge{background:var(--danger);color:white;border-radius:10px;font-size:.65rem;font-weight:800;padding:2px 6px;margin-left:auto}
+.sidebar-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.1)}
+.btn-logout{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.6);background:none;border:none;cursor:pointer;font-size:.85rem;width:100%;padding:8px}
+.btn-logout:hover{color:white}
+.main-content{margin-left:var(--sidebar-w);flex:1;padding:28px;min-height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px}
+.topbar h2{font-size:1.25rem;font-weight:700;color:var(--text)}
+.topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--border);position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;right:0;width:4px;height:100%;background:var(--accent)}
+.stat-card.blue::before{background:var(--primary)}
+.stat-card.green::before{background:var(--success)}
+.stat-card.red::before{background:var(--danger)}
+.stat-label{font-size:.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.stat-value{font-size:2.2rem;font-weight:800;margin-top:4px;line-height:1}
+.stat-card.blue .stat-value{color:var(--primary)}
+.stat-card.green .stat-value{color:var(--success)}
+.stat-card.red .stat-value{color:var(--danger)}
+.stat-card .stat-value{color:var(--accent)}
+.card{background:var(--card);border-radius:12px;border:1px solid var(--border);margin-bottom:20px}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.card-title{font-size:.95rem;font-weight:600;color:var(--text)}
+.card-body{padding:20px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:all .15s;text-decoration:none;white-space:nowrap}
+.btn-primary{background:var(--primary-accent);color:white}.btn-primary:hover{background:#3d7a8e}
+.btn-accent{background:var(--accent);color:white}.btn-accent:hover{background:var(--accent-dark)}
+.btn-success{background:var(--success);color:white}.btn-success:hover{background:#047857}
+.btn-danger{background:var(--danger);color:white}.btn-danger:hover{background:#b91c1c}
+.btn-outline{background:var(--card);color:var(--primary);border:1.5px solid var(--primary-accent)}.btn-outline:hover{background:var(--bg)}
+.btn-ghost{background:none;color:var(--text-secondary);border:1px solid var(--border)}.btn-ghost:hover{background:var(--bg)}
+.btn-sm{padding:6px 12px;font-size:.8rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+label{font-size:.8rem;font-weight:600;color:var(--text-secondary)}
+input,select,textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem;font-family:inherit;color:var(--text);background:white;transition:border-color .15s;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)}
+textarea{resize:vertical;min-height:70px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{text-align:left;padding:10px 14px;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);border-bottom:2px solid var(--border);font-weight:700;background:#EEF1F5;white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#E4E9EF}
+td .actions{display:flex;gap:6px;flex-wrap:wrap}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;white-space:nowrap}
+.badge-ativa,.badge-ativo,.badge-retirada{background:#d1fae5;color:#065f46}
+.badge-devolvida,.badge-devolvido,.badge-cancelada,.badge-recusado{background:#f3f4f6;color:#6b7280}
+.badge-aguardando_retirada,.badge-aguardando_tomador,.badge-aguardando_lider,.badge-pronta{background:#fef3c7;color:#92400e}
+.badge-solicitada{background:#dbeafe;color:#1e40af}
+.badge-separando{background:#f0fdf4;color:#166534}
+.badge-lider{background:#dbeafe;color:#1e40af}
+.badge-operario{background:#f0fdf4;color:#166534}
+.badge-almoxarifado{background:#fdf4ff;color:#7e22ce}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:white;border-radius:14px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);max-height:90vh;display:flex;flex-direction:column}
+.modal-sm{max-width:460px}.modal-md{max-width:620px}.modal-lg{max-width:820px}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-header h3{font-size:1.05rem;font-weight:700}
+.modal-close{background:none;border:none;cursor:pointer;font-size:1.4rem;color:var(--text-secondary);line-height:1}
+.modal-body{padding:24px;overflow-y:auto;flex:1}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap}
+.sig-wrap{border:2px dashed var(--border);border-radius:10px;padding:12px;background:var(--card);text-align:center}
+.sig-wrap p{font-size:.8rem;color:var(--text-secondary);margin-bottom:8px}
+.sig-canvas{display:block;margin:0 auto;border:1px solid var(--border);border-radius:8px;cursor:crosshair;background:white;touch-action:none;max-width:100%;height:auto}
+.sig-actions{margin-top:8px;display:flex;gap:8px;justify-content:center}
+.sig-preview{max-width:100%;border-radius:6px;border:1px solid var(--border)}
+.alert{padding:12px 16px;border-radius:8px;font-size:.88rem;font-weight:500;margin-bottom:16px;border-left:4px solid}
+.alert-success{background:#d1fae5;color:#065f46;border-color:var(--success)}
+.alert-error{background:#fee2e2;color:#991b1b;border-color:var(--danger)}
+.alert-warning{background:#fef3c7;color:#92400e;border-color:var(--warning)}
+.alert-info{background:#dbeafe;color:#1e40af;border-color:#3b82f6}
+.empty{text-align:center;padding:48px 24px;color:var(--text-secondary)}
+.empty .empty-icon{font-size:3rem;margin-bottom:12px}
+.pending-banner{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid var(--accent);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.pending-banner .msg{font-size:.95rem;font-weight:600;color:#92400e}
+.items-list{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px}
+.item-row{display:grid;grid-template-columns:1fr 70px 90px auto;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border)}
+.item-row:last-child{border-bottom:none}
+.item-row:nth-child(even){background:#E4E9EF}
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px}
+.toast{background:#1f2937;color:white;padding:12px 18px;border-radius:10px;font-size:.875rem;box-shadow:0 4px 20px rgba(0,0,0,.3);animation:slideIn .2s ease;display:flex;align-items:center;gap:8px;min-width:260px;max-width:360px}
+.toast.success{border-left:4px solid var(--success)}
+.toast.error{border-left:4px solid var(--danger)}
+.toast.warning{border-left:4px solid var(--warning)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+.text-muted{color:var(--text-secondary);font-size:.85rem}
+.fw-bold{font-weight:700}
+.mt-4{margin-top:16px}
+.gap-8{display:flex;gap:8px;flex-wrap:wrap}
+.items-center{display:flex;align-items:center;gap:8px}
+/* Kanban delivery */
+.kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:20px}
+.kanban-col{background:var(--bg);border-radius:10px;padding:12px}
+.kanban-col h4{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.kanban-count{background:var(--primary);color:white;border-radius:10px;padding:2px 8px;font-size:.7rem}
+.kanban-card{background:white;border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.kanban-card .kc-numero{font-weight:700;font-size:.9rem;color:var(--primary)}
+.kanban-card .kc-lider{font-size:.82rem;color:var(--text-secondary);margin-top:2px}
+.kanban-card .kc-valor{font-size:.82rem;color:var(--success);font-weight:600;margin-top:4px}
+.kanban-card .kc-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+/* Auth device box */
+.auth-device-box{background:#EEF3F7;border:2px solid var(--silver-light);border-radius:10px;padding:20px;margin-bottom:16px}
+.auth-device-box h4{color:var(--primary-accent);font-size:.95rem;margin-bottom:12px;font-weight:700}
+/* Bottom nav */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:var(--bottom-nav-h);background:var(--primary);z-index:100;border-top:2px solid rgba(255,255,255,.1)}
+.bottom-nav-inner{display:flex;height:100%}
+.bottom-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;padding:4px 2px;transition:all .15s;position:relative}
+.bottom-nav-btn .bn-icon{display:flex;align-items:center;justify-content:center;line-height:1}
+.bottom-nav-btn.active{color:var(--accent)}
+.bn-badge{position:absolute;top:6px;right:8px;background:var(--danger);color:white;border-radius:8px;font-size:.6rem;font-weight:800;padding:1px 5px;min-width:14px;text-align:center}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0);box-shadow:4px 0 20px rgba(0,0,0,.4)}
+  .main-content{margin-left:0;padding:12px 14px;padding-bottom:calc(var(--bottom-nav-h) + 12px)}
+  .form-grid{grid-template-columns:1fr}
+  .bottom-nav{display:block}
+  .topbar{margin-bottom:16px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  table{font-size:.82rem}th,td{padding:8px 10px}
+  .modal{margin:0 8px}
+  .kanban{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React
+
+const token = { value: localStorage.getItem('cf_token') }
+
+async function api(method, path, body) {
+  const res = await fetch('/api' + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}) },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {})
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Erro ${res.status}`)
+  return data
+}
+const GET = p => api('GET', p)
+const POST = (p, b) => api('POST', p, b)
+const PUT = (p, b) => api('PUT', p, b)
+const DEL = p => api('DELETE', p)
+
+// Nome (e logo opcional) da empresa buscados uma vez do backend (evita texto fixo em termos/avisos legais)
+const empresaInfo = { nome: 'sua empresa', logoUrl: null }
+
+function fmt(d) {
+  if (!d) return '—'
+  const [y,m,dd] = d.split('T')[0].split('-')
+  return `${dd}/${m}/${y}`
+}
+function fmtDT(d) {
+  if (!d) return '—'
+  return d.replace('T', ' ').slice(0, 16)
+}
+function today() { return new Date().toISOString().slice(0, 10) }
+function fmtBRL(v) {
+  if (!v) return 'R$ 0,00'
+  return 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+const STATUS_LABEL = {
+  solicitada: 'Solicitada', separando: 'Separando', pronta: 'Pronto p/ retirada',
+  retirada: 'Retirada', cancelada: 'Cancelada',
+  aguardando_retirada: 'Aguard. retirada', ativa: 'Ativa', devolvida: 'Devolvida',
+  aguardando_tomador: 'Aguard. confirmação', aguardando_lider: 'Aguard. líder',
+  ativo: 'Ativo', devolvido: 'Devolvido', recusado: 'Recusado'
+}
+const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário' }
+
+// ─── SIGNATURE PAD ────────────────────────────────────────────────────────────
+function SignaturePad({ label, onConfirm, onCancel }) {
+  const ref = useRef(null)
+  const drawing = useRef(false)
+  const [hasSig, setHasSig] = useState(false)
+  // Escala a posição do ponteiro pela razão entre a resolução interna do canvas e o tamanho
+  // renderizado em CSS — sem isso, num celular onde o canvas é exibido menor que 480px (ver
+  // regra .sig-canvas com max-width:100%), o traço desalinha do dedo/caneta.
+  const getPos = e => {
+    const r = ref.current.getBoundingClientRect()
+    const s = e.touches ? e.touches[0] : e
+    const scaleX = ref.current.width / r.width
+    const scaleY = ref.current.height / r.height
+    return [(s.clientX - r.left) * scaleX, (s.clientY - r.top) * scaleY]
+  }
+  const start = e => { e.preventDefault(); drawing.current = true; const [x,y] = getPos(e); const ctx = ref.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x,y) }
+  const move = e => { if (!drawing.current) return; e.preventDefault(); const [x,y] = getPos(e); const ctx = ref.current.getContext('2d'); ctx.lineWidth=2.5; ctx.strokeStyle='#1A2535'; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineTo(x,y); ctx.stroke(); setHasSig(true) }
+  const stop = () => { drawing.current = false }
+  const clear = () => { ref.current.getContext('2d').clearRect(0,0,ref.current.width,ref.current.height); setHasSig(false) }
+  const confirm = () => { if (!hasSig) { alert('Assine antes de confirmar.'); return }; onConfirm(ref.current.toDataURL()) }
+  return (
+    <div>
+      <div className="sig-wrap">
+        <p style={{display:'flex',alignItems:'center',gap:6}}><Icon name="signature" size={15}/> {label || 'Assine no campo abaixo'}</p>
+        <canvas ref={ref} width={480} height={160} className="sig-canvas"
+          onMouseDown={start} onMouseMove={move} onMouseUp={stop} onMouseLeave={stop}
+          onTouchStart={start} onTouchMove={move} onTouchEnd={stop} />
+        <div className="sig-actions"><button className="btn btn-ghost btn-sm" onClick={clear}><Icon name="trash" size={14}/> Limpar</button></div>
+      </div>
+      <div className="modal-footer" style={{padding:'16px 0 0',border:'none'}}>
+        {onCancel && <button className="btn btn-ghost" onClick={onCancel}>Cancelar</button>}
+        <button className="btn btn-primary" onClick={confirm} disabled={!hasSig}><Icon name="check" size={14}/> Confirmar assinatura</button>
+      </div>
+    </div>
+  )
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function Toast({ toasts }) {
+  return <div className="toast-container">{toasts.map(t=>(
+    <div key={t.id} className={`toast ${t.type}`}>
+      <span><Icon name={t.type==='success'?'checkCircle':t.type==='error'?'x':'alertTriangle'} size={16}/></span><span>{t.msg}</span>
+    </div>
+  ))}</div>
+}
+
+// ─── ITEMS EDITOR ─────────────────────────────────────────────────────────────
+function ItemsEditor({ ferramentas, value, onChange }) {
+  const [fId, setFId] = useState('')
+  const [qty, setQty] = useState(1)
+  const add = () => {
+    if (!fId) return
+    const f = ferramentas.find(f => f.id == fId)
+    if (!f || value.find(i => i.ferramenta_id == fId)) return
+    onChange([...value, { ferramenta_id: parseInt(fId), quantidade: qty, ferramenta_nome: f.nome, valor_unitario: f.valor_unitario || 0 }])
+    setFId(''); setQty(1)
+  }
+  const remove = id => onChange(value.filter(i => i.ferramenta_id !== id))
+  const updateQty = (id, q) => onChange(value.map(i => i.ferramenta_id === id ? {...i, quantidade: parseInt(q)||1} : i))
+  const available = ferramentas.filter(f => !value.find(i => i.ferramenta_id === f.id))
+  const total = value.reduce((s,i) => s + (i.valor_unitario||0)*(i.quantidade||1), 0)
+  return (
+    <div>
+      <div style={{display:'flex',gap:8,marginBottom:8}}>
+        <select value={fId} onChange={e=>setFId(e.target.value)} style={{flex:1}}>
+          <option value="">Selecione uma ferramenta...</option>
+          {available.map(f=><option key={f.id} value={f.id}>{f.nome}{f.codigo?` (${f.codigo})`:''}{f.valor_unitario?` — ${fmtBRL(f.valor_unitario)}`:''}</option>)}
+        </select>
+        <input type="number" min="1" value={qty} onChange={e=>setQty(parseInt(e.target.value)||1)} style={{width:70}} />
+        <button className="btn btn-accent btn-sm" type="button" onClick={add}>+ Add</button>
+      </div>
+      {value.length > 0 && (
+        <div className="items-list">
+          {value.map(i => (
+            <div key={i.ferramenta_id} className="item-row">
+              <span style={{fontSize:'.88rem'}}>{i.ferramenta_nome}</span>
+              <input type="number" min="1" value={i.quantidade} onChange={e=>updateQty(i.ferramenta_id,e.target.value)} style={{padding:'4px 8px',fontSize:'.85rem'}} />
+              <span style={{fontSize:'.82rem',color:'#059669',fontWeight:600}}>{fmtBRL((i.valor_unitario||0)*(i.quantidade||1))}</span>
+              <button className="btn btn-danger btn-sm" type="button" onClick={()=>remove(i.ferramenta_id)} style={{display:'inline-flex',alignItems:'center'}}><Icon name="x" size={14}/></button>
+            </div>
+          ))}
+          {total > 0 && <div style={{padding:'8px 12px',background:'#f0fdf4',display:'flex',justifyContent:'flex-end',gap:8,fontWeight:700}}>
+            <span className="text-muted">Total estimado:</span>
+            <span style={{color:'#059669'}}>{fmtBRL(total)}</span>
+          </div>}
+        </div>
+      )}
+      {!value.length && <p className="text-muted" style={{marginTop:4}}>Nenhum item adicionado.</p>}
+    </div>
+  )
+}
+
+// ─── PRIMEIRO ACESSO ──────────────────────────────────────────────────────────
+function PrimeiroAcessoPage({ user, onConcluido }) {
+  const [senha, setSenha] = useState('')
+  const [confirma, setConfirma] = useState('')
+  const [aceite, setAceite] = useState(false)
+  const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [mostraSenha, setMostraSenha] = useState(false)
+  const [mostraConfirma, setMostraConfirma] = useState(false)
+
+  const submit = async e => {
+    e.preventDefault(); setErr('')
+    if (senha.length < 6) return setErr('A senha deve ter pelo menos 6 caracteres.')
+    if (senha !== confirma) return setErr('As senhas não coincidem.')
+    if (!aceite) return setErr('Você deve ler e aceitar o Termo de Responsabilidade.')
+    setLoading(true)
+    try {
+      const data = await POST('/auth/trocar-senha', { nova_senha: senha, aceite_termos: true })
+      token.value = data.token; localStorage.setItem('cf_token', data.token)
+      onConcluido(data.user)
+    } catch(e) { setErr(e.message) }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{minHeight:'100vh',background:'#f1f5f9',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+      <div style={{background:'#fff',borderRadius:12,boxShadow:'0 4px 24px rgba(0,0,0,.12)',maxWidth:600,width:'100%',overflow:'hidden'}}>
+        <div style={{background:'var(--primary)',padding:'20px 24px',color:'#fff'}}>
+          <div style={{fontWeight:700,fontSize:'1.1rem',display:'flex',alignItems:'center',gap:8}}><Icon name="lock" size={18}/> Bem-vindo(a), {user.nome}</div>
+          <div style={{fontSize:'.88rem',opacity:.9,marginTop:4}}>Este é seu primeiro acesso. Crie uma senha pessoal para continuar.</div>
+        </div>
+        <div style={{padding:24}}>
+          <div style={{border:'1px solid #e2e8f0',borderRadius:8,maxHeight:320,overflowY:'auto',padding:'16px 20px',background:'#fafbfc',fontSize:'.82rem',lineHeight:1.7,marginBottom:20}}>
+            <div style={{fontWeight:700,fontSize:'.95rem',textAlign:'center',marginBottom:12}}>TERMO DE RESPONSABILIDADE E CONFIDENCIALIDADE DE SENHA</div>
+            <p>Ao criar sua senha pessoal de acesso ao Sistema de Cautela de Ferramentas da <strong>{empresaInfo.nome}</strong>, você declara que leu, compreendeu e concorda com as seguintes condições:</p>
+            <p><strong>1. Senha pessoal e intransferível</strong><br/>Sua senha de acesso é pessoal, secreta e intransferível. É estritamente proibido compartilhá-la com qualquer pessoa, incluindo colegas, líderes ou qualquer outro funcionário da empresa.</p>
+            <p><strong>2. Responsabilidade exclusiva pelas ações</strong><br/>Todas as ações realizadas no sistema com suas credenciais — incluindo solicitações de ferramentas, assinaturas eletrônicas de termos e confirmações de recebimento — são de sua <em>exclusiva responsabilidade</em> e possuem plena validade jurídica, nos termos da Lei nº 14.063/2020.</p>
+            <p><strong>3. Guarda e sigilo obrigatórios</strong><br/>Você se compromete a manter o sigilo absoluto de sua senha, não a anotando em locais acessíveis a terceiros e não a transmitindo por nenhum meio (oral, escrito ou digital).</p>
+            <p><strong>4. Comunicação de comprometimento</strong><br/>Em caso de suspeita de acesso indevido ou comprometimento de suas credenciais, você deve comunicar imediatamente ao almoxarifado para que o acesso seja suspenso e uma nova senha seja criada.</p>
+            <p><strong>5. Proibição de uso por terceiros</strong><br/>É vedado permitir que terceiros utilizem o sistema em seu nome, mesmo que temporariamente. O uso indevido poderá resultar em medidas disciplinares, incluindo rescisão contratual.</p>
+            <p><strong>6. Validade das assinaturas eletrônicas</strong><br/>As assinaturas realizadas com suas credenciais têm validade jurídica plena. Ao assinar qualquer termo no sistema, você confirma ter lido o documento e concorda integralmente com seu conteúdo.</p>
+            <p><strong>7. Isenção de responsabilidade da empresa</strong><br/>A {empresaInfo.nome} não se responsabiliza por prejuízos decorrentes do compartilhamento voluntário ou da guarda inadequada de senha pelo usuário.</p>
+            <p style={{marginTop:12,fontStyle:'italic'}}>Ao criar sua senha e clicar em <strong>"Confirmar e Acessar"</strong>, você afirma ter lido integralmente este termo e que a senha criada é exclusivamente do seu conhecimento.</p>
+          </div>
+          <form onSubmit={submit}>
+            <div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:12}}>
+              <div className="form-group">
+                <label>Nova senha <span style={{color:'red'}}>*</span></label>
+                <div style={{position:'relative'}}>
+                  <input type={mostraSenha?'text':'password'} value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Mínimo 6 caracteres" autoComplete="new-password" style={{paddingRight:40}} />
+                  <button type="button" onClick={()=>setMostraSenha(v=>!v)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#64748b',padding:0,display:'inline-flex',alignItems:'center'}}>
+                    <Icon name={mostraSenha ? 'eyeOff' : 'eye'} size={17}/>
+                  </button>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Confirmar nova senha <span style={{color:'red'}}>*</span></label>
+                <div style={{position:'relative'}}>
+                  <input type={mostraConfirma?'text':'password'} value={confirma} onChange={e=>setConfirma(e.target.value)} placeholder="Repita a senha" autoComplete="new-password" style={{paddingRight:40}} />
+                  <button type="button" onClick={()=>setMostraConfirma(v=>!v)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#64748b',padding:0,display:'inline-flex',alignItems:'center'}}>
+                    <Icon name={mostraConfirma ? 'eyeOff' : 'eye'} size={17}/>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <label style={{display:'flex',alignItems:'flex-start',gap:10,cursor:'pointer',marginBottom:12,fontSize:'.88rem'}}>
+              <input type="checkbox" checked={aceite} onChange={e=>setAceite(e.target.checked)} style={{marginTop:3,flexShrink:0,width:'auto'}} />
+              <span>Li e aceito o <strong>Termo de Responsabilidade e Confidencialidade de Senha</strong>. Estou ciente de que minha senha é pessoal e intransferível.</span>
+            </label>
+            {err && <div className="alert alert-error" style={{marginBottom:12}}>{err}</div>}
+            <button className="btn btn-primary" type="submit" disabled={loading} style={{width:'100%',padding:'12px'}}>
+              {loading ? 'Aguarde...' : <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="check" size={15}/> Confirmar e Acessar</span>}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
+  const [mostraSenha, setMostraSenha] = useState(false)
+  const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(false)
+  const submit = async e => {
+    e.preventDefault(); setErr(''); setLoading(true)
+    try {
+      const data = await POST('/auth/login', { email, senha })
+      token.value = data.token; localStorage.setItem('cf_token', data.token); onLogin(data.user)
+    } catch(e) { setErr(e.message) }
+    setLoading(false)
+  }
+  return (
+    <div className="login-page">
+      <div className="login-box">
+        <div className="login-logo">
+          {empresaInfo.logoUrl && <img src={empresaInfo.logoUrl} alt={empresaInfo.nome} style={{maxWidth:160,maxHeight:70,marginBottom:8}} />}
+          <h1 style={{fontWeight:800,letterSpacing:'.01em'}}>Cautelix</h1>
+          <p style={{marginTop:4,fontSize:'.8rem',color:'#9ca3af'}}>{empresaInfo.nome} — Controle de Ferramentas</p>
+        </div>
+        {err && <div className="alert alert-error">{err}</div>}
+        <form onSubmit={submit}>
+          <div className="form-group" style={{marginBottom:14}}>
+            <label>Email</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" required />
+          </div>
+          <div className="form-group" style={{marginBottom:20}}>
+            <label>Senha</label>
+            <div style={{position:'relative'}}>
+              <input type={mostraSenha?'text':'password'} value={senha} onChange={e=>setSenha(e.target.value)} placeholder="••••••••" required style={{paddingRight:40}} />
+              <button type="button" onClick={()=>setMostraSenha(v=>!v)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#64748b',padding:0,display:'inline-flex',alignItems:'center'}}>
+                <Icon name={mostraSenha ? 'eyeOff' : 'eye'} size={17}/>
+              </button>
+            </div>
+          </div>
+          <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'12px'}} disabled={loading}>
+            {loading ? 'Entrando...' : 'Entrar'}
+          </button>
+        </form>
+        <p style={{textAlign:'center',marginTop:24,fontSize:'.72rem',color:'#9ca3af'}}>
+          Desenvolvido por <strong style={{color:'#6b7280'}}>MindMax Tecnologia</strong>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function Dashboard({ user, navigate, addToast }) {
+  const [stats, setStats] = useState({})
+  useEffect(() => { GET('/dashboard').then(setStats).catch(() => {}) }, [])
+
+  if (user.role === 'almoxarifado') return (
+    <div>
+      <div className="topbar"><h2>Painel Geral</h2><a href="/api/admin/backup" className="btn btn-ghost btn-sm" style={{fontSize:'.8rem',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Baixar backup</a></div>
+      <div className="stats-grid">
+        <div className="stat-card blue"><div className="stat-label">Ferramentas</div><div className="stat-value">{stats.total_ferramentas||0}</div><div style={{fontSize:'.75rem',color:'#64748b',marginTop:2}}>{stats.total_unidades||0} unidades</div></div>
+        <div className="stat-card blue"><div className="stat-label">Usuários</div><div className="stat-value">{stats.total_usuarios||0}</div></div>
+        <div className="stat-card"><div className="stat-label">Solicitações novas</div><div className="stat-value">{stats.sol_solicitadas||0}</div></div>
+        <div className="stat-card"><div className="stat-label">Separando</div><div className="stat-value">{stats.sol_separando||0}</div></div>
+        <div className="stat-card"><div className="stat-label">Prontas p/ retirada</div><div className="stat-value">{stats.sol_prontas||0}</div></div>
+        <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
+        <div className="stat-card green"><div className="stat-label">Valor total cadastrado</div><div className="stat-value" style={{fontSize:'1.1rem'}}>{fmtBRL(stats.valor_total_estoque||0)}</div></div>
+        <div className="stat-card red"><div className="stat-label">Valor em campo</div><div className="stat-value" style={{fontSize:'1.1rem'}}>{fmtBRL(stats.valor_em_campo||0)}</div></div>
+      </div>
+      {(stats.sol_solicitadas > 0 || stats.sol_prontas > 0) && (
+        <div className="pending-banner">
+          <span className="msg" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> {stats.sol_solicitadas||0} nova(s) solicitação(ões) · {stats.sol_prontas||0} pronta(s) para retirada</span>
+          <button className="btn btn-accent btn-sm" onClick={()=>navigate('solicitacoes')}>Ver fila →</button>
+        </div>
+      )}
+      <div className="card">
+        <div className="card-header"><span className="card-title">Solicitações recentes</span><button className="btn btn-outline btn-sm" onClick={()=>navigate('solicitacoes')}>Ver todas</button></div>
+        <div className="table-wrap"><table>
+          <thead><tr><th>Número</th><th>Líder</th><th>Data</th><th>Status</th></tr></thead>
+          <tbody>
+            {(stats.solicitacoes_recentes||[]).map(s=>(
+              <tr key={s.id}>
+                <td className="fw-bold">{s.numero}</td>
+                <td>{s.lider_nome}</td>
+                <td>{fmt(s.criado_em)}</td>
+                <td><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+              </tr>
+            ))}
+            {!(stats.solicitacoes_recentes||[]).length && <tr><td colSpan="4" className="text-muted" style={{textAlign:'center',padding:20}}>Nenhuma solicitação ainda.</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  )
+
+  if (user.role === 'lider') return (
+    <div>
+      <div className="topbar">
+        <h2>Painel do Líder</h2>
+        <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}>+ Nova Solicitação</button>
+      </div>
+      {(stats.sol_prontas > 0 || stats.emp_aguardando_aval > 0) && (
+        <div className="pending-banner">
+          <div>
+            <div className="msg" style={{display:'flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> Itens requerem sua atenção</div>
+            <div style={{fontSize:'.85rem',marginTop:4,color:'#92400e'}}>
+              {stats.sol_prontas > 0 && <span>{stats.sol_prontas} solicitação(ões) pronta(s) para retirada &nbsp;</span>}
+              {stats.emp_aguardando_aval > 0 && <span>{stats.emp_aguardando_aval} empréstimo(s) aguardando seu aval</span>}
+            </div>
+          </div>
+          <div className="gap-8">
+            {stats.sol_prontas > 0 && <button className="btn btn-accent btn-sm" onClick={()=>navigate('solicitacoes')}>Retirar →</button>}
+            {stats.emp_aguardando_aval > 0 && <button className="btn btn-primary btn-sm" onClick={()=>navigate('emprestimos')}>Aval →</button>}
+          </div>
+        </div>
+      )}
+      <div className="stats-grid">
+        <div className="stat-card"><div className="stat-label">Minhas solicitações ativas</div><div className="stat-value">{stats.minhas_sol_ativas||0}</div></div>
+        <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
+        <div className="stat-card red"><div className="stat-label">Minha responsabilidade</div><div className="stat-value" style={{fontSize:'1rem'}}>{fmtBRL(stats.valor_responsabilidade||0)}</div></div>
+        <div className="stat-card"><div className="stat-label">Entregue à equipe</div><div className="stat-value" style={{fontSize:'1rem'}}>{fmtBRL(stats.valor_entregue_equipe||0)}</div></div>
+        <div className="stat-card"><div className="stat-label">Aguard. meu aval (emprést.)</div><div className="stat-value">{stats.emp_aguardando_aval||0}</div></div>
+      </div>
+      <div className="card">
+        <div className="card-header"><span className="card-title">Minhas solicitações</span><button className="btn btn-outline btn-sm" onClick={()=>navigate('solicitacoes')}>Ver todas</button></div>
+        <div className="table-wrap"><table>
+          <thead><tr><th>Número</th><th>Data</th><th>Status</th></tr></thead>
+          <tbody>
+            {(stats.minhas_solicitacoes||[]).map(s=>(
+              <tr key={s.id}>
+                <td className="fw-bold">{s.numero}</td>
+                <td>{fmt(s.criado_em)}</td>
+                <td><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+              </tr>
+            ))}
+            {!(stats.minhas_solicitacoes||[]).length && <tr><td colSpan="3" className="text-muted" style={{textAlign:'center',padding:20}}>Nenhuma solicitação ainda.</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  )
+
+  // Operário
+  return (
+    <div>
+      <div className="topbar"><h2>Meu Painel</h2></div>
+      {stats.emp_aguardando_confirmacao > 0 && (
+        <div className="pending-banner">
+          <span className="msg" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="signature" size={15}/> Você tem {stats.emp_aguardando_confirmacao} empréstimo(s) aguardando sua confirmação</span>
+          <button className="btn btn-accent btn-sm" onClick={()=>navigate('emprestimos')}>Confirmar →</button>
+        </div>
+      )}
+      <div className="stats-grid">
+        <div className="stat-card red"><div className="stat-label">Valor sob minha responsabilidade</div><div className="stat-value" style={{fontSize:'1rem'}}>{fmtBRL(stats.valor_responsabilidade||0)}</div></div>
+        <div className="stat-card"><div className="stat-label">Empréstimos ativos</div><div className="stat-value">{stats.emp_ativos||0}</div></div>
+        <div className="stat-card"><div className="stat-label">Aguard. minha confirmação</div><div className="stat-value">{stats.emp_aguardando_confirmacao||0}</div></div>
+      </div>
+      {(stats.minhas_entregas||[]).length > 0 && (
+        <div className="card">
+          <div className="card-header"><span className="card-title" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="checkCircle" size={15}/> Ferramentas sob minha guarda</span></div>
+          <div className="card-body">
+            {stats.minhas_entregas.map(e=>(
+              <div key={e.id} style={{padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
+                <strong>{e.cautela_numero}</strong>
+                <span className="text-muted" style={{marginLeft:8}}>Líder: {e.lider_nome}</span>
+                <span className="text-muted" style={{marginLeft:8}}>Desde: {fmt(e.data_entrega)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── SOLICITAÇÕES (fila almoxarife + acompanhamento líder) ────────────────────
+function SolicitacoesPage({ user, navigate, addToast }) {
+  const [lista, setLista] = useState([])
+  const [detalhe, setDetalhe] = useState(null)
+  const [retiradaModal, setRetiradaModal] = useState(null) // cautela para retirada
+  const [authEmail, setAuthEmail] = useState('')
+  const [authSenha, setAuthSenha] = useState('')
+  const [authStep, setAuthStep] = useState('form') // form | termo | sign
+  const [authUser, setAuthUser] = useState(null)
+  const [authErr, setAuthErr] = useState('')
+  const [termoHTML, setTermoHTML] = useState('')
+  // --- Editar itens (separando) ---
+  const [editItensModal, setEditItensModal] = useState(null)
+  const [editItens, setEditItens] = useState([])
+  const [editItensErr, setEditItensErr] = useState('')
+  const [editItensLoading, setEditItensLoading] = useState(false)
+  const [editSelFerr, setEditSelFerr] = useState('')
+  const [editSelQtd, setEditSelQtd] = useState(1)
+  const [editItensRemovidos, setEditItensRemovidos] = useState([])
+  // --- Solicitar por Operário ---
+  const [porOpModal, setPorOpModal] = useState(false)
+  const [porOpStep, setPorOpStep] = useState('form') // form | sign
+  const [porOpOperario, setPorOpOperario] = useState('')
+  const [porOpTipo, setPorOpTipo] = useState('bolsa') // bolsa | itens
+  const [porOpBolsaId, setPorOpBolsaId] = useState('')
+  const [porOpItens, setPorOpItens] = useState([])
+  const [porOpObs, setPorOpObs] = useState('')
+  const [porOpErr, setPorOpErr] = useState('')
+  const [porOpLoading, setPorOpLoading] = useState(false)
+  const [porOpAuthEmail, setPorOpAuthEmail] = useState('')
+  const [porOpAuthSenha, setPorOpAuthSenha] = useState('')
+  const [porOpAuthErr, setPorOpAuthErr] = useState('')
+  const [porOpSelFerr, setPorOpSelFerr] = useState('')
+  const [porOpSelQtd, setPorOpSelQtd] = useState(1)
+  const [operarios, setOperarios] = useState([])
+  const [bolsasLista, setBolsasLista] = useState([])
+  const [ferramentasLista, setFerramentasLista] = useState([])
+
+  const load = () => GET('/solicitacoes').then(setLista).catch(() => {})
+  useEffect(() => {
+    load()
+    if (user.role === 'almoxarifado') {
+      GET('/usuarios').then(us => setOperarios(us.filter(u => u.role === 'operario' && u.ativo))).catch(() => {})
+      GET('/bolsas').then(setBolsasLista).catch(() => {})
+      GET('/ferramentas').then(setFerramentasLista).catch(() => {})
+    }
+  }, [])
+
+  const abrirEditItens = (s) => {
+    setEditItensModal(s)
+    setEditItens(s.itens.map(i => ({ ...i })))
+    setEditItensRemovidos([])
+    setEditItensErr(''); setEditSelFerr(''); setEditSelQtd(1)
+  }
+
+  const addItemToEdit = () => {
+    if (!editSelFerr) return
+    const f = ferramentasLista.find(f => f.id == editSelFerr)
+    if (!f) return
+    const existe = editItens.find(i => i.ferramenta_id == editSelFerr)
+    if (existe) {
+      setEditItens(editItens.map(i => i.ferramenta_id == editSelFerr ? {...i, quantidade: i.quantidade + editSelQtd} : i))
+    } else {
+      setEditItens([...editItens, { ferramenta_id: f.id, ferramenta_nome: f.nome, quantidade: editSelQtd }])
+    }
+    setEditSelFerr(''); setEditSelQtd(1)
+  }
+
+  const removeItemEdit = (ferramenta_id) => {
+    const nova = editItens.filter(i => i.ferramenta_id !== ferramenta_id)
+    if (!nova.length) { setEditItensErr('A lista não pode ficar vazia'); return }
+    const removido = editItens.find(i => i.ferramenta_id === ferramenta_id)
+    setEditItensRemovidos(prev => [...prev, removido])
+    setEditItensErr(''); setEditItens(nova)
+  }
+
+  const restaurarItemEdit = (ferramenta_id) => {
+    const item = editItensRemovidos.find(i => i.ferramenta_id === ferramenta_id)
+    if (!item) return
+    setEditItens(prev => [...prev, item])
+    setEditItensRemovidos(prev => prev.filter(i => i.ferramenta_id !== ferramenta_id))
+  }
+
+  const alterarQtdEdit = (ferramenta_id, qtd) => {
+    const q = Math.max(1, parseInt(qtd) || 1)
+    setEditItens(editItens.map(i => i.ferramenta_id === ferramenta_id ? {...i, quantidade: q} : i))
+  }
+
+  const salvarEditItens = async () => {
+    if (!editItens.length) { setEditItensErr('A lista não pode ficar vazia'); return }
+    setEditItensLoading(true); setEditItensErr('')
+    try {
+      await PUT(`/solicitacoes/${editItensModal.id}/itens`, {
+        itens: editItens.map(i => ({ ferramenta_id: i.ferramenta_id, quantidade: i.quantidade }))
+      })
+      addToast('Lista atualizada!', 'success')
+      setEditItensModal(null); load()
+    } catch(e) { setEditItensErr(e.message) }
+    finally { setEditItensLoading(false) }
+  }
+
+  const abrirPorOpModal = () => {
+    setPorOpModal(true); setPorOpStep('form'); setPorOpOperario(''); setPorOpTipo('bolsa')
+    setPorOpBolsaId(''); setPorOpItens([]); setPorOpObs(''); setPorOpErr('')
+    setPorOpSelFerr(''); setPorOpSelQtd(1)
+    setPorOpAuthEmail(''); setPorOpAuthSenha(''); setPorOpAuthErr('')
+  }
+
+  const addItemPorOp = () => {
+    if (!porOpSelFerr) return
+    const f = ferramentasLista.find(f => f.id == porOpSelFerr)
+    if (!f) return
+    const existe = porOpItens.find(i => i.ferramenta_id == porOpSelFerr)
+    if (existe) {
+      setPorOpItens(porOpItens.map(i => i.ferramenta_id == porOpSelFerr ? {...i, quantidade: i.quantidade + porOpSelQtd} : i))
+    } else {
+      setPorOpItens([...porOpItens, { ferramenta_id: f.id, quantidade: porOpSelQtd, nome: f.nome }])
+    }
+    setPorOpSelFerr(''); setPorOpSelQtd(1)
+  }
+
+  const avancarParaAssinatura = () => {
+    if (!porOpOperario) { setPorOpErr('Selecione o operário.'); return }
+    if (porOpTipo === 'bolsa' && !porOpBolsaId) { setPorOpErr('Selecione uma bolsa.'); return }
+    if (porOpTipo === 'itens' && !porOpItens.length) { setPorOpErr('Adicione ao menos um item.'); return }
+    setPorOpErr(''); setPorOpStep('sign')
+  }
+
+  const confirmarPorOperario = async () => {
+    setPorOpAuthErr('')
+    if (!porOpAuthEmail || !porOpAuthSenha) { setPorOpAuthErr('Preencha email e senha'); return }
+    setPorOpLoading(true)
+    try {
+      await POST('/solicitacoes/por-operario', {
+        operario_id: parseInt(porOpOperario),
+        bolsa_id: porOpTipo === 'bolsa' ? parseInt(porOpBolsaId) : null,
+        itens: porOpTipo === 'itens' ? porOpItens : [],
+        obs: porOpObs,
+        email_operario: porOpAuthEmail,
+        senha_operario: porOpAuthSenha
+      })
+      addToast('Solicitação criada com autenticação do operário!', 'success')
+      setPorOpModal(false); load()
+    } catch(e) { setPorOpAuthErr(e.message) }
+    finally { setPorOpLoading(false) }
+  }
+
+  const avancar = async (id, acao) => {
+    try {
+      await POST(`/solicitacoes/${id}/${acao}`, {})
+      addToast('Status atualizado!', 'success'); load()
+    } catch(e) { addToast(e.message, 'error') }
+  }
+
+  const cancelar = async (id) => {
+    if (!confirm('Cancelar esta solicitação?')) return
+    try { await POST(`/solicitacoes/${id}/cancelar`, {}); addToast('Cancelada.', 'success'); load() }
+    catch(e) { addToast(e.message, 'error') }
+  }
+
+  const iniciarRetirada = async (sol) => {
+    // Busca a cautela associada à solicitação
+    try {
+      const cautelas = await GET('/cautelas')
+      const c = cautelas.find(c => c.solicitacao_id == sol.id && c.status === 'aguardando_retirada')
+      if (!c) { addToast('Cautela não encontrada ou já retirada.', 'error'); return }
+      setRetiradaModal({ cautela: c, sol })
+      setAuthEmail(''); setAuthSenha(''); setAuthStep('form'); setAuthUser(null); setAuthErr('')
+    } catch(e) { addToast(e.message, 'error') }
+  }
+
+  const validarLider = async () => {
+    setAuthErr('')
+    const isDireto = retiradaModal.cautela.cautela_tipo === 'direto'
+    const roleEsperado = isDireto ? 'operario' : 'lider'
+    try {
+      const u = await POST('/auth/validar', { email: authEmail, senha: authSenha, role_esperado: roleEsperado })
+      if (u.id !== retiradaModal.cautela.lider_id) {
+        setAuthErr(`Este login não corresponde ao ${isDireto ? 'operário' : 'líder'} desta solicitação.`)
+        return
+      }
+      setAuthUser(u)
+      // Carrega o Termo antes da assinatura: ciência direta ou comodato
+      try {
+        const tipoTermo = retiradaModal.cautela.cautela_tipo === 'direto' ? 'ciencia_direta' : 'comodato'
+        const t = await GET(`/cautelas/${retiradaModal.cautela.id}/termo/${tipoTermo}`)
+        setTermoHTML(t.html || '')
+      } catch(e) { setTermoHTML('') }
+      setAuthStep('termo')
+    } catch(e) { setAuthErr(e.message) }
+  }
+
+  const confirmarRetirada = async (sig) => {
+    try {
+      await POST(`/cautelas/${retiradaModal.cautela.id}/retirar`, { email: authEmail, senha: authSenha, assinatura: sig })
+      addToast('Retirada registrada! Cautela ativa.', 'success')
+      setRetiradaModal(null); load()
+    } catch(e) { addToast(e.message, 'error') }
+  }
+
+  // Divide por status para almoxarife (kanban)
+  const solicitadas  = lista.filter(s => s.status === 'solicitada')
+  const separando    = lista.filter(s => s.status === 'separando')
+  const prontas      = lista.filter(s => s.status === 'pronta')
+  const historico    = lista.filter(s => ['retirada', 'cancelada'].includes(s.status))
+
+  if (user.role === 'almoxarifado') return (
+    <div>
+      <div className="topbar">
+        <h2>Fila de Solicitações</h2>
+        <button className="btn btn-accent" onClick={abrirPorOpModal}><Icon name="clipboard" size={16}/> Solicitar por Operário</button>
+      </div>
+      <div className="kanban">
+        {/* Coluna: Solicitadas */}
+        <div className="kanban-col">
+          <h4><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="inbox" size={16}/> Novas</span> <span className="kanban-count">{solicitadas.length}</span></h4>
+          {solicitadas.map(s=>(
+            <div key={s.id} className="kanban-card">
+              <div className="kc-numero">{s.numero} {s.assinatura_solicitante && <span style={{fontSize:'.65rem',background:'var(--primary-accent)',color:'#fff',borderRadius:4,padding:'1px 5px',marginLeft:4}}>Direto</span>}</div>
+              <div className="kc-lider" style={{display:'flex',alignItems:'center',gap:5}}><Icon name="worker" size={13}/> {s.lider_nome}{s.assinatura_solicitante && <span style={{fontSize:'.7rem',color:'var(--text-secondary)',marginLeft:4}}>(operário)</span>}</div>
+              <div className="kc-valor">{fmtBRL(s.valor_total)} · {s.itens.length} item(ns)</div>
+              <div className="kc-actions">
+                <button className="btn btn-primary btn-sm" onClick={()=>avancar(s.id,'separando')}>Iniciar separação</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>setDetalhe(s)}><Icon name="eye" size={14}/> Ver</button>
+              </div>
+            </div>
+          ))}
+          {!solicitadas.length && <p className="text-muted" style={{fontSize:'.82rem',textAlign:'center',padding:12}}>Nenhuma</p>}
+        </div>
+        {/* Coluna: Separando */}
+        <div className="kanban-col">
+          <h4><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="package" size={16}/> Separando</span> <span className="kanban-count">{separando.length}</span></h4>
+          {separando.map(s=>(
+            <div key={s.id} className="kanban-card">
+              <div className="kc-numero">{s.numero} {s.assinatura_solicitante && <span style={{fontSize:'.65rem',background:'var(--primary-accent)',color:'#fff',borderRadius:4,padding:'1px 5px',marginLeft:4}}>Direto</span>}</div>
+              <div className="kc-lider" style={{display:'flex',alignItems:'center',gap:5}}><Icon name="worker" size={13}/> {s.lider_nome}{s.assinatura_solicitante && <span style={{fontSize:'.7rem',color:'var(--text-secondary)',marginLeft:4}}>(operário)</span>}</div>
+              <div className="kc-valor">{fmtBRL(s.valor_total)}</div>
+              <div className="kc-actions">
+                <button className="btn btn-success btn-sm" onClick={()=>avancar(s.id,'pronta')}><Icon name="checkCircle" size={14}/> Pronto</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>abrirEditItens(s)}><Icon name="edit" size={14}/> Editar lista</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>setDetalhe(s)}><Icon name="eye" size={14}/> Ver</button>
+              </div>
+            </div>
+          ))}
+          {!separando.length && <p className="text-muted" style={{fontSize:'.82rem',textAlign:'center',padding:12}}>Nenhuma</p>}
+        </div>
+        {/* Coluna: Prontas */}
+        <div className="kanban-col">
+          <h4><span style={{display:'inline-flex',alignItems:'center',gap:6}}><span style={{width:8,height:8,borderRadius:'50%',background:'var(--success)',display:'inline-block'}}/> Pronto p/ retirada</span> <span className="kanban-count">{prontas.length}</span></h4>
+          {prontas.map(s=>(
+            <div key={s.id} className="kanban-card">
+              <div className="kc-numero">{s.numero} {s.assinatura_solicitante && <span style={{fontSize:'.65rem',background:'var(--primary-accent)',color:'#fff',borderRadius:4,padding:'1px 5px',marginLeft:4}}>Direto</span>}</div>
+              <div className="kc-lider" style={{display:'flex',alignItems:'center',gap:5}}><Icon name="worker" size={13}/> {s.lider_nome}{s.assinatura_solicitante && <span style={{fontSize:'.7rem',color:'var(--text-secondary)',marginLeft:4}}>(operário)</span>}</div>
+              <div className="kc-valor">{fmtBRL(s.valor_total)}</div>
+              <div className="kc-actions">
+                <button className="btn btn-accent btn-sm" onClick={()=>iniciarRetirada(s)}><Icon name="signature" size={14}/> Registrar retirada</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>setDetalhe(s)}><Icon name="eye" size={14}/> Ver</button>
+              </div>
+            </div>
+          ))}
+          {!prontas.length && <p className="text-muted" style={{fontSize:'.82rem',textAlign:'center',padding:12}}>Nenhuma</p>}
+        </div>
+      </div>
+
+      {/* Histórico */}
+      {historico.length > 0 && (
+        <div className="card">
+          <div className="card-header"><span className="card-title">Histórico</span></div>
+          <div className="table-wrap"><table>
+            <thead><tr><th>Número</th><th>Líder</th><th>Data</th><th>Status</th></tr></thead>
+            <tbody>{historico.map(s=>(
+              <tr key={s.id}>
+                <td className="fw-bold">{s.numero}</td>
+                <td>{s.lider_nome}</td>
+                <td>{fmt(s.criado_em)}</td>
+                <td><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+              </tr>
+            ))}</tbody>
+          </table></div>
+        </div>
+      )}
+
+      {/* Modal detalhe */}
+      {detalhe && (
+        <div className="modal-overlay open">
+          <div className="modal modal-md">
+            <div className="modal-header"><h3>Solicitação {detalhe.numero}</h3><button className="modal-close" onClick={()=>setDetalhe(null)}>×</button></div>
+            <div className="modal-body">
+              <p><strong>Líder:</strong> {detalhe.lider_nome} ({detalhe.lider_email})</p>
+              {detalhe.bolsa_nome && <p style={{marginTop:8}}><strong>Bolsa:</strong> {detalhe.bolsa_nome}</p>}
+              {detalhe.obs && <p style={{marginTop:8}} className="text-muted">Obs: {detalhe.obs}</p>}
+              <hr className="divider" />
+              <p className="fw-bold" style={{marginBottom:8}}>Itens solicitados</p>
+              <div className="items-list">
+                {detalhe.itens.map(i=>(
+                  <div key={i.id} className="item-row">
+                    <span>{i.ferramenta_nome}</span>
+                    <span><strong>{i.quantidade}x</strong></span>
+                    <span style={{color:'#059669',fontSize:'.82rem'}}>{fmtBRL(i.valor_unitario||0)}</span>
+                    <span style={{fontWeight:600}}>{fmtBRL(i.valor_item||0)}</span>
+                  </div>
+                ))}
+                <div style={{padding:'8px 12px',background:'#f0fdf4',fontWeight:700,display:'flex',justifyContent:'flex-end',gap:8}}>
+                  <span className="text-muted">Total:</span><span style={{color:'#059669'}}>{fmtBRL(detalhe.valor_total)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer"><button className="btn btn-ghost" onClick={()=>setDetalhe(null)}>Fechar</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Itens (separando) */}
+      {editItensModal && (
+        <div className="modal-overlay open">
+          <div className="modal modal-md">
+            <div className="modal-header">
+              <h3 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="edit" size={17}/> Editar itens — {editItensModal.numero}</h3>
+              <button className="modal-close" onClick={()=>setEditItensModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              {editItensErr && <div className="alert alert-error" style={{marginBottom:12}}>{editItensErr}</div>}
+
+              {/* Lista atual */}
+              <p className="fw-bold" style={{marginBottom:8,fontSize:'.85rem'}}>Itens do pedido</p>
+              <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:16}}>
+                {editItens.map(i => (
+                  <div key={i.ferramenta_id} style={{display:'flex',alignItems:'center',gap:10,background:'var(--bg)',borderRadius:6,padding:'8px 12px'}}>
+                    <span style={{flex:1,fontSize:'.88rem'}}>{i.ferramenta_nome}</span>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <label style={{fontSize:'.75rem',color:'var(--text-secondary)'}}>Qtd:</label>
+                      <input type="number" min="1" value={i.quantidade}
+                        onChange={e=>alterarQtdEdit(i.ferramenta_id, e.target.value)}
+                        style={{width:60,padding:'3px 6px',fontSize:'.85rem'}} />
+                    </div>
+                    <button onClick={()=>removeItemEdit(i.ferramenta_id)}
+                      style={{background:'none',border:'none',cursor:'pointer',color:'var(--danger)',padding:'0 4px',display:'inline-flex',alignItems:'center'}}
+                      title="Remover item"><Icon name="x" size={15}/></button>
+                  </div>
+                ))}
+                {editItens.length === 0 && <p className="text-muted" style={{textAlign:'center',padding:8}}>Nenhum item.</p>}
+              </div>
+
+              {/* Itens removidos */}
+              {editItensRemovidos.length > 0 && (<>
+                <hr className="divider" />
+                <p className="fw-bold" style={{marginBottom:8,fontSize:'.85rem',color:'var(--danger)',display:'flex',alignItems:'center',gap:6}}><Icon name="trash" size={14}/> Itens removidos</p>
+                <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:16}}>
+                  {editItensRemovidos.map(i => (
+                    <div key={i.ferramenta_id} style={{display:'flex',alignItems:'center',gap:10,background:'#fef2f2',borderRadius:6,padding:'8px 12px',border:'1px solid #fecaca'}}>
+                      <span style={{flex:1,fontSize:'.88rem',color:'var(--danger)',textDecoration:'line-through'}}>{i.ferramenta_nome}</span>
+                      <span style={{fontSize:'.8rem',color:'var(--text-secondary)'}}>{i.quantidade}x</span>
+                      <button onClick={()=>restaurarItemEdit(i.ferramenta_id)}
+                        style={{background:'none',border:'1px solid var(--success)',borderRadius:4,cursor:'pointer',color:'var(--success)',fontSize:'.75rem',padding:'2px 8px',display:'inline-flex',alignItems:'center',gap:4}}>
+                        <Icon name="undo" size={12}/> Restaurar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>)}
+
+              {/* Adicionar item */}
+              <hr className="divider" />
+              <p className="fw-bold" style={{marginBottom:8,fontSize:'.85rem'}}>Adicionar item</p>
+              <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+                <div className="form-group" style={{flex:1,marginBottom:0}}>
+                  <select value={editSelFerr} onChange={e=>setEditSelFerr(e.target.value)}>
+                    <option value="">Selecione a ferramenta...</option>
+                    {ferramentasLista.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select>
+                </div>
+                <div style={{width:70}}>
+                  <input type="number" min="1" value={editSelQtd}
+                    onChange={e=>setEditSelQtd(Math.max(1,parseInt(e.target.value)||1))}
+                    style={{padding:'6px 8px',fontSize:'.85rem',width:'100%'}} />
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={addItemToEdit} disabled={!editSelFerr}>+ Add</button>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={()=>setEditItensModal(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={salvarEditItens} disabled={editItensLoading || !editItens.length}>
+                {editItensLoading ? 'Salvando...' : <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="save" size={14}/> Salvar lista</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Solicitar por Operário */}
+      {porOpModal && (
+        <div className="modal-overlay open">
+          <div className="modal modal-md">
+            <div className="modal-header">
+              <h3 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="clipboard" size={17}/> Solicitar por Operário</h3>
+              <button className="modal-close" onClick={()=>setPorOpModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              {porOpStep === 'form' && (
+                <>
+                  <div className="alert alert-info" style={{marginBottom:16}}>
+                    O operário está presente no almoxarifado. Selecione-o, escolha a bolsa ou itens, e na próxima etapa ele assina neste dispositivo.
+                  </div>
+                  {porOpErr && <div className="alert alert-error" style={{marginBottom:12}}>{porOpErr}</div>}
+                  <div className="form-group">
+                    <label>Operário *</label>
+                    <select value={porOpOperario} onChange={e=>setPorOpOperario(e.target.value)}>
+                      <option value="">Selecione o operário...</option>
+                      {operarios.map(o=><option key={o.id} value={o.id}>{o.nome} {o.cargo ? `— ${o.cargo}` : ''}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{marginTop:12}}>
+                    <label>Tipo de solicitação</label>
+                    <div style={{display:'flex',gap:8,marginTop:6}}>
+                      <button className={`btn btn-sm ${porOpTipo==='bolsa' ? 'btn-primary' : 'btn-ghost'}`} onClick={()=>setPorOpTipo('bolsa')} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="backpack" size={14}/> Por Bolsa</button>
+                      <button className={`btn btn-sm ${porOpTipo==='itens' ? 'btn-primary' : 'btn-ghost'}`} onClick={()=>setPorOpTipo('itens')} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="wrench" size={14}/> Itens avulsos</button>
+                    </div>
+                  </div>
+                  {porOpTipo === 'bolsa' && (
+                    <div className="form-group" style={{marginTop:12}}>
+                      <label>Bolsa *</label>
+                      <select value={porOpBolsaId} onChange={e=>setPorOpBolsaId(e.target.value)}>
+                        <option value="">Selecione a bolsa...</option>
+                        {bolsasLista.map(b=><option key={b.id} value={b.id}>{b.nome}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {porOpTipo === 'itens' && (
+                    <div style={{marginTop:12}}>
+                      <div style={{display:'flex',gap:8,alignItems:'flex-end',marginBottom:8}}>
+                        <div className="form-group" style={{flex:1,marginBottom:0}}>
+                          <label>Ferramenta</label>
+                          <select value={porOpSelFerr} onChange={e=>setPorOpSelFerr(e.target.value)}>
+                            <option value="">Selecione...</option>
+                            {ferramentasLista.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group" style={{width:72,marginBottom:0}}>
+                          <label>Qtd</label>
+                          <input type="number" min="1" value={porOpSelQtd} onChange={e=>setPorOpSelQtd(parseInt(e.target.value)||1)} />
+                        </div>
+                        <button className="btn btn-primary btn-sm" style={{marginBottom:0,height:38}} onClick={addItemPorOp}>+ Add</button>
+                      </div>
+                      {porOpItens.length > 0 && (
+                        <div style={{background:'var(--bg)',borderRadius:6,padding:8}}>
+                          {porOpItens.map((it,i)=>(
+                            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'.85rem',padding:'3px 0'}}>
+                              <span>{it.nome}</span>
+                              <span style={{display:'flex',gap:8,alignItems:'center'}}>
+                                <strong>{it.quantidade}x</strong>
+                                <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--danger)',padding:0,display:'inline-flex',alignItems:'center'}} onClick={()=>setPorOpItens(porOpItens.filter((_,j)=>j!==i))}><Icon name="x" size={13}/></button>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="form-group" style={{marginTop:12}}>
+                    <label>Observação</label>
+                    <input type="text" value={porOpObs} onChange={e=>setPorOpObs(e.target.value)} placeholder="Opcional..." />
+                  </div>
+                  <div style={{marginTop:16,textAlign:'right'}}>
+                    <button className="btn btn-primary" onClick={avancarParaAssinatura}>Próximo: Assinatura do Operário →</button>
+                  </div>
+                </>
+              )}
+              {porOpStep === 'sign' && (
+                <>
+                  <div className="auth-device-box">
+                    <h4 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="lock" size={16}/> {operarios.find(o=>o.id==porOpOperario)?.nome || 'Operário'} — confirme seu acesso</h4>
+                    <p style={{fontSize:'.82rem',color:'var(--text-secondary)',marginBottom:12}}>
+                      {porOpTipo==='bolsa'
+                        ? `Bolsa: ${bolsasLista.find(b=>b.id==porOpBolsaId)?.nome || '—'}`
+                        : `${porOpItens.length} item(ns) avulso(s)`}
+                      {porOpObs && ` · Obs: ${porOpObs}`}
+                    </p>
+                    {porOpAuthErr && <div className="alert alert-error" style={{marginBottom:10}}>{porOpAuthErr}</div>}
+                    <div className="form-grid">
+                      <div className="form-group">
+                        <label>Email</label>
+                        <input type="email" value={porOpAuthEmail} onChange={e=>setPorOpAuthEmail(e.target.value)}
+                          placeholder={operarios.find(o=>o.id==porOpOperario)?.email || 'seu@email.com'} />
+                      </div>
+                      <div className="form-group">
+                        <label>Senha</label>
+                        <input type="password" value={porOpAuthSenha} onChange={e=>setPorOpAuthSenha(e.target.value)}
+                          placeholder="••••••••" onKeyDown={e=>e.key==='Enter'&&confirmarPorOperario()} />
+                      </div>
+                    </div>
+                    <div style={{marginTop:12,display:'flex',gap:8,justifyContent:'flex-end'}}>
+                      <button className="btn btn-ghost" onClick={()=>setPorOpStep('form')}>← Voltar</button>
+                      <button className="btn btn-primary" onClick={confirmarPorOperario} disabled={porOpLoading}>
+                        {porOpLoading ? 'Autenticando...' : 'Confirmar →'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal retirada (auth líder no dispositivo do almoxarife) */}
+      {retiradaModal && (
+        <div className="modal-overlay open">
+          <div className="modal modal-md">
+            <div className="modal-header">
+              <h3>Retirada — {retiradaModal.sol.numero}</h3>
+              <button className="modal-close" onClick={()=>setRetiradaModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              {authStep === 'form' && (
+                <>
+                  <div className="alert alert-info">{retiradaModal.cautela.cautela_tipo==='direto' ? 'O operário deve autenticar neste dispositivo para confirmar a retirada.' : 'O líder deve autenticar neste dispositivo para confirmar a retirada.'}</div>
+                  <div className="auth-device-box">
+                    <h4 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="lock" size={16}/> Autenticação {retiradaModal.cautela.cautela_tipo==='direto' ? 'do Operário' : 'do Líder'}: {retiradaModal.sol.lider_nome}</h4>
+                    {authErr && <div className="alert alert-error">{authErr}</div>}
+                    <div className="form-grid">
+                      <div className="form-group"><label>Email</label><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder={retiradaModal.sol.lider_email} /></div>
+                      <div className="form-group"><label>Senha</label><input type="password" value={authSenha} onChange={e=>setAuthSenha(e.target.value)} placeholder="••••••••" /></div>
+                    </div>
+                    <div style={{marginTop:12,textAlign:'right'}}>
+                      <button className="btn btn-primary" onClick={validarLider}>Autenticar →</button>
+                    </div>
+                  </div>
+                </>
+              )}
+              {authStep === 'termo' && authUser && (
+                <>
+                  <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="checkCircle" size={16}/> Autenticado como {authUser.nome}. Leia o Termo de {retiradaModal.cautela.cautela_tipo==='direto' ? 'Ciência' : 'Comodato'} antes de assinar.</div>
+                  <div style={{border:'2px solid var(--primary)',borderRadius:8,maxHeight:380,overflowY:'auto',padding:16,background:'#fafbfc',marginBottom:16,fontSize:'.82rem',lineHeight:1.6}}>
+                    {termoHTML
+                      ? <div dangerouslySetInnerHTML={{__html: termoHTML}} />
+                      : <p style={{color:'var(--text-secondary)'}}>Carregando termo...</p>}
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <button className="btn btn-primary" onClick={()=>setAuthStep('sign')} style={{display:'inline-flex',alignItems:'center',gap:6}}>Li e concordo → Assinar <Icon name="signature" size={14}/></button>
+                  </div>
+                </>
+              )}
+              {authStep === 'sign' && authUser && (
+                <>
+                  <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="checkCircle" size={16}/> Autenticado como {authUser.nome}. Confira os itens e assine abaixo.</div>
+                  <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,padding:12,marginBottom:16}}>
+                    {retiradaModal.sol.itens.map(i=>(
+                      <div key={i.id} style={{display:'flex',justifyContent:'space-between',fontSize:'.85rem',marginBottom:4}}>
+                        <span>{i.ferramenta_nome} × {i.quantidade}</span>
+                        <span style={{color:'#059669',fontWeight:600}}>{fmtBRL(i.valor_item||0)}</span>
+                      </div>
+                    ))}
+                    <div style={{borderTop:'1px solid #86efac',marginTop:8,paddingTop:8,display:'flex',justifyContent:'space-between',fontWeight:700}}>
+                      <span>TOTAL SOB RESPONSABILIDADE:</span>
+                      <span style={{color:'#059669'}}>{fmtBRL(retiradaModal.sol.valor_total)}</span>
+                    </div>
+                  </div>
+                  <div className="alert alert-warning">Ao assinar, você confirma o recebimento das ferramentas e assume a responsabilidade perante a {empresaInfo.nome}.</div>
+                  <SignaturePad label={`Assinatura de ${authUser.nome}`} onConfirm={confirmarRetirada} onCancel={()=>setAuthStep('termo')} />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  // Líder — acompanhar próprias solicitações
+  return (
+    <div>
+      <div className="topbar">
+        <h2>Minhas Solicitações</h2>
+        <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}>+ Nova Solicitação</button>
+      </div>
+      <div className="card">
+        <div className="table-wrap"><table>
+          <thead><tr><th>Número</th><th>Itens</th><th>Valor</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            {lista.map(s=>(
+              <tr key={s.id}>
+                <td className="fw-bold">{s.numero}</td>
+                <td>{s.itens.length} tipo(s)</td>
+                <td style={{color:'#059669',fontWeight:600}}>{fmtBRL(s.valor_total)}</td>
+                <td>{fmt(s.criado_em)}</td>
+                <td><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+                <td><div className="actions">
+                  <button className="btn btn-ghost btn-sm" onClick={()=>setDetalhe(s)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="eye" size={14}/> Ver</button>
+                  {['solicitada','separando'].includes(s.status) && (
+                    <button className="btn btn-danger btn-sm" onClick={()=>cancelar(s.id)}>Cancelar</button>
+                  )}
+                </div></td>
+              </tr>
+            ))}
+            {!lista.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="clipboard" size={32}/></div><p>Nenhuma solicitação ainda.</p></div></td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+      {detalhe && (
+        <div className="modal-overlay open">
+          <div className="modal modal-md">
+            <div className="modal-header"><h3>Solicitação {detalhe.numero}</h3><button className="modal-close" onClick={()=>setDetalhe(null)}>×</button></div>
+            <div className="modal-body">
+              <p><span className={`badge badge-${detalhe.status}`}>{STATUS_LABEL[detalhe.status]}</span></p>
+              {detalhe.obs && <p style={{marginTop:8}} className="text-muted">Obs: {detalhe.obs}</p>}
+              <hr className="divider" />
+              <div className="items-list">
+                {detalhe.itens.map(i=>(
+                  <div key={i.id} className="item-row">
+                    <span>{i.ferramenta_nome}</span>
+                    <span><strong>{i.quantidade}x</strong></span>
+                    <span style={{color:'#059669',fontSize:'.82rem'}}>{fmtBRL(i.valor_unitario||0)}</span>
+                    <span style={{fontWeight:600}}>{fmtBRL(i.valor_item||0)}</span>
+                  </div>
+                ))}
+                <div style={{padding:'8px 12px',background:'#f0fdf4',fontWeight:700,display:'flex',justifyContent:'flex-end',gap:8}}>
+                  <span className="text-muted">Total:</span><span style={{color:'#059669'}}>{fmtBRL(detalhe.valor_total)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer"><button className="btn btn-ghost" onClick={()=>setDetalhe(null)}>Fechar</button></div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── NOVA SOLICITAÇÃO (líder) ─────────────────────────────────────────────────
+function NovaSolicitacaoPage({ user, navigate, addToast }) {
+  const [bolsas, setBolsas] = useState([])
+  const [ferramentas, setFerramentas] = useState([])
+  const [form, setForm] = useState({ tipo: 'bolsa' })
+  const [itens, setItens] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => { GET('/bolsas').then(setBolsas); GET('/ferramentas').then(setFerramentas) }, [])
+
+  const selecionarBolsa = id => {
+    setForm({...form, bolsa_id: id})
+    const b = bolsas.find(b => b.id == id)
+    if (b) setItens(b.itens.map(i => ({ ferramenta_id: i.ferramenta_id, quantidade: i.quantidade, ferramenta_nome: i.ferramenta_nome, valor_unitario: i.valor_unitario || 0 })))
+    else setItens([])
+  }
+
+  const enviar = async () => {
+    if (!itens.length) { addToast('Adicione ao menos um item.', 'error'); return }
+    setLoading(true)
+    try {
+      await POST('/solicitacoes', { bolsa_id: form.bolsa_id || null, itens, obs: form.obs || '' })
+      addToast('Solicitação enviada ao almoxarifado!', 'success')
+      navigate('solicitacoes')
+    } catch(e) { addToast(e.message, 'error') }
+    setLoading(false)
+  }
+
+  return (
+    <div>
+      <div className="topbar">
+        <h2>Nova Solicitação</h2>
+        <button className="btn btn-ghost" onClick={()=>navigate('solicitacoes')}>← Voltar</button>
+      </div>
+      <div className="card">
+        <div className="card-header"><span className="card-title">Solicitar ferramentas ao almoxarifado</span></div>
+        <div className="card-body">
+          <div className="alert alert-warning" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={16}/> Você é responsável pelos itens solicitados. Solicite somente o que sua equipe realmente precisará.</div>
+          <div style={{marginBottom:12}}>
+            <label>Tipo de solicitação</label>
+            <div className="gap-8" style={{marginTop:8}}>
+              <button className={`btn ${form.tipo==='bolsa'?'btn-primary':'btn-ghost'}`} onClick={()=>setForm({...form,tipo:'bolsa',bolsa_id:undefined})} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="backpack" size={14}/> Bolsa padrão</button>
+              <button className={`btn ${form.tipo==='avulso'?'btn-primary':'btn-ghost'}`} onClick={()=>{setForm({...form,tipo:'avulso',bolsa_id:undefined});setItens([])}} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="wrench" size={14}/> Avulso</button>
+            </div>
+          </div>
+          {form.tipo === 'bolsa' && (
+            <div className="form-group" style={{marginBottom:16}}>
+              <label>Bolsa</label>
+              <select value={form.bolsa_id||''} onChange={e=>selecionarBolsa(e.target.value)}>
+                <option value="">Selecione uma bolsa...</option>
+                {bolsas.map(b=><option key={b.id} value={b.id}>{b.nome} — {fmtBRL(b.valor_total)}</option>)}
+              </select>
+            </div>
+          )}
+          <label style={{display:'block',marginBottom:6}}>Itens {form.tipo==='bolsa'?'(editáveis)':''}</label>
+          <ItemsEditor ferramentas={ferramentas} value={itens} onChange={setItens} />
+          <hr className="divider" />
+          <div className="form-group">
+            <label>Observações</label>
+            <textarea value={form.obs||''} onChange={e=>setForm({...form,obs:e.target.value})} placeholder="Obra, necessidade, prazo urgente..." />
+          </div>
+          <div style={{marginTop:16,textAlign:'right'}}>
+            <button className="btn btn-accent" onClick={enviar} disabled={loading || !itens.length}>
+              {loading ? 'Enviando...' : <span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="send" size={14}/> Enviar solicitação</span>}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── CAUTELAS (líder: entregas ao operário) ───────────────────────────────────
+function CautelasPage({ user, navigate, addToast }) {
+  const [lista, setLista] = useState([])
+  const [detalhe, setDetalhe] = useState(null)
+  const [entregaModal, setEntregaModal] = useState(null)
+  const [devModal, setDevModal] = useState(null)
+  const [ferramentas, setFerramentas] = useState([])
+  // Auth operário no dispositivo do líder
+  const [authEmail, setAuthEmail] = useState('')
+  const [authSenha, setAuthSenha] = useState('')
+  const [authStep, setAuthStep] = useState('form') // form | termo | sign
+  const [authUser, setAuthUser] = useState(null)
+  const [authErr, setAuthErr] = useState('')
+  const [entregaItens, setEntregaItens] = useState([])
+  const [termoHTML, setTermoHTML] = useState('')
+  // Devolução com auth do responsável
+  const [devEmail, setDevEmail] = useState('')
+  const [devSenha, setDevSenha] = useState('')
+  const [devStep, setDevStep] = useState('form') // form | sign
+  const [devErr, setDevErr] = useState('')
+  const [operarios, setOperarios] = useState([])
+  const [selFerr, setSelFerr] = useState(''); const [selQtd, setSelQtd] = useState(1)
+
+  const load = () => GET('/cautelas').then(setLista).catch(()=>{})
+  useEffect(() => {
+    load(); GET('/ferramentas').then(setFerramentas)
+    GET('/usuarios').then(us => setOperarios(us.filter(u=>u.role==='operario'&&u.ativo)))
+  }, [])
+
+  const verDetalhe = async c => {
+    const full = await GET(`/cautelas/${c.id}`)
+    setDetalhe(full)
+  }
+
+  const verTermo = async (id, tipo) => {
+    try {
+      const { html } = await GET(`/cautelas/${id}/termo/${tipo}`)
+      const w = window.open('', '_blank', 'width=900,height=700,scrollbars=yes')
+      w.document.write(html); w.document.close()
+    } catch(e) { addToast(e.message, 'error') }
+  }
+
+  const abrirEntrega = c => {
+    setEntregaModal(c)
+    setAuthEmail(''); setAuthSenha(''); setAuthStep('form'); setAuthUser(null); setAuthErr('')
+    setEntregaItens(c.itens ? c.itens.map(i=>({ferramenta_id:i.ferramenta_id,quantidade:i.quantidade,ferramenta_nome:i.ferramenta_nome,valor_unitario:i.valor_unitario||0})) : [])
+  }
+
+  const validarOperario = async () => {
+    setAuthErr('')
+    try {
+      const u = await POST('/auth/validar', { email: authEmail, senha: authSenha, role_esperado: 'operario' })
+      setAuthUser(u)
+      // Exibe Termo de Ciência antes da assinatura do operário
+      try {
+        const t = await GET(`/cautelas/${entregaModal.id}/termo/ciencia_direta`)
+        setTermoHTML(t.html || '')
+      } catch(e) { setTermoHTML('') }
+      setAuthStep('termo')
+    } catch(e) { setAuthErr(e.message) }
+  }
+
+  const confirmarEntrega = async sig => {
+    try {
+      const r = await POST(`/cautelas/${entregaModal.id}/entregas`, { email: authEmail, senha: authSenha, assinatura: sig, itens: entregaItens })
+      addToast(`Entrega registrada para ${r.operario_nome}!`, 'success')
+      setEntregaModal(null); load()
+    } catch(e) { addToast(e.message, 'error') }
+  }
+
+  const devolverEntrega = async (cautelaId, entregaId) => {
+    if (!confirm('Confirmar devolução desta entrega?')) return
+    try {
+      await POST(`/cautelas/${cautelaId}/entregas/${entregaId}/devolver`, {})
+      addToast('Devolução registrada!', 'success')
+      const full = await GET(`/cautelas/${cautelaId}`)
+      setDetalhe(full); load()
+    } catch(e) { addToast(e.message, 'error') }
+  }
+
+  const abrirDevolver = c => {
+    setDevModal({...c, obs:''})
+    setDevEmail(''); setDevSenha(''); setDevStep('form'); setDevErr('')
+  }
+
+  const validarLiderDev = async () => {
+    setDevErr('')
+    try {
+      const roleEsperado = devModal.cautela_tipo === 'direto' ? 'operario' : 'lider'
+      const u = await POST('/auth/validar', { email: devEmail, senha: devSenha, role_esperado: roleEsperado })
+      if (u.id !== devModal.lider_id) { setDevErr(`Este login não corresponde ao responsável desta cautela.`); return }
+      setDevStep('sign')
+    } catch(e) { setDevErr(e.message) }
+  }
+
+  const devolver = async (sig) => {
+    try {
+      await POST(`/cautelas/${devModal.id}/devolver`, { email: devEmail, senha: devSenha, assinatura: sig, obs_devolucao: devModal.obs || '' })
+      addToast('Cautela devolvida com assinatura!', 'success')
+      setDevModal(null); setDetalhe(null); load()
+    } catch(e) { addToast(e.message, 'error') }
+  }
+
+  const verTermoDevolucao = async (id) => {
+    try {
+      const { html } = await GET(`/cautelas/${id}/termo/devolucao`)
+      const w = window.open('', '_blank', 'width=900,height=700,scrollbars=yes')
+      w.document.write(html); w.document.close()
+    } catch(e) { addToast('Recibo indisponível (cautela ainda não devolvida ou sem assinatura).', 'warning') }
+  }
+
+  const isLider = user.role === 'lider'
+  const isAlm   = user.role === 'almoxarifado'
+
+  return (
+    <div>
+      <div className="topbar">
+        <h2>Cautelas</h2>
+      </div>
+      <div className="card">
+        <div className="table-wrap"><table>
+          <thead><tr><th>Número</th><th>Tipo</th><th>Responsável</th><th>Retirada</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            {lista.map(c=>(
+              <tr key={c.id}>
+                <td className="fw-bold">{c.numero}</td>
+                <td>{c.cautela_tipo==='direto' ? <span className="badge badge-solicitada">Direta</span> : <span className="badge badge-lider">Via Líder</span>}</td>
+                <td>{c.lider_nome}{c.cautela_tipo==='direto'&&<><br/><span style={{fontSize:'.7rem',color:'var(--text-secondary)'}}>Operário</span></>}</td>
+                <td>{fmt(c.data_retirada)}</td>
+                <td style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(c.valor_total)}</td>
+                <td><span className={`badge badge-${c.status}`}>{STATUS_LABEL[c.status]}</span></td>
+                <td><div className="actions">
+                  <button className="btn btn-outline btn-sm" onClick={()=>verDetalhe(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="eye" size={14}/> Ver</button>
+                  {isLider && c.cautela_tipo!=='direto' && c.status === 'ativa' && c.lider_id === user.id && (
+                    <button className="btn btn-accent btn-sm" onClick={()=>abrirEntrega(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="send" size={14}/> Entregar a operário</button>
+                  )}
+                  {(isLider || isAlm) && c.status === 'ativa' && (
+                    <button className="btn btn-success btn-sm" onClick={()=>abrirDevolver(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="download" size={14}/> Devolver</button>
+                  )}
+                </div></td>
+              </tr>
+            ))}
+            {!lista.length && <tr><td colSpan="7"><div className="empty"><div className="empty-icon"><Icon name="clipboard" size={32}/></div><p>Nenhuma cautela.</p></div></td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+
+      {/* Detalhe */}
+      {detalhe && (
+        <div className="modal-overlay open">
+          <div className="modal modal-lg">
+            <div className="modal-header">
+              <h3>Cautela {detalhe.numero}</h3>
+              <button className="modal-close" onClick={()=>setDetalhe(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+                <div><span className="text-muted">{detalhe.cautela_tipo==='direto'?'Operário (responsável)':'Líder'}</span><br/><strong>{detalhe.lider_nome}</strong></div>
+                <div><span className="text-muted">Status</span><br/><span className={`badge badge-${detalhe.status}`}>{STATUS_LABEL[detalhe.status]}</span></div>
+                <div><span className="text-muted">Retirada</span><br/><strong>{fmtDT(detalhe.data_retirada)}</strong></div>
+                <div><span className="text-muted">Valor total</span><br/><strong style={{color:'#059669'}}>{fmtBRL(detalhe.valor_total)}</strong></div>
+              </div>
+              {detalhe.ip_lider && <p className="text-muted" style={{fontSize:'.75rem',marginBottom:8}}>IP retirada: {detalhe.ip_lider}</p>}
+              <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+                <button className="btn btn-outline btn-sm" onClick={()=>verTermo(detalhe.id,'comodato')} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="fileText" size={14}/> Termo de Comodato</button>
+                <button className="btn btn-outline btn-sm" onClick={()=>verTermo(detalhe.id,'ciencia')} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="fileText" size={14}/> Termos de Ciência</button>
+              </div>
+              <hr className="divider" />
+              <p className="fw-bold" style={{marginBottom:8}}>Itens da cautela</p>
+              <div className="items-list">
+                {detalhe.itens.map(i=>(
+                  <div key={i.id} className="item-row">
+                    <span>{i.ferramenta_nome}{i.codigo && <span className="text-muted"> ({i.codigo})</span>}</span>
+                    <span><strong>{i.quantidade}x</strong></span>
+                    <span style={{color:'#059669',fontSize:'.82rem'}}>{fmtBRL(i.valor_unitario||0)}</span>
+                    <span style={{fontWeight:600}}>{fmtBRL(i.valor_item||0)}</span>
+                  </div>
+                ))}
+              </div>
+              {(detalhe.entregas||[]).length > 0 && (
+                <>
+                  <hr className="divider" />
+                  <p className="fw-bold" style={{marginBottom:8}}>Entregas a operários</p>
+                  {detalhe.entregas.map(e=>(
+                    <div key={e.id} style={{border:'1px solid var(--border)',borderRadius:8,padding:12,marginBottom:8}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
+                        <div>
+                          <strong>{e.operario_nome}</strong>
+                          <span className="text-muted" style={{marginLeft:8}}>{e.operario_cargo}</span>
+                          <span className={`badge badge-${e.status}`} style={{marginLeft:8}}>{STATUS_LABEL[e.status]||e.status}</span>
+                        </div>
+                        <div className="gap-8">
+                          {e.ip_operario && <span className="text-muted" style={{fontSize:'.75rem'}}>IP: {e.ip_operario}</span>}
+                          {e.status === 'ativa' && isLider && (
+                            <button className="btn btn-success btn-sm" onClick={()=>devolverEntrega(detalhe.id,e.id)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="download" size={14}/> Devolver</button>
+                          )}
+                        </div>
+                      </div>
+                      {e.itens && e.itens.length > 0 && (
+                        <div style={{marginTop:8,fontSize:'.82rem',color:'#6b7280'}}>
+                          {e.itens.map(i=>`${i.ferramenta_nome} × ${i.quantidade}`).join(' · ')}
+                        </div>
+                      )}
+                      {e.assinatura_operario && <img src={e.assinatura_operario} height={50} style={{marginTop:6,border:'1px solid var(--border)',borderRadius:4}} alt="assinatura" />}
+                    </div>
+                  ))}
+                </>
+              )}
+              {detalhe.assinatura_lider && (
+                <>
+                  <hr className="divider" />
+                  <p className="text-muted" style={{marginBottom:6}}>Assinatura do Líder (retirada)</p>
+                  <img src={detalhe.assinatura_lider} className="sig-preview" height={70} alt="assinatura líder" />
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              {isLider && detalhe.status === 'ativa' && detalhe.lider_id === user.id && (
+                <button className="btn btn-accent" onClick={()=>{setDetalhe(null);abrirEntrega(detalhe)}} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="send" size={14}/> Entregar a operário</button>
+              )}
+              {(isLider || isAlm) && detalhe.status === 'ativa' && (
+                <button className="btn btn-success" onClick={()=>{setDetalhe(null);abrirDevolver(detalhe)}} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Devolver cautela</button>
+              )}
+              {detalhe.status === 'devolvida' && detalhe.assinatura_devolucao && (
+                <button className="btn btn-outline btn-sm" onClick={()=>verTermoDevolucao(detalhe.id)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="fileText" size={14}/> Recibo Devolução</button>
+              )}
+              <button className="btn btn-ghost" onClick={()=>setDetalhe(null)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal entregar ao operário */}
+      {entregaModal && (
+        <div className="modal-overlay open">
+          <div className="modal modal-md">
+            <div className="modal-header">
+              <h3>Entregar ao Operário — {entregaModal.numero}</h3>
+              <button className="modal-close" onClick={()=>setEntregaModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              {authStep === 'form' && (
+                <>
+                  <div className="alert alert-info">O operário deve autenticar neste dispositivo para confirmar o recebimento.</div>
+                  <div className="auth-device-box">
+                    <h4 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="lock" size={16}/> Autenticação do Operário</h4>
+                    {authErr && <div className="alert alert-error">{authErr}</div>}
+                    <div className="form-grid">
+                      <div className="form-group"><label>Email do operário</label><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="operario@email.com" /></div>
+                      <div className="form-group"><label>Senha</label><input type="password" value={authSenha} onChange={e=>setAuthSenha(e.target.value)} placeholder="••••••••" /></div>
+                    </div>
+                    <div style={{marginTop:12,textAlign:'right'}}>
+                      <button className="btn btn-primary" onClick={validarOperario}>Autenticar →</button>
+                    </div>
+                  </div>
+                  <hr className="divider" />
+                  <label style={{display:'block',marginBottom:6}}>Itens a entregar</label>
+                  <ItemsEditor ferramentas={ferramentas} value={entregaItens} onChange={setEntregaItens} />
+                </>
+              )}
+              {authStep === 'termo' && authUser && (
+                <>
+                  <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="checkCircle" size={16}/> Autenticado como {authUser.nome}. Leia o Termo de Comodato e tome ciência das responsabilidades antes de assinar.</div>
+                  <div style={{border:'2px solid var(--primary)',borderRadius:8,maxHeight:380,overflowY:'auto',padding:16,background:'#fafbfc',marginBottom:16,fontSize:'.82rem',lineHeight:1.6}}>
+                    {termoHTML
+                      ? <div dangerouslySetInnerHTML={{__html: termoHTML}} />
+                      : <p style={{color:'var(--text-secondary)'}}>Carregando termo...</p>}
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <button className="btn btn-primary" onClick={()=>setAuthStep('sign')} style={{display:'inline-flex',alignItems:'center',gap:6}}>Li e concordo → Assinar <Icon name="signature" size={14}/></button>
+                  </div>
+                </>
+              )}
+              {authStep === 'sign' && authUser && (
+                <>
+                  <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="checkCircle" size={16}/> Autenticado como {authUser.nome}. Confira os itens e assine o Termo de Ciência.</div>
+                  <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,padding:12,marginBottom:16}}>
+                    {entregaItens.map(i=>(
+                      <div key={i.ferramenta_id} style={{display:'flex',justifyContent:'space-between',fontSize:'.85rem',marginBottom:4}}>
+                        <span>{i.ferramenta_nome} × {i.quantidade}</span>
+                        <span style={{color:'#059669',fontWeight:600}}>{fmtBRL((i.valor_unitario||0)*i.quantidade)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="alert alert-warning">Ao assinar, {authUser.nome} confirma o recebimento e assume responsabilidade por estes itens.</div>
+                  <SignaturePad label={`Assinatura de ${authUser.nome} (Operário)`} onConfirm={confirmarEntrega} onCancel={()=>setAuthStep('termo')} />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal devolver cautela — exige auth + assinatura do líder */}
+      {devModal && (
+        <div className="modal-overlay open">
+          <div className="modal modal-md">
+            <div className="modal-header">
+              <h3 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="download" size={17}/> Devolver Cautela {devModal.numero}</h3>
+              <button className="modal-close" onClick={()=>setDevModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              {devStep === 'form' && (
+                <>
+                  <div className="alert alert-warning" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={16}/> A devolução requer autenticação e assinatura do líder responsável para garantir o registro formal da entrega.</div>
+                  <div className="form-group" style={{marginBottom:12}}>
+                    <label>Observações (condição das ferramentas)</label>
+                    <textarea value={devModal.obs||''} onChange={e=>setDevModal({...devModal,obs:e.target.value})} placeholder="Sem avarias, desgaste normal..." />
+                  </div>
+                  <div className="auth-device-box">
+                    <h4 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="lock" size={16}/> Autenticação do {devModal.cautela_tipo==='direto'?'Operário':'Líder'}: {devModal.lider_nome}</h4>
+                    {devErr && <div className="alert alert-error">{devErr}</div>}
+                    <div className="form-grid">
+                      <div className="form-group"><label>Email</label><input type="email" value={devEmail} onChange={e=>setDevEmail(e.target.value)} placeholder={devModal.lider_email} /></div>
+                      <div className="form-group"><label>Senha</label><input type="password" value={devSenha} onChange={e=>setDevSenha(e.target.value)} placeholder="••••••••" /></div>
+                    </div>
+                    <div style={{marginTop:12,textAlign:'right'}}>
+                      <button className="btn btn-primary" onClick={validarLiderDev}>Autenticar →</button>
+                    </div>
+                  </div>
+                </>
+              )}
+              {devStep === 'sign' && (
+                <>
+                  <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="checkCircle" size={16}/> Autenticado. Ao assinar, {devModal.cautela_tipo==='direto'?'o operário confirma':'o líder confirma'} a devolução de todos os itens ao almoxarifado.</div>
+                  {devModal.obs && <p className="text-muted" style={{marginBottom:8}}>Obs: {devModal.obs}</p>}
+                  <SignaturePad label={`Assinatura de ${devModal.lider_nome} — Confirmo a devolução`} onConfirm={devolver} onCancel={()=>setDevStep('form')} />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── EMPRÉSTIMOS ──────────────────────────────────────────────────────────────
+function EmprestimosPage({ user, addToast }) {
+  const [lista, setLista] = useState([])
+  const [lideres, setLideres] = useState([])
+  const [ferramentas, setFerramentas] = useState([])
+  const [modal, setModal] = useState(null)
+  const [form, setForm] = useState({})
+  const [itens, setItens] = useState([])
+  const [buscaEmail, setBuscaEmail] = useState('')
+  const [tomadorEncontrado, setTomadorEncontrado] = useState(null)
+  const [buscando, setBuscando] = useState(false)
+  const [sigModal, setSigModal] = useState(null)
+  const [filtro, setFiltro] = useState('')
+
+  const load = () => GET('/emprestimos').then(setLista).catch(()=>{})
+  useEffect(() => {
+    load()
+    GET('/ferramentas').then(setFerramentas)
+    if (user.role === 'operario') GET('/usuarios/lideres').then(setLideres)
+  }, [])
+
+  const buscarTomador = async () => {
+    if (!buscaEmail) return
+    setBuscando(true); setTomadorEncontrado(null)
+    try {
+      const u = await GET(`/usuarios/buscar?email=${encodeURIComponent(buscaEmail)}`)
+      if (!u) addToast('Nenhum operário encontrado com este email.', 'warning')
+      setTomadorEncontrado(u)
+    } catch(e) { addToast(e.message, 'error') }
+    setBuscando(false)
+  }
+
+  const solicitar = async () => {
+    if (!tomadorEncontrado) { addToast('Busque e confirme o tomador.', 'error'); return }
+    if (!form.lider_id) { addToast('Selecione o líder responsável.', 'error'); return }
+    if (!itens.length) { addToast('Adicione ao menos um item.', 'error'); return }
+    try {
+      const r = await POST('/emprestimos', { tomador_email: buscaEmail, lider_id: form.lider_id, itens, obs: form.obs || '' })
+      addToast(`Solicitação enviada. ${r.tomador_nome} receberá notificação.`, 'success')
+      setModal(null); setBuscaEmail(''); setTomadorEncontrado(null); setItens([]); setForm({}); load()
+    } catch(e) { addToast(e.message, 'error') }
+  }
+
+  const confirmar = async id => {
+    try { await POST(`/emprestimos/${id}/confirmar`, {}); addToast('Confirmado!', 'success'); load() }
+    catch(e) { addToast(e.message, 'error') }
+  }
+  const recusar = async id => {
+    if (!confirm('Recusar este empréstimo?')) return
+    try { await POST(`/emprestimos/${id}/recusar`, {}); addToast('Recusado.', 'success'); load() }
+    catch(e) { addToast(e.message, 'error') }
+  }
+  const devolver = async id => {
+    if (!confirm('Confirmar devolução?')) return
+    try { await POST(`/emprestimos/${id}/devolver`, {}); addToast('Devolução registrada!', 'success'); load() }
+    catch(e) { addToast(e.message, 'error') }
+  }
+
+  const avalLider = async sig => {
+    try {
+      await POST(`/emprestimos/${sigModal.id}/aval-lider`, { assinatura: sig })
+      addToast('Empréstimo aprovado e ativo!', 'success')
+      setSigModal(null); load()
+    } catch(e) { addToast(e.message, 'error') }
+  }
+
+  const filtrados = lista.filter(e => !filtro || e.status === filtro)
+
+  return (
+    <div>
+      <div className="topbar">
+        <h2>Empréstimos entre Operários</h2>
+        {user.role === 'operario' && <button className="btn btn-accent" onClick={()=>setModal('novo')}>+ Solicitar Empréstimo</button>}
+      </div>
+
+      <div className="card">
+        <div className="card-body" style={{paddingBottom:0}}>
+          <select value={filtro} onChange={e=>setFiltro(e.target.value)} style={{width:'auto',marginBottom:16}}>
+            <option value="">Todos</option>
+            <option value="aguardando_tomador">Aguard. confirmação</option>
+            <option value="aguardando_lider">Aguard. aval líder</option>
+            <option value="ativo">Ativos</option>
+            <option value="devolvido">Devolvidos</option>
+            <option value="recusado">Recusados</option>
+          </select>
+        </div>
+        <div className="table-wrap"><table>
+          <thead><tr><th>Solicitante</th><th>Tomador</th><th>Líder</th><th>Itens</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            {filtrados.map(e=>(
+              <tr key={e.id}>
+                <td>{e.solicitante_nome}</td>
+                <td>{e.tomador_nome}</td>
+                <td>{e.lider_nome||'—'}</td>
+                <td style={{fontSize:'.82rem'}}>{e.itens.map(i=>`${i.ferramenta_nome} (${i.quantidade}x)`).join(', ')}</td>
+                <td><span className={`badge badge-${e.status}`}>{STATUS_LABEL[e.status]}</span></td>
+                <td><div className="actions">
+                  {e.status === 'aguardando_tomador' && user.id === e.tomador_id && <>
+                    <button className="btn btn-success btn-sm" onClick={()=>confirmar(e.id)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="check" size={14}/> Confirmar</button>
+                    <button className="btn btn-danger btn-sm" onClick={()=>recusar(e.id)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="x" size={14}/> Recusar</button>
+                  </>}
+                  {e.status === 'aguardando_lider' && user.id === e.lider_id && (
+                    <button className="btn btn-accent btn-sm" onClick={()=>setSigModal(e)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="signature" size={14}/> Assinar aval</button>
+                  )}
+                  {e.status === 'ativo' && (user.id === e.solicitante_id || user.id === e.tomador_id) && (
+                    <button className="btn btn-success btn-sm" onClick={()=>devolver(e.id)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="download" size={14}/> Devolver</button>
+                  )}
+                </div></td>
+              </tr>
+            ))}
+            {!filtrados.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="handshake" size={32}/></div><p>Nenhum empréstimo.</p></div></td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+
+      {/* Modal novo empréstimo */}
+      {modal === 'novo' && (
+        <div className="modal-overlay open">
+          <div className="modal modal-lg">
+            <div className="modal-header"><h3>Solicitar Empréstimo</h3><button className="modal-close" onClick={()=>setModal(null)}>×</button></div>
+            <div className="modal-body">
+              <div className="alert alert-info">O colega precisará confirmar no próprio login, e o líder selecionado assinará o aval.</div>
+              <div className="auth-device-box">
+                <h4 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="search" size={16}/> Buscar Operário pelo Email</h4>
+                <div style={{display:'flex',gap:8,marginBottom:8}}>
+                  <input type="email" value={buscaEmail} onChange={e=>{setBuscaEmail(e.target.value);setTomadorEncontrado(null)}} placeholder="email.exato@do.colega.com" style={{flex:1}} />
+                  <button className="btn btn-primary" onClick={buscarTomador} disabled={buscando}>{buscando?'...':'Buscar'}</button>
+                </div>
+                {tomadorEncontrado && (
+                  <div style={{background:'#d1fae5',padding:10,borderRadius:8,fontSize:'.88rem',display:'flex',alignItems:'center',gap:8}}>
+                    <Icon name="checkCircle" size={15}/> Encontrado: <strong>{tomadorEncontrado.nome}</strong> — {tomadorEncontrado.cargo||ROLE_LABEL[tomadorEncontrado.role]}
+                  </div>
+                )}
+                {buscaEmail && !tomadorEncontrado && !buscando && (
+                  <div style={{background:'#fee2e2',padding:10,borderRadius:8,fontSize:'.88rem'}}>Nenhum operário encontrado com este email.</div>
+                )}
+              </div>
+              <div className="form-group" style={{marginBottom:16}}>
+                <label>Líder responsável *</label>
+                <select value={form.lider_id||''} onChange={e=>setForm({...form,lider_id:e.target.value})}>
+                  <option value="">Selecione o líder...</option>
+                  {lideres.map(l=><option key={l.id} value={l.id}>{l.nome} — {l.cargo}</option>)}
+                </select>
+              </div>
+              <label style={{display:'block',marginBottom:6}}>Ferramentas a emprestar *</label>
+              <ItemsEditor ferramentas={ferramentas} value={itens} onChange={setItens} />
+              <div className="form-group" style={{marginTop:12}}>
+                <label>Observação</label>
+                <textarea value={form.obs||''} onChange={e=>setForm({...form,obs:e.target.value})} placeholder="Motivo do empréstimo..." />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={()=>setModal(null)}>Cancelar</button>
+              <button className="btn btn-accent" onClick={solicitar} disabled={!tomadorEncontrado||!itens.length} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="send" size={14}/> Enviar solicitação</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal aval líder */}
+      {sigModal && (
+        <div className="modal-overlay open">
+          <div className="modal modal-md">
+            <div className="modal-header"><h3>Aval do Líder</h3><button className="modal-close" onClick={()=>setSigModal(null)}>×</button></div>
+            <div className="modal-body">
+              <p style={{marginBottom:8}}><strong>De:</strong> {sigModal.solicitante_nome} → <strong>Para:</strong> {sigModal.tomador_nome}</p>
+              <p style={{marginBottom:12}}>Itens: {sigModal.itens.map(i=>`${i.ferramenta_nome} (${i.quantidade}x)`).join(', ')}</p>
+              <div className="alert alert-warning">Ambos os operários confirmaram. Ao assinar, você aprova este empréstimo.</div>
+              <SignaturePad label={`Aval de ${user.nome}`} onConfirm={avalLider} onCancel={()=>setSigModal(null)} />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── FERRAMENTAS ──────────────────────────────────────────────────────────────
+function FerramentasPage({ addToast }) {
+  const [lista, setLista] = useState([])
+  const [modal, setModal] = useState(null)
+  const [form, setForm] = useState({})
+  const [busca, setBusca] = useState('')
+  const load = () => GET('/ferramentas').then(setLista)
+  useEffect(() => { load() }, [])
+  const save = async () => {
+    if (!form.nome) { addToast('Informe o nome.','error'); return }
+    try {
+      if (form.id) await PUT(`/ferramentas/${form.id}`, form)
+      else await POST('/ferramentas', form)
+      addToast(form.id ? 'Atualizada!' : 'Cadastrada!', 'success')
+      setModal(null); load()
+    } catch(e) { addToast(e.message,'error') }
+  }
+  const del = async f => {
+    if (!confirm(`Excluir "${f.nome}"?`)) return
+    try { await DEL(`/ferramentas/${f.id}`); addToast('Excluída!','success'); load() }
+    catch(e) { addToast(e.message,'error') }
+  }
+  const filtradas = lista.filter(f => !busca || f.nome.toLowerCase().includes(busca.toLowerCase()) || (f.codigo||'').toLowerCase().includes(busca.toLowerCase()))
+  return (
+    <div>
+      <div className="topbar"><h2>Ferramentas</h2><button className="btn btn-accent" onClick={()=>{setForm({quantidade_total:1});setModal('form')}}>+ Cadastrar</button></div>
+      <div className="card">
+        <div className="card-body" style={{paddingBottom:0}}>
+          <input placeholder="Buscar..." value={busca} onChange={e=>setBusca(e.target.value)} style={{maxWidth:320,marginBottom:16}} />
+        </div>
+        <div className="table-wrap"><table>
+          <thead><tr><th>Nome</th><th>Código</th><th>Categoria</th><th>Qtd.</th><th>Valor Unit.</th><th>Ações</th></tr></thead>
+          <tbody>
+            {filtradas.map(f=>(
+              <tr key={f.id}>
+                <td><strong>{f.nome}</strong>{f.descricao&&<><br/><span className="text-muted">{f.descricao.substring(0,60)}</span></>}</td>
+                <td>{f.codigo ? <span style={{fontFamily:'monospace',fontWeight:700}}>{f.codigo}</span> : '—'}</td>
+                <td>{f.categoria||'—'}</td>
+                <td><strong>{f.quantidade_total}</strong>{f.codigo&&<span title="Item patrimonial único" style={{marginLeft:4,display:'inline-flex',color:'var(--text-secondary)',verticalAlign:'middle'}}><Icon name="lock" size={12}/></span>}</td>
+                <td style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(f.valor_unitario||0)}</td>
+                <td><div className="actions">
+                  <button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...f});setModal('form')}}><Icon name="edit" size={14}/></button>
+                  {!f.codigo && <button className="btn btn-danger btn-sm" onClick={()=>del(f)}><Icon name="trash" size={14}/></button>}
+                </div></td>
+              </tr>
+            ))}
+            {!filtradas.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="wrench" size={32}/></div><p>Nenhuma ferramenta.</p></div></td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+      {modal === 'form' && (
+        <div className="modal-overlay open">
+          <div className="modal modal-md">
+            <div className="modal-header"><h3>{form.id?'Editar':'Nova'} Ferramenta</h3><button className="modal-close" onClick={()=>setModal(null)}>×</button></div>
+            <div className="modal-body">
+              {(() => {
+                const temCodigo = !!(form.codigo && form.codigo.trim())
+                const codigoLocked = !!(form.id && form.codigo && form.codigo.trim())
+                return (
+                <div className="form-grid">
+                  <div className="form-group full"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
+                  <div className="form-group">
+                    <label>Código / Patrimônio</label>
+                    <input value={form.codigo||''} onChange={e=>!codigoLocked&&setForm({...form,codigo:e.target.value})} placeholder="FUR-001" disabled={codigoLocked} style={codigoLocked?{background:'#f3f4f6',cursor:'not-allowed'}:{}} />
+                    {codigoLocked && <span style={{fontSize:'.72rem',color:'var(--text-secondary)',marginTop:2,display:'inline-flex',alignItems:'center',gap:4}}><Icon name="lock" size={11}/> Código de patrimônio não pode ser alterado</span>}
+                  </div>
+                  <div className="form-group"><label>Categoria</label><input value={form.categoria||''} onChange={e=>setForm({...form,categoria:e.target.value})} /></div>
+                  <div className="form-group">
+                    <label>Quantidade total {temCodigo && <span style={{color:'var(--text-secondary)',fontWeight:400,fontSize:'.75rem'}}>(item único — fixo em 1)</span>}</label>
+                    <input type="number" min="0" value={temCodigo ? 1 : (form.quantidade_total??0)} onChange={e=>!temCodigo&&setForm({...form,quantidade_total:Math.max(0,parseInt(e.target.value)||0)})} disabled={temCodigo} style={temCodigo?{background:'#f3f4f6',cursor:'not-allowed'}:{}} />
+                  </div>
+                  <div className="form-group"><label>Valor unitário (R$)</label><input type="number" min="0" step="0.01" value={form.valor_unitario||''} onChange={e=>setForm({...form,valor_unitario:parseFloat(e.target.value)||0})} placeholder="0,00" /></div>
+                  <div className="form-group full"><label>Descrição</label><textarea value={form.descricao||''} onChange={e=>setForm({...form,descricao:e.target.value})} /></div>
+                </div>
+                )
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={()=>setModal(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={save}>Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── BOLSAS ───────────────────────────────────────────────────────────────────
+function BolsasPage({ addToast }) {
+  const [lista, setLista] = useState([])
+  const [ferramentas, setFerramentas] = useState([])
+  const [modal, setModal] = useState(null)
+  const [form, setForm] = useState({})
+  const [itens, setItens] = useState([])
+  const load = () => { GET('/bolsas').then(setLista); GET('/ferramentas').then(setFerramentas) }
+  useEffect(() => { load() }, [])
+  const save = async () => {
+    if (!form.nome) { addToast('Informe o nome.','error'); return }
+    try {
+      if (form.id) await PUT(`/bolsas/${form.id}`, {...form, itens})
+      else await POST('/bolsas', {...form, itens})
+      addToast(form.id?'Atualizada!':'Criada!','success'); setModal(null); load()
+    } catch(e) { addToast(e.message,'error') }
+  }
+  return (
+    <div>
+      <div className="topbar"><h2>Bolsas / Kits</h2><button className="btn btn-accent" onClick={()=>{setForm({});setItens([]);setModal('form')}}>+ Nova Bolsa</button></div>
+      <div className="card"><div className="table-wrap"><table>
+        <thead><tr><th>Nome</th><th>Descrição</th><th>Itens</th><th>Valor</th><th>Ações</th></tr></thead>
+        <tbody>
+          {lista.map(b=>(
+            <tr key={b.id}>
+              <td><strong>{b.nome}</strong></td>
+              <td className="text-muted">{b.descricao||'—'}</td>
+              <td>{b.itens.length} tipo(s)</td>
+              <td style={{color:'#059669',fontWeight:600}}>{fmtBRL(b.valor_total||0)}</td>
+              <td><button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...b});setItens(b.itens.map(i=>({ferramenta_id:i.ferramenta_id,quantidade:i.quantidade,ferramenta_nome:i.ferramenta_nome,valor_unitario:i.valor_unitario||0})));setModal('form')}} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="edit" size={14}/> Editar</button></td>
+            </tr>
+          ))}
+          {!lista.length && <tr><td colSpan="5"><div className="empty"><div className="empty-icon"><Icon name="backpack" size={32}/></div><p>Nenhuma bolsa.</p></div></td></tr>}
+        </tbody>
+      </table></div></div>
+      {modal === 'form' && (
+        <div className="modal-overlay open">
+          <div className="modal modal-lg">
+            <div className="modal-header"><h3>{form.id?'Editar':'Nova'} Bolsa</h3><button className="modal-close" onClick={()=>setModal(null)}>×</button></div>
+            <div className="modal-body">
+              <div className="form-grid" style={{marginBottom:16}}>
+                <div className="form-group"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
+                <div className="form-group"><label>Descrição</label><input value={form.descricao||''} onChange={e=>setForm({...form,descricao:e.target.value})} /></div>
+              </div>
+              <label style={{display:'block',marginBottom:6}}>Ferramentas</label>
+              <ItemsEditor ferramentas={ferramentas} value={itens} onChange={setItens} />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={()=>setModal(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={save}>Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
+function UsuariosPage({ addToast }) {
+  const [lista, setLista] = useState([])
+  const [modal, setModal] = useState(null)
+  const [form, setForm] = useState({})
+  const [filtroRole, setFiltroRole] = useState('')
+  const load = () => GET('/usuarios').then(setLista)
+  useEffect(() => { load() }, [])
+  const save = async () => {
+    if (!form.nome || !form.email) { addToast('Nome e email obrigatórios.','error'); return }
+    if (!form.id && !form.senha) { addToast('Informe a senha.','error'); return }
+    try {
+      if (form.id) await PUT(`/usuarios/${form.id}`, form)
+      else await POST('/usuarios', form)
+      addToast(form.id?'Atualizado!':'Criado!','success'); setModal(null); load()
+    } catch(e) { addToast(e.message,'error') }
+  }
+  const excluir = async u => {
+    if (!confirm(`Excluir "${u.nome}" (${u.email})?\n\nEsta ação não pode ser desfeita.`)) return
+    try { await DEL(`/usuarios/${u.id}`); addToast('Usuário excluído.','success'); load() }
+    catch(e) { addToast(e.message,'error') }
+  }
+  const filtrados = lista.filter(u => !filtroRole || u.role === filtroRole)
+  return (
+    <div>
+      <div className="topbar"><h2>Usuários</h2><button className="btn btn-accent" onClick={()=>{setForm({role:'operario',ativo:true});setModal('form')}}>+ Novo</button></div>
+      <div className="card">
+        <div className="card-body" style={{paddingBottom:0}}>
+          <select value={filtroRole} onChange={e=>setFiltroRole(e.target.value)} style={{width:'auto',marginBottom:16}}>
+            <option value="">Todos</option><option value="lider">Líder</option><option value="operario">Operário</option>
+          </select>
+        </div>
+        <div className="table-wrap"><table>
+          <thead><tr><th>Nome / Empresa</th><th>Email</th><th>CPF/CNPJ</th><th>Cargo</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            {filtrados.map(u=>(
+              <tr key={u.id}>
+                <td><strong>{u.nome}</strong>{u.empresa&&<><br/><span className="text-muted">{u.empresa}</span></>}</td>
+                <td>{u.email}</td>
+                <td>{u.cpf_cnpj||'—'}</td>
+                <td>{u.cargo||'—'}</td>
+                <td><span className={`badge badge-${u.role}`}>{ROLE_LABEL[u.role]}</span></td>
+                <td><span className={`badge ${u.ativo?'badge-ativa':'badge-devolvida'}`}>{u.ativo?'Ativo':'Inativo'}</span></td>
+                <td><div className="actions">
+                  <button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...u,senha:''});setModal('form')}}><Icon name="edit" size={14}/></button>
+                  {u.role !== 'almoxarifado' && <button className="btn btn-danger btn-sm" onClick={()=>excluir(u)}><Icon name="trash" size={14}/></button>}
+                </div></td>
+              </tr>
+            ))}
+            {!filtrados.length && <tr><td colSpan="7"><div className="empty"><div className="empty-icon"><Icon name="worker" size={32}/></div><p>Nenhum usuário.</p></div></td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+      {modal === 'form' && (
+        <div className="modal-overlay open">
+          <div className="modal modal-lg">
+            <div className="modal-header"><h3>{form.id?'Editar':'Novo'} Usuário</h3><button className="modal-close" onClick={()=>setModal(null)}>×</button></div>
+            <div className="modal-body">
+              <div className="form-grid">
+                <div className="form-group"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
+                <div className="form-group"><label>Email *</label><input type="email" value={form.email||''} onChange={e=>setForm({...form,email:e.target.value})} disabled={!!form.id} /></div>
+                <div className="form-group"><label>Cargo</label><input value={form.cargo||''} onChange={e=>setForm({...form,cargo:e.target.value})} placeholder="Pedreiro, Eletricista..." /></div>
+                <div className="form-group"><label>Perfil</label>
+                  <select value={form.role||'operario'} onChange={e=>setForm({...form,role:e.target.value})} disabled={!!form.id}>
+                    <option value="lider">Líder</option><option value="operario">Operário</option>
+                  </select>
+                </div>
+                <div className="form-group"><label>{form.id?'Nova senha (em branco = não altera)':'Senha *'}</label><input type="password" value={form.senha||''} onChange={e=>setForm({...form,senha:e.target.value})} placeholder="••••••••" /></div>
+                {form.id && <div className="form-group"><label>Status</label>
+                  <select value={form.ativo?'1':'0'} onChange={e=>setForm({...form,ativo:e.target.value==='1'})}>
+                    <option value="1">Ativo</option><option value="0">Inativo</option>
+                  </select>
+                </div>}
+                <div className="form-group"><label>CPF / CNPJ</label><input value={form.cpf_cnpj||''} onChange={e=>setForm({...form,cpf_cnpj:e.target.value})} placeholder="000.000.000-00" /></div>
+                <div className="form-group"><label>Empresa (razão social)</label><input value={form.empresa||''} onChange={e=>setForm({...form,empresa:e.target.value})} /></div>
+                <div className="form-group"><label>Telefone</label><input value={form.telefone||''} onChange={e=>setForm({...form,telefone:e.target.value})} placeholder="(21) 99999-9999" /></div>
+                <div className="form-group"><label>Endereço</label><input value={form.endereco||''} onChange={e=>setForm({...form,endereco:e.target.value})} /></div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={()=>setModal(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={save}>Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── AUDITORIA ────────────────────────────────────────────────────────────────
+function AuditoriaPage({ addToast }) {
+  const [logs, setLogs] = useState([])
+  const [busca, setBusca] = useState('')
+  const [resetModal, setResetModal] = useState(false)
+  const [resetConfirm, setResetConfirm] = useState('')
+  const [resetSenha, setResetSenha] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetErr, setResetErr] = useState('')
+  const [zerarQtdModal, setZerarQtdModal] = useState(false)
+  const [zerarQtdLoading, setZerarQtdLoading] = useState(false)
+  const [zerarQtdErr, setZerarQtdErr] = useState('')
+  useEffect(() => { GET('/auditoria').then(setLogs) }, [])
+  const ACAO_ICON = { LOGIN:'key', CRIAR_SOLICITACAO:'clipboard', SOLICITACAO_SEPARANDO:'package', SOLICITACAO_PRONTA:'checkCircle', CANCELAR_SOLICITACAO:'x', RETIRADA_CAUTELA:'signature', DEVOLVER_CAUTELA:'download', ENTREGA_OPERARIO:'send', DEVOLUCAO_ENTREGA:'download', SOLICITAR_EMPRESTIMO:'handshake', CONFIRMAR_EMPRESTIMO:'checkCircle', RECUSAR_EMPRESTIMO:'x', AVAL_LIDER_EMPRESTIMO:'signature', DEVOLVER_EMPRESTIMO:'download', CRIAR_FERRAMENTA:'wrench', EDITAR_FERRAMENTA:'edit', EXCLUIR_FERRAMENTA:'trash', CRIAR_USUARIO:'worker', EDITAR_USUARIO:'edit', CRIAR_BOLSA:'backpack', EDITAR_BOLSA:'edit', VER_TERMO:'fileText', RESET_TRANSACIONAL:'alertTriangle' }
+  const filtrados = logs.filter(l => !busca || (l.usuario_nome||'').toLowerCase().includes(busca.toLowerCase()) || l.acao.toLowerCase().includes(busca.toLowerCase()))
+
+  async function zerarQuantidades() {
+    setZerarQtdLoading(true); setZerarQtdErr('')
+    try {
+      const r = await POST('/admin/zerar-quantidades', {})
+      setZerarQtdModal(false)
+      addToast(`Quantidades zeradas em ${r.alteradas} ferramenta(s). Atualize o estoque real.`, 'success')
+    } catch(e) { setZerarQtdErr(e.message) }
+    finally { setZerarQtdLoading(false) }
+  }
+
+  async function executarReset() {
+    if (resetConfirm !== 'CONFIRMAR RESET') { setResetErr('Digite exatamente: CONFIRMAR RESET'); return }
+    if (!resetSenha) { setResetErr('Informe a senha do gestor'); return }
+    setResetLoading(true); setResetErr('')
+    try {
+      await POST('/admin/reset-transacional', { confirmacao: resetConfirm, senha_gestor: resetSenha })
+      setResetModal(false); setResetConfirm(''); setResetSenha(''); setLogs([])
+      addToast('Sistema zerado com sucesso. Pronto para uso real.', 'success')
+    } catch(e) {
+      setResetErr(e.message)
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="topbar">
+        <h2>Auditoria</h2>
+        <button className="btn btn-ghost btn-sm" onClick={async ()=>{
+          try {
+            const res = await fetch('/api/admin/backup', { headers: { Authorization: `Bearer ${token.value}` } })
+            if (!res.ok) { const d = await res.json(); alert(d.error || 'Erro ao baixar backup'); return }
+            const blob = await res.blob()
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `cautela-backup-${new Date().toISOString().slice(0,10)}.db`
+            a.click(); URL.revokeObjectURL(url)
+          } catch(e) { alert('Erro: ' + e.message) }
+        }} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Baixar Backup</button>
+        <button className="btn btn-ghost btn-sm" style={{borderColor:'var(--warning)',color:'var(--warning)',display:'inline-flex',alignItems:'center',gap:6}} onClick={()=>{setZerarQtdModal(true);setZerarQtdSenha('');setZerarQtdErr('')}}><Icon name="package" size={14}/> Zerar Quantidades</button>
+        <button className="btn btn-danger btn-sm" onClick={()=>{setResetModal(true);setResetConfirm('');setResetErr('')}} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={14}/> Zerar Dados de Teste</button>
+      </div>
+
+      {zerarQtdModal && (
+        <div className="modal-overlay open">
+          <div className="modal modal-sm">
+            <div className="modal-header"><h3 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="package" size={17}/> Zerar Quantidades</h3><button className="modal-close" onClick={()=>setZerarQtdModal(false)}>×</button></div>
+            <div className="modal-body">
+              <div className="alert alert-warning" style={{marginBottom:16}}>
+                Vai setar <strong>quantidade = 0</strong> em todas as ferramentas <strong>sem código de patrimônio</strong>.<br/>
+                Ferramentas patrimoniais (<Icon name="lock" size={11}/>) não serão afetadas.<br/>
+                Após isso, edite cada ferramenta com o estoque real.
+              </div>
+              {zerarQtdErr && <div className="alert alert-error" style={{marginTop:10}}>{zerarQtdErr}</div>}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={()=>setZerarQtdModal(false)}>Cancelar</button>
+              <button className="btn btn-danger" onClick={zerarQuantidades} disabled={zerarQtdLoading}>{zerarQtdLoading?'Zerando...':<span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="package" size={14}/> Confirmar</span>}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resetModal && (
+        <div className="modal-overlay open">
+          <div className="modal modal-sm">
+            <div className="modal-header"><h3 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={17}/> Zerar Dados Transacionais</h3><button className="modal-close" onClick={()=>{setResetModal(false);setResetSenha('');setResetConfirm('')}}>×</button></div>
+            <div className="modal-body">
+              <div className="alert alert-error" style={{marginBottom:16}}>
+                <strong>Ação irreversível.</strong> Serão apagados permanentemente:<br/>
+                Todas as solicitações, cautelas, empréstimos e auditoria.<br/>
+                <strong>Ferramentas e usuários serão mantidos.</strong>
+              </div>
+              <div className="form-group" style={{marginBottom:14}}>
+                <label>Senha do Gestor</label>
+                <input type="password" value={resetSenha} onChange={e=>setResetSenha(e.target.value)} placeholder="Senha exclusiva do gestor" />
+              </div>
+              <div className="form-group">
+                <label>Digite exatamente para confirmar:</label>
+                <p style={{fontFamily:'monospace',fontWeight:700,margin:'4px 0 8px',fontSize:'1rem',color:'var(--danger)'}}>CONFIRMAR RESET</p>
+                <input value={resetConfirm} onChange={e=>setResetConfirm(e.target.value)} placeholder="CONFIRMAR RESET" />
+              </div>
+              {resetErr && <div className="alert alert-error" style={{marginTop:10}}>{resetErr}</div>}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={()=>setResetModal(false)}>Cancelar</button>
+              <button className="btn btn-danger" onClick={executarReset} disabled={resetLoading}>{resetLoading?'Zerando...':<span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={14}/> Confirmar Reset</span>}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="card">
+        <div className="card-body" style={{paddingBottom:0}}>
+          <input placeholder="Buscar..." value={busca} onChange={e=>setBusca(e.target.value)} style={{maxWidth:340,marginBottom:16}} />
+        </div>
+        <div className="table-wrap"><table>
+          <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhe</th></tr></thead>
+          <tbody>
+            {filtrados.map(l=>(
+              <tr key={l.id}>
+                <td className="text-muted" style={{fontSize:'.8rem',whiteSpace:'nowrap'}}>{(l.criado_em||'').replace('T',' ').slice(0,16)}</td>
+                <td>{l.usuario_nome||'—'}{l.usuario_role&&<><br/><span className={`badge badge-${l.usuario_role}`} style={{fontSize:'.7rem'}}>{ROLE_LABEL[l.usuario_role]}</span></>}</td>
+                <td><span style={{marginRight:6,display:'inline-flex',verticalAlign:'middle',color:'var(--text-secondary)'}}>{ACAO_ICON[l.acao] ? <Icon name={ACAO_ICON[l.acao]} size={14}/> : '•'}</span>{l.acao}</td>
+                <td className="text-muted" style={{fontSize:'.82rem',maxWidth:220}}>{l.detalhe ? (typeof l.detalhe==='string'&&l.detalhe.startsWith('{') ? JSON.stringify(JSON.parse(l.detalhe),null,0).slice(0,80) : l.detalhe) : '—'}</td>
+              </tr>
+            ))}
+            {!filtrados.length && <tr><td colSpan="4"><div className="empty"><div className="empty-icon"><Icon name="history" size={32}/></div><p>Sem registros.</p></div></td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ÍCONES (SVG inline — substituem emoji na navegação por consistência visual
+// entre sistemas operacionais; emoji renderiza diferente em Windows/Mac/Android
+// e passa impressão amadora, o que pesa contra o produto no primeiro contato) ──
+const ICON_PATHS = {
+  dashboard: <><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></>,
+  clipboard: <><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/></>,
+  plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+  package: <><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><line x1="12" y1="13" x2="12" y2="21"/></>,
+  backpack: <><path d="M6 8a6 6 0 0112 0v11a2 2 0 01-2 2H8a2 2 0 01-2-2V8z"/><path d="M9 8V6a3 3 0 016 0v2"/><line x1="9" y1="13" x2="15" y2="13"/></>,
+  exchange: <><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></>,
+  wrench: <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>,
+  users: <><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></>,
+  history: <><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/><polyline points="12 7 12 12 16 14"/></>,
+  logout: <><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
+  eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
+  edit: <><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+  check: <polyline points="20 6 9 17 4 12"/>,
+  checkCircle: <><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>,
+  signature: <><path d="M3 17s3-1 5-4 3-6 5-6 1 5 3 7 5-1 5-1"/><line x1="3" y1="21" x2="21" y2="21"/></>,
+  worker: <><circle cx="12" cy="8" r="3"/><path d="M4 21v-2a6 6 0 0112 0v2"/><path d="M2 10l10-5 10 5"/></>,
+  trash: <><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/></>,
+  x: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+  send: <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
+  download: <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
+  inbox: <><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></>,
+  fileText: <><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>,
+  alertTriangle: <><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>,
+  lock: <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>,
+  save: <><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>,
+  undo: <path d="M3 7v6h6"/>,
+  handshake: <><path d="M11 17l-1.5-1.5a2.12 2.12 0 010-3l4-4a2.12 2.12 0 013 0l1 1"/><path d="M13 19l6-6"/><path d="M2 12l5-5 3 3-5 5z"/><path d="M22 12l-5 5-3-3 5-5z"/></>,
+  search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+  eyeOff: <><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a18.5 18.5 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>,
+  key: <><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></>,
+}
+function Icon({ name, size=20 }) {
+  const path = ICON_PATHS[name]
+  if (!path) return null
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+      {path}
+    </svg>
+  )
+}
+
+// ─── SIDEBAR ──────────────────────────────────────────────────────────────────
+function Sidebar({ user, page, navigate, onLogout, notif }) {
+  const alm = user.role === 'almoxarifado'
+  const lider = user.role === 'lider'
+  const items = [
+    { id: 'dashboard', icon: 'dashboard', label: 'Painel', show: true },
+    { id: 'solicitacoes', icon: 'clipboard', label: 'Solicitações', show: alm || lider, badge: alm ? ((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)) : (notif.sol_prontas||0) },
+    { id: 'nova-solicitacao', icon: 'plus', label: 'Nova Solicitação', show: lider },
+    { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || user.role==='operario' },
+    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: true, badge: user.role==='operario'?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
+    { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
+    { id: 'bolsas', icon: 'backpack', label: 'Bolsas / Kits', show: alm },
+    { id: 'usuarios', icon: 'users', label: 'Usuários', show: alm },
+    { id: 'auditoria', icon: 'history', label: 'Auditoria', show: alm },
+  ].filter(i => i.show)
+  return (
+    <div className="sidebar">
+      <div className="sidebar-header">
+        <div className="sidebar-logo">
+          {empresaInfo.logoUrl && <img src={empresaInfo.logoUrl} alt={empresaInfo.nome} style={{maxWidth:36,maxHeight:36,borderRadius:6}} />}
+          <div><h2>Cautelix</h2><p>{empresaInfo.nome}</p></div>
+        </div>
+      </div>
+      <div className="sidebar-user">
+        <div className="name">{user.nome}</div>
+        <div className="role">{ROLE_LABEL[user.role]}{(user.cargo && user.cargo.trim().toLowerCase() !== ROLE_LABEL[user.role].toLowerCase()) ? ` — ${user.cargo}` : ''}</div>
+        <div style={{fontSize:'.7rem',color:'rgba(255,255,255,.45)',marginTop:4,wordBreak:'break-all'}}>{user.email}</div>
+      </div>
+      <nav className="sidebar-nav">
+        {items.map(item=>(
+          <button key={item.id} className={`nav-item ${page===item.id?'active':''}`} onClick={()=>navigate(item.id)}>
+            <span className="nav-icon"><Icon name={item.icon} size={18}/></span>
+            {item.label}
+            {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
+          </button>
+        ))}
+      </nav>
+      <div className="sidebar-footer"><button className="btn-logout" onClick={onLogout}><Icon name="logout" size={16}/> Sair</button></div>
+    </div>
+  )
+}
+
+// ─── BOTTOM NAV ───────────────────────────────────────────────────────────────
+function BottomNav({ user, page, navigate, notif }) {
+  const alm = user.role === 'almoxarifado'
+  const lider = user.role === 'lider'
+  const op = user.role === 'operario'
+  const items = [
+    { id: 'dashboard', icon: 'dashboard', label: 'Painel' },
+    { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider },
+    { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||op },
+    { id: 'emprestimos', icon: 'exchange', label: 'Emprést.', badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
+    { id: 'ferramentas', icon: 'wrench', label: 'Ferrament.', show: alm },
+  ].filter(i => i.show !== false).slice(0,5)
+  return (
+    <nav className="bottom-nav">
+      <div className="bottom-nav-inner">
+        {items.map(item=>(
+          <button key={item.id} className={`bottom-nav-btn ${page===item.id?'active':''}`} onClick={()=>navigate(item.id)}>
+            <span className="bn-icon"><Icon name={item.icon} size={20}/></span>
+            <span>{item.label}</span>
+            {item.badge > 0 && <span className="bn-badge">{item.badge}</span>}
+          </button>
+        ))}
+      </div>
+    </nav>
+  )
+}
+
+// ─── APP ROOT ─────────────────────────────────────────────────────────────────
+function App() {
+  const [user, setUser] = useState(null)
+  const [page, setPage] = useState('dashboard')
+  const [toasts, setToasts] = useState([])
+  const [checking, setChecking] = useState(true)
+  const [notif, setNotif] = useState({})
+
+  const addToast = useCallback((msg, type='success') => {
+    const id = Date.now()
+    setToasts(t => [...t, {id, msg, type}])
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500)
+  }, [])
+
+  useEffect(() => {
+    if (token.value) {
+      GET('/auth/me').then(u => { setUser(u); setChecking(false) })
+        .catch(() => { token.value = null; localStorage.removeItem('cf_token'); setChecking(false) })
+    } else setChecking(false)
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+    let prev = {}
+    const load = () => GET('/notificacoes').then(n => {
+      // Toast para líder quando solicitação fica pronta
+      if (user.role === 'lider') {
+        const curr = n.sol_prontas || 0
+        const ante = prev.sol_prontas || 0
+        if (curr > 0 && curr !== ante) addToast(`${curr} solicitação(ões) pronta(s) para retirada!`, 'warning')
+      }
+      // Toast para operário quando tem empréstimo aguardando confirmação
+      if (user.role === 'operario') {
+        const curr = n.emprestimos_aguardando_confirmacao || 0
+        const ante = prev.emprestimos_aguardando_confirmacao || 0
+        if (curr > ante) addToast(`Você tem ${curr} empréstimo(s) aguardando sua confirmação`, 'warning')
+      }
+      prev = n
+      setNotif(n)
+    }).catch(()=>{})
+    load()
+    const interval = setInterval(load, 30000)
+    return () => clearInterval(interval)
+  }, [user])
+
+  const navigate = p => setPage(p)
+  const logout = () => { token.value = null; localStorage.removeItem('cf_token'); setUser(null); setPage('dashboard') }
+
+  if (checking) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',fontSize:'1.2rem',color:'#6b7280'}}>Carregando...</div>
+  if (!user) return <LoginPage onLogin={u=>{ setUser(u); setPage('dashboard') }} />
+  if (user.primeiro_acesso) return <PrimeiroAcessoPage user={user} onConcluido={u=>setUser(u)} />
+
+  const props = { user, navigate, addToast }
+  const renderPage = () => {
+    if (page === 'dashboard') return <Dashboard {...props} />
+    if (page === 'solicitacoes') return <SolicitacoesPage {...props} />
+    if (page === 'nova-solicitacao') return <NovaSolicitacaoPage {...props} />
+    if (page === 'cautelas') return <CautelasPage {...props} />
+    if (page === 'emprestimos') return <EmprestimosPage {...props} />
+    if (page === 'ferramentas') return <FerramentasPage {...props} />
+    if (page === 'bolsas') return <BolsasPage {...props} />
+    if (page === 'usuarios') return <UsuariosPage {...props} />
+    if (page === 'auditoria') return <AuditoriaPage {...props} />
+    return <div style={{padding:24}}>Página não encontrada.</div>
+  }
+
+  return (
+    <div className="layout">
+      <Sidebar user={user} page={page} navigate={navigate} onLogout={logout} notif={notif} />
+      <div className="main-content">{renderPage()}</div>
+      <BottomNav user={user} page={page} navigate={navigate} notif={notif} />
+      <Toast toasts={toasts} />
+    </div>
+  )
+}
+
+function startApp() {
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+}
+// Busca o nome real da empresa antes de renderizar (usado em termos legais e avisos);
+// se falhar, segue com o valor genérico padrão em vez de travar o carregamento.
+fetch('/api/empresa').then(r => r.json()).then(e => {
+  if (e && e.nome) empresaInfo.nome = e.nome
+  if (e && e.logoUrl) empresaInfo.logoUrl = e.logoUrl
+}).catch(() => {}).finally(startApp)
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(r => console.log('SW:', r.scope))
+      .catch(e => console.warn('SW falhou:', e))
+  })
+}
+</script>
+</body>
+</html>

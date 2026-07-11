@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Ferramentas</title>
+<style>
+  :root {
+    --primary: #1a73e8;
+    --primary-dark: #1557b0;
+    --success: #2e7d32;
+    --warning: #f57c00;
+    --danger: #c62828;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --border: #e0e0e0;
+    --text: #212121;
+    --text-secondary: #616161;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--primary);
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  header h1 { font-size: 1.3rem; font-weight: 600; }
+  header span { font-size: 1.5rem; }
+
+  nav {
+    display: flex;
+    gap: 0;
+    background: white;
+    border-bottom: 2px solid var(--border);
+    overflow-x: auto;
+    padding: 0 16px;
+  }
+
+  nav button {
+    background: none;
+    border: none;
+    padding: 14px 20px;
+    font-size: .93rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    transition: all .2s;
+  }
+
+  nav button.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  nav button:hover:not(.active) {
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .page-header h2 { font-size: 1.2rem; font-weight: 600; }
+
+  /* Cards de estatísticas */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .stat-card .label { font-size: .82rem; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+  .stat-card .value { font-size: 2rem; font-weight: 700; line-height: 1; }
+  .stat-card.blue .value { color: var(--primary); }
+  .stat-card.green .value { color: var(--success); }
+  .stat-card.orange .value { color: var(--warning); }
+
+  /* Botões */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: .9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all .2s;
+  }
+
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-success { background: var(--success); color: white; }
+  .btn-success:hover { background: #1b5e20; }
+  .btn-danger { background: var(--danger); color: white; font-size: .82rem; padding: 6px 12px; }
+  .btn-danger:hover { background: #8d1a1a; }
+  .btn-outline { background: white; color: var(--primary); border: 1.5px solid var(--primary); }
+  .btn-outline:hover { background: #e8f0fe; }
+  .btn-sm { padding: 5px 10px; font-size: .8rem; }
+
+  /* Formulários */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .card h3 { font-size: 1rem; margin-bottom: 16px; color: var(--text-secondary); font-weight: 600; }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: .83rem; font-weight: 500; color: var(--text-secondary); }
+
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    font-size: .92rem;
+    font-family: inherit;
+    color: var(--text);
+    background: white;
+    transition: border-color .2s;
+  }
+
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .form-group textarea { resize: vertical; min-height: 70px; }
+
+  /* Tabelas */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .9rem;
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    font-weight: 600;
+    background: var(--bg);
+  }
+
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f9fbff; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: .78rem;
+    font-weight: 600;
+  }
+
+  .badge-available { background: #e8f5e9; color: var(--success); }
+  .badge-out { background: #fff3e0; color: var(--warning); }
+  .badge-partial { background: #fff8e1; color: #f9a825; }
+  .badge-returned { background: #e8f5e9; color: var(--success); }
+  .badge-late { background: #ffebee; color: var(--danger); }
+  .badge-active { background: #e3f2fd; color: var(--primary); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-secondary);
+  }
+
+  .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty-state p { font-size: .95rem; }
+
+  /* Search */
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .search-bar input, .search-bar select {
+    padding: 8px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    font-size: .9rem;
+    font-family: inherit;
+  }
+
+  .search-bar input { flex: 1; min-width: 160px; }
+  .search-bar input:focus, .search-bar select:focus { outline: none; border-color: var(--primary); }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: white;
+    border-radius: var(--radius);
+    padding: 28px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.2);
+  }
+
+  .modal h3 { font-size: 1.1rem; margin-bottom: 20px; }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  .btn-cancel {
+    background: var(--bg);
+    color: var(--text);
+    border: none;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: .9rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .btn-cancel:hover { background: var(--border); }
+
+  /* Alert */
+  .alert {
+    display: none;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: .9rem;
+    margin-bottom: 16px;
+    font-weight: 500;
+  }
+
+  .alert.show { display: block; }
+  .alert-success { background: #e8f5e9; color: var(--success); border-left: 4px solid var(--success); }
+  .alert-error { background: #ffebee; color: var(--danger); border-left: 4px solid var(--danger); }
+
+  @media (max-width: 600px) {
+    main { padding: 16px; }
+    .card { padding: 16px; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span>🔧</span>
+  <h1>Controle de Ferramentas</h1>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('dashboard')">📊 Painel</button>
+  <button onclick="showTab('ferramentas')">🔩 Ferramentas</button>
+  <button onclick="showTab('emprestimos')">📤 Empréstimos</button>
+  <button onclick="showTab('historico')">📋 Histórico</button>
+</nav>
+
+<main>
+
+  <!-- PAINEL -->
+  <div id="tab-dashboard" class="section active">
+    <div class="stats-grid" id="stats-grid"></div>
+
+    <div class="card">
+      <h3>Empréstimos ativos</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ferramenta</th>
+              <th>Responsável</th>
+              <th>Saída</th>
+              <th>Prev. Devolução</th>
+              <th>Status</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="dashboard-ativos"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- FERRAMENTAS -->
+  <div id="tab-ferramentas" class="section">
+    <div class="page-header">
+      <h2>Ferramentas cadastradas</h2>
+      <button class="btn btn-primary" onclick="openModalFerramenta()">+ Cadastrar ferramenta</button>
+    </div>
+
+    <div id="alert-ferramenta" class="alert"></div>
+
+    <div class="search-bar">
+      <input type="text" id="search-ferramenta" placeholder="Buscar ferramenta..." oninput="renderFerramentas()">
+      <select id="filter-categoria" onchange="renderFerramentas()">
+        <option value="">Todas as categorias</option>
+      </select>
+    </div>
+
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Categoria</th>
+              <th>Qtd. Total</th>
+              <th>Disponível</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-ferramentas"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMPRÉSTIMOS -->
+  <div id="tab-emprestimos" class="section">
+    <div class="page-header">
+      <h2>Registrar empréstimo</h2>
+    </div>
+
+    <div id="alert-emprestimo" class="alert"></div>
+
+    <div class="card">
+      <h3>Novo empréstimo</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Ferramenta *</label>
+          <select id="emp-ferramenta">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantidade *</label>
+          <input type="number" id="emp-quantidade" min="1" value="1" placeholder="1">
+        </div>
+        <div class="form-group">
+          <label>Responsável *</label>
+          <input type="text" id="emp-responsavel" placeholder="Nome do responsável">
+        </div>
+        <div class="form-group">
+          <label>Setor / Obra</label>
+          <input type="text" id="emp-setor" placeholder="Ex: Manutenção, Obra A...">
+        </div>
+        <div class="form-group">
+          <label>Data de saída *</label>
+          <input type="date" id="emp-data-saida">
+        </div>
+        <div class="form-group">
+          <label>Previsão de devolução</label>
+          <input type="date" id="emp-data-prev">
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1">
+          <label>Observação</label>
+          <textarea id="emp-obs" placeholder="Condição da ferramenta, observações..."></textarea>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="registrarEmprestimo()">📤 Registrar saída</button>
+    </div>
+
+    <div class="card">
+      <h3>Registrar devolução</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Empréstimo ativo *</label>
+          <select id="dev-emprestimo">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data de devolução *</label>
+          <input type="date" id="dev-data">
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1">
+          <label>Observação de devolução</label>
+          <textarea id="dev-obs" placeholder="Condição na devolução, avarias..."></textarea>
+        </div>
+      </div>
+      <button class="btn btn-success" onclick="registrarDevolucao()">📥 Registrar devolução</button>
+    </div>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div id="tab-historico" class="section">
+    <div class="page-header">
+      <h2>Histórico de movimentações</h2>
+    </div>
+
+    <div class="search-bar">
+      <input type="text" id="search-historico" placeholder="Buscar por ferramenta ou responsável..." oninput="renderHistorico()">
+      <select id="filter-status-hist" onchange="renderHistorico()">
+        <option value="">Todos os status</option>
+        <option value="ativo">Ativos</option>
+        <option value="devolvido">Devolvidos</option>
+      </select>
+    </div>
+
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ferramenta</th>
+              <th>Qtd</th>
+              <th>Responsável</th>
+              <th>Setor</th>
+              <th>Saída</th>
+              <th>Devolução</th>
+              <th>Status</th>
+              <th>Obs</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-historico"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Modal Ferramenta -->
+<div class="modal-overlay" id="modal-ferramenta">
+  <div class="modal">
+    <h3 id="modal-title">Cadastrar ferramenta</h3>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column: 1 / -1">
+        <label>Nome *</label>
+        <input type="text" id="f-nome" placeholder="Ex: Furadeira de Impacto">
+      </div>
+      <div class="form-group">
+        <label>Categoria</label>
+        <input type="text" id="f-categoria" placeholder="Ex: Elétrica, Manual..." list="categorias-list">
+        <datalist id="categorias-list"></datalist>
+      </div>
+      <div class="form-group">
+        <label>Código / Patrimônio</label>
+        <input type="text" id="f-codigo" placeholder="Ex: FUR-001">
+      </div>
+      <div class="form-group">
+        <label>Quantidade total *</label>
+        <input type="number" id="f-quantidade" min="1" value="1">
+      </div>
+      <div class="form-group">
+        <label>Localização</label>
+        <input type="text" id="f-localizacao" placeholder="Ex: Almoxarifado, Prateleira B3">
+      </div>
+      <div class="form-group" style="grid-column: 1 / -1">
+        <label>Descrição</label>
+        <textarea id="f-descricao" placeholder="Marca, modelo, especificações..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-ferramenta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarFerramenta()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmar exclusão -->
+<div class="modal-overlay" id="modal-excluir">
+  <div class="modal">
+    <h3>⚠️ Confirmar exclusão</h3>
+    <p style="color:var(--text-secondary);margin-bottom:8px;">Tem certeza que deseja excluir esta ferramenta? Essa ação não pode ser desfeita.</p>
+    <p id="excluir-nome" style="font-weight:600;"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-excluir')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarExclusao()">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================
+// DADOS (localStorage)
+// =====================
+const DB = {
+  get ferramentas() { return JSON.parse(localStorage.getItem('cf_ferramentas') || '[]'); },
+  set ferramentas(v) { localStorage.setItem('cf_ferramentas', JSON.stringify(v)); },
+  get emprestimos() { return JSON.parse(localStorage.getItem('cf_emprestimos') || '[]'); },
+  set emprestimos(v) { localStorage.setItem('cf_emprestimos', JSON.stringify(v)); },
+};
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function fmt(dateStr) {
+  if (!dateStr) return '—';
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function today() { return new Date().toISOString().slice(0, 10); }
+
+function isAtrasado(previsao) {
+  if (!previsao) return false;
+  return previsao < today();
+}
+
+// Disponível de uma ferramenta
+function getDisponivel(ferramenta) {
+  const emUso = DB.emprestimos
+    .filter(e => e.status === 'ativo' && e.ferramentaId === ferramenta.id)
+    .reduce((s, e) => s + (e.quantidade || 1), 0);
+  return Math.max(0, (ferramenta.quantidade || 1) - emUso);
+}
+
+// =====================
+// ABAS
+// =====================
+function showTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('nav button')[['dashboard','ferramentas','emprestimos','historico'].indexOf(tab)].classList.add('active');
+  if (tab === 'dashboard') renderDashboard();
+  if (tab === 'ferramentas') renderFerramentas();
+  if (tab === 'emprestimos') renderEmprestimoForm();
+  if (tab === 'historico') renderHistorico();
+}
+
+// =====================
+// DASHBOARD
+// =====================
+function renderDashboard() {
+  const ferramentas = DB.ferramentas;
+  const emprestimos = DB.emprestimos;
+  const ativos = emprestimos.filter(e => e.status === 'ativo');
+  const totalFerramentas = ferramentas.reduce((s, f) => s + (f.quantidade || 1), 0);
+  const totalEmprestadas = ativos.reduce((s, e) => s + (e.quantidade || 1), 0);
+  const atrasados = ativos.filter(e => isAtrasado(e.dataPrevisao)).length;
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card blue">
+      <span class="label">Ferramentas cadastradas</span>
+      <span class="value">${ferramentas.length}</span>
+    </div>
+    <div class="stat-card orange">
+      <span class="label">Empréstimos ativos</span>
+      <span class="value">${ativos.length}</span>
+    </div>
+    <div class="stat-card green">
+      <span class="label">Disponíveis (unid.)</span>
+      <span class="value">${totalFerramentas - totalEmprestadas}</span>
+    </div>
+    <div class="stat-card ${atrasados > 0 ? 'orange' : 'green'}">
+      <span class="label">Devoluções atrasadas</span>
+      <span class="value" style="color:${atrasados > 0 ? 'var(--danger)' : 'var(--success)'}">${atrasados}</span>
+    </div>
+  `;
+
+  const tbody = document.getElementById('dashboard-ativos');
+  if (ativos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">✅</div><p>Nenhum empréstimo ativo.</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = ativos.map(e => {
+    const f = DB.ferramentas.find(f => f.id === e.ferramentaId);
+    const atrasado = isAtrasado(e.dataPrevisao);
+    return `<tr>
+      <td><strong>${f ? f.nome : '—'}</strong></td>
+      <td>${e.responsavel}</td>
+      <td>${fmt(e.dataSaida)}</td>
+      <td>${e.dataPrevisao ? fmt(e.dataPrevisao) : '—'}</td>
+      <td><span class="badge ${atrasado ? 'badge-late' : 'badge-active'}">${atrasado ? '⚠ Atrasado' : 'Ativo'}</span></td>
+      <td><button class="btn btn-success btn-sm" onclick="quickDevolucao('${e.id}')">📥 Devolver</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function quickDevolucao(id) {
+  showTab('emprestimos');
+  setTimeout(() => {
+    document.getElementById('dev-emprestimo').value = id;
+    document.getElementById('dev-data').value = today();
+  }, 50);
+}
+
+// =====================
+// FERRAMENTAS
+// =====================
+let editingId = null;
+let deletingId = null;
+
+function openModalFerramenta(id = null) {
+  editingId = id;
+  const modal = document.getElementById('modal-ferramenta');
+  document.getElementById('modal-title').textContent = id ? 'Editar ferramenta' : 'Cadastrar ferramenta';
+
+  if (id) {
+    const f = DB.ferramentas.find(f => f.id === id);
+    document.getElementById('f-nome').value = f.nome;
+    document.getElementById('f-categoria').value = f.categoria || '';
+    document.getElementById('f-codigo').value = f.codigo || '';
+    document.getElementById('f-quantidade').value = f.quantidade;
+    document.getElementById('f-localizacao').value = f.localizacao || '';
+    document.getElementById('f-descricao').value = f.descricao || '';
+  } else {
+    ['f-nome','f-categoria','f-codigo','f-localizacao','f-descricao'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-quantidade').value = 1;
+  }
+
+  modal.classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function salvarFerramenta() {
+  const nome = document.getElementById('f-nome').value.trim();
+  const quantidade = parseInt(document.getElementById('f-quantidade').value) || 1;
+  if (!nome) { alert('Informe o nome da ferramenta.'); return; }
+
+  const data = {
+    nome,
+    categoria: document.getElementById('f-categoria').value.trim(),
+    codigo: document.getElementById('f-codigo').value.trim(),
+    quantidade,
+    localizacao: document.getElementById('f-localizacao').value.trim(),
+    descricao: document.getElementById('f-descricao').value.trim(),
+  };
+
+  const ferramentas = DB.ferramentas;
+  if (editingId) {
+    const idx = ferramentas.findIndex(f => f.id === editingId);
+    ferramentas[idx] = { ...ferramentas[idx], ...data };
+  } else {
+    ferramentas.push({ id: uid(), ...data });
+  }
+  DB.ferramentas = ferramentas;
+
+  closeModal('modal-ferramenta');
+  showAlert('alert-ferramenta', editingId ? 'Ferramenta atualizada!' : 'Ferramenta cadastrada!', 'success');
+  renderFerramentas();
+}
+
+function excluirFerramenta(id) {
+  const f = DB.ferramentas.find(f => f.id === id);
+  deletingId = id;
+  document.getElementById('excluir-nome').textContent = f.nome;
+  document.getElementById('modal-excluir').classList.add('open');
+}
+
+function confirmarExclusao() {
+  const ferramentas = DB.ferramentas.filter(f => f.id !== deletingId);
+  DB.ferramentas = ferramentas;
+  closeModal('modal-excluir');
+  showAlert('alert-ferramenta', 'Ferramenta excluída.', 'success');
+  renderFerramentas();
+}
+
+function renderFerramentas() {
+  const q = (document.getElementById('search-ferramenta').value || '').toLowerCase();
+  const cat = document.getElementById('filter-categoria').value;
+
+  const ferramentas = DB.ferramentas;
+
+  // Atualiza categorias no filtro
+  const cats = [...new Set(ferramentas.map(f => f.categoria).filter(Boolean))].sort();
+  const sel = document.getElementById('filter-categoria');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todas as categorias</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  sel.value = current;
+
+  // Atualiza datalist
+  const dl = document.getElementById('categorias-list');
+  if (dl) dl.innerHTML = cats.map(c => `<option value="${c}">`).join('');
+
+  const filtered = ferramentas.filter(f => {
+    const matchQ = !q || f.nome.toLowerCase().includes(q) || (f.codigo || '').toLowerCase().includes(q);
+    const matchCat = !cat || f.categoria === cat;
+    return matchQ && matchCat;
+  });
+
+  const tbody = document.getElementById('tabela-ferramentas');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">🔩</div><p>${ferramentas.length === 0 ? 'Nenhuma ferramenta cadastrada ainda.' : 'Nenhuma ferramenta encontrada.'}</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(f => {
+    const disponivel = getDisponivel(f);
+    let statusBadge;
+    if (disponivel === 0) statusBadge = `<span class="badge badge-out">Indisponível</span>`;
+    else if (disponivel < f.quantidade) statusBadge = `<span class="badge badge-partial">Parcial</span>`;
+    else statusBadge = `<span class="badge badge-available">Disponível</span>`;
+
+    return `<tr>
+      <td>
+        <strong>${f.nome}</strong>
+        ${f.codigo ? `<br><small style="color:var(--text-secondary)">${f.codigo}</small>` : ''}
+        ${f.localizacao ? `<br><small style="color:var(--text-secondary)">📍 ${f.localizacao}</small>` : ''}
+      </td>
+      <td>${f.categoria || '—'}</td>
+      <td>${f.quantidade}</td>
+      <td><strong>${disponivel}</strong></td>
+      <td>${statusBadge}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-sm" onclick="openModalFerramenta('${f.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirFerramenta('${f.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// =====================
+// EMPRÉSTIMOS
+// =====================
+function renderEmprestimoForm() {
+  const ferramentas = DB.ferramentas;
+  const emp = document.getElementById('emp-ferramenta');
+  emp.innerHTML = '<option value="">Selecione...</option>' +
+    ferramentas.map(f => {
+      const disp = getDisponivel(f);
+      const disabled = disp === 0 ? 'disabled' : '';
+      return `<option value="${f.id}" ${disabled}>${f.nome}${disp === 0 ? ' (indisponível)' : ` (${disp} disp.)`}</option>`;
+    }).join('');
+
+  if (!document.getElementById('emp-data-saida').value)
+    document.getElementById('emp-data-saida').value = today();
+
+  renderSelectDevolucao();
+}
+
+function renderSelectDevolucao() {
+  const ativos = DB.emprestimos.filter(e => e.status === 'ativo');
+  const sel = document.getElementById('dev-emprestimo');
+  sel.innerHTML = '<option value="">Selecione...</option>' +
+    ativos.map(e => {
+      const f = DB.ferramentas.find(f => f.id === e.ferramentaId);
+      const atrasado = isAtrasado(e.dataPrevisao) ? ' ⚠' : '';
+      return `<option value="${e.id}">${f ? f.nome : '?'} — ${e.responsavel} (${fmt(e.dataSaida)})${atrasado}</option>`;
+    }).join('');
+
+  if (!document.getElementById('dev-data').value)
+    document.getElementById('dev-data').value = today();
+}
+
+function registrarEmprestimo() {
+  const ferramentaId = document.getElementById('emp-ferramenta').value;
+  const quantidade = parseInt(document.getElementById('emp-quantidade').value) || 1;
+  const responsavel = document.getElementById('emp-responsavel').value.trim();
+  const setor = document.getElementById('emp-setor').value.trim();
+  const dataSaida = document.getElementById('emp-data-saida').value;
+  const dataPrevisao = document.getElementById('emp-data-prev').value;
+  const obs = document.getElementById('emp-obs').value.trim();
+
+  if (!ferramentaId) { showAlert('alert-emprestimo', 'Selecione uma ferramenta.', 'error'); return; }
+  if (!responsavel) { showAlert('alert-emprestimo', 'Informe o nome do responsável.', 'error'); return; }
+  if (!dataSaida) { showAlert('alert-emprestimo', 'Informe a data de saída.', 'error'); return; }
+
+  const f = DB.ferramentas.find(f => f.id === ferramentaId);
+  const disp = getDisponivel(f);
+  if (quantidade > disp) {
+    showAlert('alert-emprestimo', `Quantidade indisponível. Disponível: ${disp}.`, 'error');
+    return;
+  }
+
+  const emprestimos = DB.emprestimos;
+  emprestimos.push({
+    id: uid(),
+    ferramentaId,
+    quantidade,
+    responsavel,
+    setor,
+    dataSaida,
+    dataPrevisao,
+    obs,
+    status: 'ativo',
+    criadoEm: new Date().toISOString(),
+  });
+  DB.emprestimos = emprestimos;
+
+  // Limpa form
+  ['emp-responsavel','emp-setor','emp-obs','emp-data-prev'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('emp-ferramenta').value = '';
+  document.getElementById('emp-quantidade').value = 1;
+  document.getElementById('emp-data-saida').value = today();
+
+  showAlert('alert-emprestimo', `Saída registrada com sucesso!`, 'success');
+  renderEmprestimoForm();
+}
+
+function registrarDevolucao() {
+  const empId = document.getElementById('dev-emprestimo').value;
+  const dataDevolucao = document.getElementById('dev-data').value;
+  const obs = document.getElementById('dev-obs').value.trim();
+
+  if (!empId) { showAlert('alert-emprestimo', 'Selecione um empréstimo ativo.', 'error'); return; }
+  if (!dataDevolucao) { showAlert('alert-emprestimo', 'Informe a data de devolução.', 'error'); return; }
+
+  const emprestimos = DB.emprestimos;
+  const idx = emprestimos.findIndex(e => e.id === empId);
+  emprestimos[idx].status = 'devolvido';
+  emprestimos[idx].dataDevolucao = dataDevolucao;
+  emprestimos[idx].obsDevolucao = obs;
+  DB.emprestimos = emprestimos;
+
+  document.getElementById('dev-emprestimo').value = '';
+  document.getElementById('dev-data').value = today();
+  document.getElementById('dev-obs').value = '';
+
+  showAlert('alert-emprestimo', 'Devolução registrada com sucesso!', 'success');
+  renderEmprestimoForm();
+}
+
+// =====================
+// HISTÓRICO
+// =====================
+function renderHistorico() {
+  const q = (document.getElementById('search-historico').value || '').toLowerCase();
+  const statusFiltro = document.getElementById('filter-status-hist').value;
+
+  let lista = DB.emprestimos.slice().reverse();
+  if (q) {
+    lista = lista.filter(e => {
+      const f = DB.ferramentas.find(f => f.id === e.ferramentaId);
+      return (f && f.nome.toLowerCase().includes(q)) || e.responsavel.toLowerCase().includes(q) || (e.setor || '').toLowerCase().includes(q);
+    });
+  }
+  if (statusFiltro) lista = lista.filter(e => e.status === statusFiltro);
+
+  const tbody = document.getElementById('tabela-historico');
+  if (lista.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div><p>Nenhum registro encontrado.</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = lista.map(e => {
+    const f = DB.ferramentas.find(f => f.id === e.ferramentaId);
+    const atrasado = e.status === 'ativo' && isAtrasado(e.dataPrevisao);
+    let badge;
+    if (e.status === 'devolvido') badge = `<span class="badge badge-returned">Devolvido</span>`;
+    else if (atrasado) badge = `<span class="badge badge-late">⚠ Atrasado</span>`;
+    else badge = `<span class="badge badge-active">Ativo</span>`;
+
+    const obsCombinado = [e.obs, e.obsDevolucao].filter(Boolean).join(' | ') || '—';
+
+    return `<tr>
+      <td><strong>${f ? f.nome : '—'}</strong></td>
+      <td>${e.quantidade || 1}</td>
+      <td>${e.responsavel}</td>
+      <td>${e.setor || '—'}</td>
+      <td>${fmt(e.dataSaida)}</td>
+      <td>${e.dataDevolucao ? fmt(e.dataDevolucao) : (e.dataPrevisao ? 'Prev: ' + fmt(e.dataPrevisao) : '—')}</td>
+      <td>${badge}</td>
+      <td style="max-width:180px;white-space:normal;font-size:.82rem;color:var(--text-secondary)">${obsCombinado}</td>
+    </tr>`;
+  }).join('');
+}
+
+// =====================
+// UTILITÁRIOS
+// =====================
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `alert show alert-${type}`;
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+// Fechar modal clicando fora
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// =====================
+// INIT
+// =====================
+renderDashboard();
+</script>
+</body>
+</html>

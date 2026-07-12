@@ -15,14 +15,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
-:root{--primary:#1A2535;--primary-light:#2E3F55;--primary-accent:#4A90A4;--silver:#8A9BB0;--silver-light:#C4CDD8;--accent:#A07C4E;--accent-dark:#8B6B3D;--success:#2E7D6B;--danger:#7A2E2E;--warning:#B8860B;--bg:#E8ECF0;--card:#F6F8FA;--border:#C4CDD8;--text:#0F1820;--text-secondary:#6B7B8F;--sidebar-w:240px;--bottom-nav-h:60px}
+:root{--primary:#1A2535;--primary-light:#2E3F55;--primary-accent:#4A90A4;--silver:#8A9BB0;--silver-light:#C4CDD8;--accent:#A07C4E;--accent-dark:#8B6B3D;--success:#2E7D6B;--danger:#7A2E2E;--warning:#B8860B;--bg:#E8ECF0;--card:#F6F8FA;--border:#C4CDD8;--text:#0F1820;--text-secondary:#566475;--sidebar-w:240px;--bottom-nav-h:60px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 #root{display:flex;flex-direction:column;min-height:100vh}
 .login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--primary) 0%,#0F1820 100%)}
 .login-box{background:white;border-radius:16px;padding:48px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .login-logo{text-align:center;margin-bottom:32px}
-.login-logo .icon{font-size:3rem;display:block;margin-bottom:8px}
+.login-logo .brand-mark{width:56px;height:56px;border-radius:15px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(140deg,var(--primary-accent),var(--primary));box-shadow:0 8px 20px rgba(26,37,53,.32)}
 .login-logo h1{color:var(--primary);font-size:1.5rem;font-weight:700}
 .layout{display:flex;min-height:100vh}
 .sidebar{width:var(--sidebar-w);background:var(--primary);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:50;transition:transform .3s}
@@ -427,7 +427,14 @@ function LoginPage({ onLogin }) {
     <div className="login-page">
       <div className="login-box">
         <div className="login-logo">
-          {empresaInfo.logoUrl && <img src={empresaInfo.logoUrl} alt={empresaInfo.nome} style={{maxWidth:160,maxHeight:70,marginBottom:8}} />}
+          {empresaInfo.logoUrl
+            ? <img src={empresaInfo.logoUrl} alt={empresaInfo.nome} style={{maxWidth:160,maxHeight:70,marginBottom:8}} />
+            : <div className="brand-mark" aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2.5l7.5 2.8v5.4c0 4.2-3 7.4-7.5 8.4-4.5-1-7.5-4.2-7.5-8.4V5.3L12 2.5z"/>
+                  <path d="M14.4 8.6a2.2 2.2 0 00-2.8 2.8l-2.7 2.7 1.3 1.3 2.7-2.7a2.2 2.2 0 002.8-2.8l-1.4 1.4-1.3-1.3 1.4-1.4z" fill="#fff" stroke="none"/>
+                </svg>
+              </div>}
           <h1 style={{fontWeight:800,letterSpacing:'.01em'}}>Cautelix</h1>
           <p style={{marginTop:4,fontSize:'.8rem',color:'#9ca3af'}}>{empresaInfo.nome} — Controle de Ferramentas</p>
         </div>
@@ -2153,7 +2160,7 @@ function AuditoriaPage({ addToast }) {
               <tr key={l.id}>
                 <td className="text-muted" style={{fontSize:'.8rem',whiteSpace:'nowrap'}}>{(l.criado_em||'').replace('T',' ').slice(0,16)}</td>
                 <td>{l.usuario_nome||'—'}{l.usuario_role&&<><br/><span className={`badge badge-${l.usuario_role}`} style={{fontSize:'.7rem'}}>{ROLE_LABEL[l.usuario_role]}</span></>}</td>
-                <td><span style={{marginRight:6,display:'inline-flex',verticalAlign:'middle',color:'var(--text-secondary)'}}>{ACAO_ICON[l.acao] ? <Icon name={ACAO_ICON[l.acao]} size={14}/> : '•'}</span>{l.acao}</td>
+                <td><span style={{marginRight:6,display:'inline-flex',verticalAlign:'middle',color:'var(--text-secondary)'}}>{ACAO_ICON[l.acao] ? <Icon name={ACAO_ICON[l.acao]} size={14}/> : <Icon name="fileText" size={14}/>}</span>{l.acao}</td>
                 <td className="text-muted" style={{fontSize:'.82rem',maxWidth:220}}>{l.detalhe ? (typeof l.detalhe==='string'&&l.detalhe.startsWith('{') ? JSON.stringify(JSON.parse(l.detalhe),null,0).slice(0,80) : l.detalhe) : '—'}</td>
               </tr>
             ))}

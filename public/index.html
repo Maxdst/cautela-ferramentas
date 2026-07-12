@@ -511,15 +511,15 @@ function Dashboard({ user, navigate, addToast }) {
       )}
       <div className="card">
         <div className="card-header"><span className="card-title">Solicitações recentes</span><button className="btn btn-outline btn-sm" onClick={()=>navigate('solicitacoes')}>Ver todas</button></div>
-        <div className="table-wrap"><table>
+        <div className="table-wrap"><table className="cards-mobile">
           <thead><tr><th>Número</th><th>Líder</th><th>Data</th><th>Status</th></tr></thead>
           <tbody>
             {(stats.solicitacoes_recentes||[]).map(s=>(
               <tr key={s.id}>
-                <td className="fw-bold">{s.numero}</td>
-                <td>{s.lider_nome}</td>
-                <td>{fmt(s.criado_em)}</td>
-                <td><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+                <td className="fw-bold" data-label="Número">{s.numero}</td>
+                <td data-label="Líder">{s.lider_nome}</td>
+                <td data-label="Data">{fmt(s.criado_em)}</td>
+                <td data-label="Status"><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
               </tr>
             ))}
             {!(stats.solicitacoes_recentes||[]).length && <tr><td colSpan="4" className="text-muted" style={{textAlign:'center',padding:20}}>Nenhuma solicitação ainda.</td></tr>}
@@ -559,14 +559,14 @@ function Dashboard({ user, navigate, addToast }) {
       </div>
       <div className="card">
         <div className="card-header"><span className="card-title">Minhas solicitações</span><button className="btn btn-outline btn-sm" onClick={()=>navigate('solicitacoes')}>Ver todas</button></div>
-        <div className="table-wrap"><table>
+        <div className="table-wrap"><table className="cards-mobile">
           <thead><tr><th>Número</th><th>Data</th><th>Status</th></tr></thead>
           <tbody>
             {(stats.minhas_solicitacoes||[]).map(s=>(
               <tr key={s.id}>
-                <td className="fw-bold">{s.numero}</td>
-                <td>{fmt(s.criado_em)}</td>
-                <td><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+                <td className="fw-bold" data-label="Número">{s.numero}</td>
+                <td data-label="Data">{fmt(s.criado_em)}</td>
+                <td data-label="Status"><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
               </tr>
             ))}
             {!(stats.minhas_solicitacoes||[]).length && <tr><td colSpan="3" className="text-muted" style={{textAlign:'center',padding:20}}>Nenhuma solicitação ainda.</td></tr>}
@@ -877,14 +877,14 @@ function SolicitacoesPage({ user, navigate, addToast }) {
       {historico.length > 0 && (
         <div className="card">
           <div className="card-header"><span className="card-title">Histórico</span></div>
-          <div className="table-wrap"><table>
+          <div className="table-wrap"><table className="cards-mobile">
             <thead><tr><th>Número</th><th>Líder</th><th>Data</th><th>Status</th></tr></thead>
             <tbody>{historico.map(s=>(
               <tr key={s.id}>
-                <td className="fw-bold">{s.numero}</td>
-                <td>{s.lider_nome}</td>
-                <td>{fmt(s.criado_em)}</td>
-                <td><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+                <td className="fw-bold" data-label="Número">{s.numero}</td>
+                <td data-label="Líder">{s.lider_nome}</td>
+                <td data-label="Data">{fmt(s.criado_em)}</td>
+                <td data-label="Status"><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
               </tr>
             ))}</tbody>
           </table></div>
@@ -1185,17 +1185,17 @@ function SolicitacoesPage({ user, navigate, addToast }) {
         <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}><Icon name="plus" size={14}/> Nova Solicitação</button>
       </div>
       <div className="card">
-        <div className="table-wrap"><table>
+        <div className="table-wrap"><table className="cards-mobile">
           <thead><tr><th>Número</th><th>Itens</th><th>Valor</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
             {lista.map(s=>(
               <tr key={s.id}>
-                <td className="fw-bold">{s.numero}</td>
-                <td>{s.itens.length} tipo(s)</td>
-                <td style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(s.valor_total)}</td>
-                <td>{fmt(s.criado_em)}</td>
-                <td><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
-                <td><div className="actions">
+                <td className="fw-bold" data-label="Número">{s.numero}</td>
+                <td data-label="Itens">{s.itens.length} tipo(s)</td>
+                <td data-label="Valor" style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(s.valor_total)}</td>
+                <td data-label="Data">{fmt(s.criado_em)}</td>
+                <td data-label="Status"><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+                <td className="cell-actions"><div className="actions">
                   <button className="btn btn-ghost btn-sm" onClick={()=>setDetalhe(s)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="eye" size={14}/> Ver</button>
                   {['solicitada','separando'].includes(s.status) && (
                     <button className="btn btn-danger btn-sm" onClick={()=>cancelar(s.id)}>Cancelar</button>
@@ -1732,17 +1732,17 @@ function EmprestimosPage({ user, addToast }) {
             <option value="recusado">Recusados</option>
           </select>
         </div>
-        <div className="table-wrap"><table>
+        <div className="table-wrap"><table className="cards-mobile">
           <thead><tr><th>Solicitante</th><th>Tomador</th><th>Líder</th><th>Itens</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
             {filtrados.map(e=>(
               <tr key={e.id}>
-                <td>{e.solicitante_nome}</td>
-                <td>{e.tomador_nome}</td>
-                <td>{e.lider_nome||'—'}</td>
-                <td style={{fontSize:'.82rem'}}>{e.itens.map(i=>`${i.ferramenta_nome} (${i.quantidade}x)`).join(', ')}</td>
-                <td><span className={`badge badge-${e.status}`}>{STATUS_LABEL[e.status]}</span></td>
-                <td><div className="actions">
+                <td data-label="Solicitante">{e.solicitante_nome}</td>
+                <td data-label="Tomador">{e.tomador_nome}</td>
+                <td data-label="Líder">{e.lider_nome||'—'}</td>
+                <td data-label="Itens" style={{fontSize:'.82rem'}}>{e.itens.map(i=>`${i.ferramenta_nome} (${i.quantidade}x)`).join(', ')}</td>
+                <td data-label="Status"><span className={`badge badge-${e.status}`}>{STATUS_LABEL[e.status]}</span></td>
+                <td className="cell-actions"><div className="actions">
                   {e.status === 'aguardando_tomador' && user.id === e.tomador_id && <>
                     <button className="btn btn-success btn-sm" onClick={()=>confirmar(e.id)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="check" size={14}/> Confirmar</button>
                     <button className="btn btn-danger btn-sm" onClick={()=>recusar(e.id)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="x" size={14}/> Recusar</button>
@@ -1853,17 +1853,17 @@ function FerramentasPage({ addToast }) {
         <div className="card-body" style={{paddingBottom:0}}>
           <input placeholder="Buscar..." value={busca} onChange={e=>setBusca(e.target.value)} style={{maxWidth:320,marginBottom:16}} />
         </div>
-        <div className="table-wrap"><table>
+        <div className="table-wrap"><table className="cards-mobile">
           <thead><tr><th>Nome</th><th>Código</th><th>Categoria</th><th>Qtd.</th><th>Valor Unit.</th><th>Ações</th></tr></thead>
           <tbody>
             {filtradas.map(f=>(
               <tr key={f.id}>
-                <td><strong>{f.nome}</strong>{f.descricao&&<><br/><span className="text-muted">{f.descricao.substring(0,60)}</span></>}</td>
-                <td>{f.codigo ? <span style={{fontFamily:'monospace',fontWeight:700}}>{f.codigo}</span> : '—'}</td>
-                <td>{f.categoria||'—'}</td>
-                <td><strong>{f.quantidade_total}</strong>{f.codigo&&<span title="Item patrimonial único" style={{marginLeft:4,display:'inline-flex',color:'var(--text-secondary)',verticalAlign:'middle'}}><Icon name="lock" size={12}/></span>}</td>
-                <td style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(f.valor_unitario||0)}</td>
-                <td><div className="actions">
+                <td data-label="Nome"><strong>{f.nome}</strong>{f.descricao&&<><br/><span className="text-muted">{f.descricao.substring(0,60)}</span></>}</td>
+                <td data-label="Código">{f.codigo ? <span style={{fontFamily:'monospace',fontWeight:700}}>{f.codigo}</span> : '—'}</td>
+                <td data-label="Categoria">{f.categoria||'—'}</td>
+                <td data-label="Qtd."><strong>{f.quantidade_total}</strong>{f.codigo&&<span title="Item patrimonial único" style={{marginLeft:4,display:'inline-flex',color:'var(--text-secondary)',verticalAlign:'middle'}}><Icon name="lock" size={12}/></span>}</td>
+                <td data-label="Valor unit." style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(f.valor_unitario||0)}</td>
+                <td className="cell-actions"><div className="actions">
                   <button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...f});setModal('form')}}><Icon name="edit" size={14}/></button>
                   {!f.codigo && <button className="btn btn-danger btn-sm" onClick={()=>del(f)}><Icon name="trash" size={14}/></button>}
                 </div></td>
@@ -1931,16 +1931,16 @@ function BolsasPage({ addToast }) {
   return (
     <div>
       <div className="topbar"><h2>Bolsas / Kits</h2><button className="btn btn-accent" onClick={()=>{setForm({});setItens([]);setModal('form')}}><Icon name="plus" size={14}/> Nova Bolsa</button></div>
-      <div className="card"><div className="table-wrap"><table>
+      <div className="card"><div className="table-wrap"><table className="cards-mobile">
         <thead><tr><th>Nome</th><th>Descrição</th><th>Itens</th><th>Valor</th><th>Ações</th></tr></thead>
         <tbody>
           {lista.map(b=>(
             <tr key={b.id}>
-              <td><strong>{b.nome}</strong></td>
-              <td className="text-muted">{b.descricao||'—'}</td>
-              <td>{b.itens.length} tipo(s)</td>
-              <td style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(b.valor_total||0)}</td>
-              <td><button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...b});setItens(b.itens.map(i=>({ferramenta_id:i.ferramenta_id,quantidade:i.quantidade,ferramenta_nome:i.ferramenta_nome,valor_unitario:i.valor_unitario||0})));setModal('form')}} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="edit" size={14}/> Editar</button></td>
+              <td data-label="Nome"><strong>{b.nome}</strong></td>
+              <td data-label="Descrição" className="text-muted">{b.descricao||'—'}</td>
+              <td data-label="Itens">{b.itens.length} tipo(s)</td>
+              <td data-label="Valor" style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(b.valor_total||0)}</td>
+              <td className="cell-actions"><button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...b});setItens(b.itens.map(i=>({ferramenta_id:i.ferramenta_id,quantidade:i.quantidade,ferramenta_nome:i.ferramenta_nome,valor_unitario:i.valor_unitario||0})));setModal('form')}} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="edit" size={14}/> Editar</button></td>
             </tr>
           ))}
           {!lista.length && <tr><td colSpan="5"><div className="empty"><div className="empty-icon"><Icon name="backpack" size={32}/></div><p>Nenhuma bolsa ou kit cadastrado.</p><button className="btn btn-accent empty-cta" onClick={()=>{setForm({});setItens([]);setModal('form')}}><Icon name="plus" size={14}/> Nova bolsa</button></div></td></tr>}
@@ -2001,18 +2001,18 @@ function UsuariosPage({ addToast }) {
             <option value="">Todos</option><option value="lider">Líder</option><option value="operario">Operário</option>
           </select>
         </div>
-        <div className="table-wrap"><table>
+        <div className="table-wrap"><table className="cards-mobile">
           <thead><tr><th>Nome / Empresa</th><th>Email</th><th>CPF/CNPJ</th><th>Cargo</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
             {filtrados.map(u=>(
               <tr key={u.id}>
-                <td><strong>{u.nome}</strong>{u.empresa&&<><br/><span className="text-muted">{u.empresa}</span></>}</td>
-                <td>{u.email}</td>
-                <td>{u.cpf_cnpj||'—'}</td>
-                <td>{u.cargo||'—'}</td>
-                <td><span className={`badge badge-${u.role}`}>{ROLE_LABEL[u.role]}</span></td>
-                <td><span className={`badge ${u.ativo?'badge-ativa':'badge-devolvida'}`}>{u.ativo?'Ativo':'Inativo'}</span></td>
-                <td><div className="actions">
+                <td data-label="Nome / Empresa"><strong>{u.nome}</strong>{u.empresa&&<><br/><span className="text-muted">{u.empresa}</span></>}</td>
+                <td data-label="Email">{u.email}</td>
+                <td data-label="CPF/CNPJ">{u.cpf_cnpj||'—'}</td>
+                <td data-label="Cargo">{u.cargo||'—'}</td>
+                <td data-label="Perfil"><span className={`badge badge-${u.role}`}>{ROLE_LABEL[u.role]}</span></td>
+                <td data-label="Status"><span className={`badge ${u.ativo?'badge-ativa':'badge-devolvida'}`}>{u.ativo?'Ativo':'Inativo'}</span></td>
+                <td className="cell-actions"><div className="actions">
                   <button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...u,senha:''});setModal('form')}}><Icon name="edit" size={14}/></button>
                   {u.role !== 'almoxarifado' && <button className="btn btn-danger btn-sm" onClick={()=>excluir(u)}><Icon name="trash" size={14}/></button>}
                 </div></td>
@@ -2173,15 +2173,15 @@ function AuditoriaPage({ addToast }) {
         <div className="card-body" style={{paddingBottom:0}}>
           <input placeholder="Buscar..." value={busca} onChange={e=>setBusca(e.target.value)} style={{maxWidth:340,marginBottom:16}} />
         </div>
-        <div className="table-wrap"><table>
+        <div className="table-wrap"><table className="cards-mobile">
           <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhe</th></tr></thead>
           <tbody>
             {filtrados.map(l=>(
               <tr key={l.id}>
-                <td className="text-muted" style={{fontSize:'.8rem',whiteSpace:'nowrap'}}>{(l.criado_em||'').replace('T',' ').slice(0,16)}</td>
-                <td>{l.usuario_nome||'—'}{l.usuario_role&&<><br/><span className={`badge badge-${l.usuario_role}`} style={{fontSize:'.7rem'}}>{ROLE_LABEL[l.usuario_role]}</span></>}</td>
-                <td><span style={{marginRight:6,display:'inline-flex',verticalAlign:'middle',color:'var(--text-secondary)'}}>{ACAO_ICON[l.acao] ? <Icon name={ACAO_ICON[l.acao]} size={14}/> : <Icon name="fileText" size={14}/>}</span>{l.acao}</td>
-                <td className="text-muted" style={{fontSize:'.82rem',maxWidth:220}}>{l.detalhe ? (typeof l.detalhe==='string'&&l.detalhe.startsWith('{') ? JSON.stringify(JSON.parse(l.detalhe),null,0).slice(0,80) : l.detalhe) : '—'}</td>
+                <td className="text-muted" data-label="Data/Hora" style={{fontSize:'.8rem',whiteSpace:'nowrap'}}>{(l.criado_em||'').replace('T',' ').slice(0,16)}</td>
+                <td data-label="Usuário">{l.usuario_nome||'—'}{l.usuario_role&&<><br/><span className={`badge badge-${l.usuario_role}`} style={{fontSize:'.7rem'}}>{ROLE_LABEL[l.usuario_role]}</span></>}</td>
+                <td data-label="Ação"><span style={{marginRight:6,display:'inline-flex',verticalAlign:'middle',color:'var(--text-secondary)'}}>{ACAO_ICON[l.acao] ? <Icon name={ACAO_ICON[l.acao]} size={14}/> : <Icon name="fileText" size={14}/>}</span>{l.acao}</td>
+                <td className="text-muted" data-label="Detalhe" style={{fontSize:'.82rem',maxWidth:220}}>{l.detalhe ? (typeof l.detalhe==='string'&&l.detalhe.startsWith('{') ? JSON.stringify(JSON.parse(l.detalhe),null,0).slice(0,80) : l.detalhe) : '—'}</td>
               </tr>
             ))}
             {!filtrados.length && <tr><td colSpan="4"><div className="empty"><div className="empty-icon"><Icon name="history" size={32}/></div><p>Sem registros.</p></div></td></tr>}

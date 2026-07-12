@@ -169,6 +169,19 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
   table{font-size:.82rem}th,td{padding:8px 10px}
   .modal{margin:0 8px}
   .kanban{grid-template-columns:1fr}
+  /* Tabela -> cartoes empilhados (uso em campo, celular) */
+  table.cards-mobile,table.cards-mobile tbody{display:block}
+  table.cards-mobile thead{display:none}
+  table.cards-mobile tr{display:block;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px 2px;margin-bottom:12px}
+  table.cards-mobile tr:hover td{background:none}
+  table.cards-mobile td{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border:none;border-bottom:1px solid var(--border);padding:9px 14px;text-align:right}
+  table.cards-mobile td:last-child{border-bottom:none}
+  table.cards-mobile td::before{content:attr(data-label);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);text-align:left;white-space:nowrap;flex-shrink:0}
+  table.cards-mobile td.cell-actions{display:block;text-align:left;padding-top:12px}
+  table.cards-mobile td.cell-actions::before{display:none}
+  table.cards-mobile td.cell-actions .actions .btn{flex:1;justify-content:center}
+  table.cards-mobile td[colspan]{display:block;text-align:center}
+  table.cards-mobile td[colspan]::before{display:none}
 }
 </style>
 </head>
@@ -1389,18 +1402,18 @@ function CautelasPage({ user, navigate, addToast }) {
         <h2>Cautelas</h2>
       </div>
       <div className="card">
-        <div className="table-wrap"><table>
+        <div className="table-wrap"><table className="cards-mobile">
           <thead><tr><th>Número</th><th>Tipo</th><th>Responsável</th><th>Retirada</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
             {lista.map(c=>(
               <tr key={c.id}>
-                <td className="fw-bold">{c.numero}</td>
-                <td>{c.cautela_tipo==='direto' ? <span className="badge badge-solicitada">Direta</span> : <span className="badge badge-lider">Via Líder</span>}</td>
-                <td>{c.lider_nome}{c.cautela_tipo==='direto'&&<><br/><span style={{fontSize:'.7rem',color:'var(--text-secondary)'}}>Operário</span></>}</td>
-                <td>{fmt(c.data_retirada)}</td>
-                <td style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(c.valor_total)}</td>
-                <td><span className={`badge badge-${c.status}`}>{STATUS_LABEL[c.status]}</span></td>
-                <td><div className="actions">
+                <td className="fw-bold" data-label="Número">{c.numero}</td>
+                <td data-label="Tipo">{c.cautela_tipo==='direto' ? <span className="badge badge-solicitada">Direta</span> : <span className="badge badge-lider">Via Líder</span>}</td>
+                <td data-label="Responsável">{c.lider_nome}{c.cautela_tipo==='direto'&&<><br/><span style={{fontSize:'.7rem',color:'var(--text-secondary)'}}>Operário</span></>}</td>
+                <td data-label="Retirada">{fmt(c.data_retirada)}</td>
+                <td data-label="Valor" style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(c.valor_total)}</td>
+                <td data-label="Status"><span className={`badge badge-${c.status}`}>{STATUS_LABEL[c.status]}</span></td>
+                <td className="cell-actions"><div className="actions">
                   <button className="btn btn-outline btn-sm" onClick={()=>verDetalhe(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="eye" size={14}/> Ver</button>
                   {isLider && c.cautela_tipo!=='direto' && c.status === 'ativa' && c.lider_id === user.id && (
                     <button className="btn btn-accent btn-sm" onClick={()=>abrirEntrega(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="send" size={14}/> Entregar a operário</button>

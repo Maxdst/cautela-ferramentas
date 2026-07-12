@@ -286,7 +286,7 @@ function ItemsEditor({ ferramentas, value, onChange }) {
           {available.map(f=><option key={f.id} value={f.id}>{f.nome}{f.codigo?` (${f.codigo})`:''}{f.valor_unitario?` — ${fmtBRL(f.valor_unitario)}`:''}</option>)}
         </select>
         <input type="number" min="1" value={qty} onChange={e=>setQty(parseInt(e.target.value)||1)} style={{width:70}} />
-        <button className="btn btn-accent btn-sm" type="button" onClick={add}>+ Add</button>
+        <button className="btn btn-accent btn-sm" type="button" onClick={add}><Icon name="plus" size={14}/> Add</button>
       </div>
       {value.length > 0 && (
         <div className="items-list">
@@ -487,7 +487,7 @@ function Dashboard({ user, navigate, addToast }) {
     <div>
       <div className="topbar">
         <h2>Painel do Líder</h2>
-        <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}>+ Nova Solicitação</button>
+        <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}><Icon name="plus" size={14}/> Nova Solicitação</button>
       </div>
       {(stats.sol_prontas > 0 || stats.emp_aguardando_aval > 0) && (
         <div className="pending-banner">
@@ -939,7 +939,7 @@ function SolicitacoesPage({ user, navigate, addToast }) {
                     onChange={e=>setEditSelQtd(Math.max(1,parseInt(e.target.value)||1))}
                     style={{padding:'6px 8px',fontSize:'.85rem',width:'100%'}} />
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={addItemToEdit} disabled={!editSelFerr}>+ Add</button>
+                <button className="btn btn-primary btn-sm" onClick={addItemToEdit} disabled={!editSelFerr}><Icon name="plus" size={14}/> Add</button>
               </div>
             </div>
             <div className="modal-footer">
@@ -1004,7 +1004,7 @@ function SolicitacoesPage({ user, navigate, addToast }) {
                           <label>Qtd</label>
                           <input type="number" min="1" value={porOpSelQtd} onChange={e=>setPorOpSelQtd(parseInt(e.target.value)||1)} />
                         </div>
-                        <button className="btn btn-primary btn-sm" style={{marginBottom:0,height:38}} onClick={addItemPorOp}>+ Add</button>
+                        <button className="btn btn-primary btn-sm" style={{marginBottom:0,height:38}} onClick={addItemPorOp}><Icon name="plus" size={14}/> Add</button>
                       </div>
                       {porOpItens.length > 0 && (
                         <div style={{background:'var(--bg)',borderRadius:6,padding:8}}>
@@ -1136,7 +1136,7 @@ function SolicitacoesPage({ user, navigate, addToast }) {
     <div>
       <div className="topbar">
         <h2>Minhas Solicitações</h2>
-        <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}>+ Nova Solicitação</button>
+        <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}><Icon name="plus" size={14}/> Nova Solicitação</button>
       </div>
       <div className="card">
         <div className="table-wrap"><table>
@@ -1672,7 +1672,7 @@ function EmprestimosPage({ user, addToast }) {
     <div>
       <div className="topbar">
         <h2>Empréstimos entre Operários</h2>
-        {user.role === 'operario' && <button className="btn btn-accent" onClick={()=>setModal('novo')}>+ Solicitar Empréstimo</button>}
+        {user.role === 'operario' && <button className="btn btn-accent" onClick={()=>setModal('novo')}><Icon name="plus" size={14}/> Solicitar Empréstimo</button>}
       </div>
 
       <div className="card">
@@ -1802,7 +1802,7 @@ function FerramentasPage({ addToast }) {
   const filtradas = lista.filter(f => !busca || f.nome.toLowerCase().includes(busca.toLowerCase()) || (f.codigo||'').toLowerCase().includes(busca.toLowerCase()))
   return (
     <div>
-      <div className="topbar"><h2>Ferramentas</h2><button className="btn btn-accent" onClick={()=>{setForm({quantidade_total:1});setModal('form')}}>+ Cadastrar</button></div>
+      <div className="topbar"><h2>Ferramentas</h2><button className="btn btn-accent" onClick={()=>{setForm({quantidade_total:1});setModal('form')}}><Icon name="plus" size={14}/> Cadastrar</button></div>
       <div className="card">
         <div className="card-body" style={{paddingBottom:0}}>
           <input placeholder="Buscar..." value={busca} onChange={e=>setBusca(e.target.value)} style={{maxWidth:320,marginBottom:16}} />
@@ -1884,7 +1884,7 @@ function BolsasPage({ addToast }) {
   }
   return (
     <div>
-      <div className="topbar"><h2>Bolsas / Kits</h2><button className="btn btn-accent" onClick={()=>{setForm({});setItens([]);setModal('form')}}>+ Nova Bolsa</button></div>
+      <div className="topbar"><h2>Bolsas / Kits</h2><button className="btn btn-accent" onClick={()=>{setForm({});setItens([]);setModal('form')}}><Icon name="plus" size={14}/> Nova Bolsa</button></div>
       <div className="card"><div className="table-wrap"><table>
         <thead><tr><th>Nome</th><th>Descrição</th><th>Itens</th><th>Valor</th><th>Ações</th></tr></thead>
         <tbody>
@@ -1948,7 +1948,7 @@ function UsuariosPage({ addToast }) {
   const filtrados = lista.filter(u => !filtroRole || u.role === filtroRole)
   return (
     <div>
-      <div className="topbar"><h2>Usuários</h2><button className="btn btn-accent" onClick={()=>{setForm({role:'operario',ativo:true});setModal('form')}}>+ Novo</button></div>
+      <div className="topbar"><h2>Usuários</h2><button className="btn btn-accent" onClick={()=>{setForm({role:'operario',ativo:true});setModal('form')}}><Icon name="plus" size={14}/> Novo</button></div>
       <div className="card">
         <div className="card-body" style={{paddingBottom:0}}>
           <select value={filtroRole} onChange={e=>setFiltroRole(e.target.value)} style={{width:'auto',marginBottom:16}}>

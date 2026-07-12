@@ -208,7 +208,8 @@ const PUT = (p, b) => api('PUT', p, b)
 const DEL = p => api('DELETE', p)
 
 // Nome (e logo opcional) da empresa buscados uma vez do backend (evita texto fixo em termos/avisos legais)
-const empresaInfo = { nome: 'sua empresa', logoUrl: null }
+// nome = nome de exibição curto (UI: login, sidebar) | razaoSocial = nome legal completo (declarações formais)
+const empresaInfo = { nome: 'sua empresa', razaoSocial: 'sua empresa', logoUrl: null }
 
 function fmt(d) {
   if (!d) return '—'
@@ -362,14 +363,14 @@ function PrimeiroAcessoPage({ user, onConcluido }) {
         <div style={{padding:24}}>
           <div style={{border:'1px solid #e2e8f0',borderRadius:8,maxHeight:320,overflowY:'auto',padding:'16px 20px',background:'#fafbfc',fontSize:'.82rem',lineHeight:1.7,marginBottom:20}}>
             <div style={{fontWeight:700,fontSize:'.95rem',textAlign:'center',marginBottom:12}}>TERMO DE RESPONSABILIDADE E CONFIDENCIALIDADE DE SENHA</div>
-            <p>Ao criar sua senha pessoal de acesso ao Sistema de Cautela de Ferramentas da <strong>{empresaInfo.nome}</strong>, você declara que leu, compreendeu e concorda com as seguintes condições:</p>
+            <p>Ao criar sua senha pessoal de acesso ao Sistema de Cautela de Ferramentas da <strong>{empresaInfo.razaoSocial}</strong>, você declara que leu, compreendeu e concorda com as seguintes condições:</p>
             <p><strong>1. Senha pessoal e intransferível</strong><br/>Sua senha de acesso é pessoal, secreta e intransferível. É estritamente proibido compartilhá-la com qualquer pessoa, incluindo colegas, líderes ou qualquer outro funcionário da empresa.</p>
             <p><strong>2. Responsabilidade exclusiva pelas ações</strong><br/>Todas as ações realizadas no sistema com suas credenciais — incluindo solicitações de ferramentas, assinaturas eletrônicas de termos e confirmações de recebimento — são de sua <em>exclusiva responsabilidade</em> e possuem plena validade jurídica, nos termos da Lei nº 14.063/2020.</p>
             <p><strong>3. Guarda e sigilo obrigatórios</strong><br/>Você se compromete a manter o sigilo absoluto de sua senha, não a anotando em locais acessíveis a terceiros e não a transmitindo por nenhum meio (oral, escrito ou digital).</p>
             <p><strong>4. Comunicação de comprometimento</strong><br/>Em caso de suspeita de acesso indevido ou comprometimento de suas credenciais, você deve comunicar imediatamente ao almoxarifado para que o acesso seja suspenso e uma nova senha seja criada.</p>
             <p><strong>5. Proibição de uso por terceiros</strong><br/>É vedado permitir que terceiros utilizem o sistema em seu nome, mesmo que temporariamente. O uso indevido poderá resultar em medidas disciplinares, incluindo rescisão contratual.</p>
             <p><strong>6. Validade das assinaturas eletrônicas</strong><br/>As assinaturas realizadas com suas credenciais têm validade jurídica plena. Ao assinar qualquer termo no sistema, você confirma ter lido o documento e concorda integralmente com seu conteúdo.</p>
-            <p><strong>7. Isenção de responsabilidade da empresa</strong><br/>A {empresaInfo.nome} não se responsabiliza por prejuízos decorrentes do compartilhamento voluntário ou da guarda inadequada de senha pelo usuário.</p>
+            <p><strong>7. Isenção de responsabilidade da empresa</strong><br/>A {empresaInfo.razaoSocial} não se responsabiliza por prejuízos decorrentes do compartilhamento voluntário ou da guarda inadequada de senha pelo usuário.</p>
             <p style={{marginTop:12,fontStyle:'italic'}}>Ao criar sua senha e clicar em <strong>"Confirmar e Acessar"</strong>, você afirma ter lido integralmente este termo e que a senha criada é exclusivamente do seu conhecimento.</p>
           </div>
           <form onSubmit={submit}>
@@ -438,7 +439,7 @@ function LoginPage({ onLogin }) {
           <h1 style={{fontWeight:800,letterSpacing:'.01em'}}>Cautelix</h1>
           <p style={{marginTop:4,fontSize:'.8rem',color:'#9ca3af'}}>{empresaInfo.nome} — Controle de Ferramentas</p>
         </div>
-        {err && <div className="alert alert-error">{err}</div>}
+        {err && <div className="alert alert-error" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={15}/> {err}</div>}
         <form onSubmit={submit}>
           <div className="form-group" style={{marginBottom:14}}>
             <label>Email</label>
@@ -1107,7 +1108,7 @@ function SolicitacoesPage({ user, navigate, addToast }) {
                   <div className="alert alert-info">{retiradaModal.cautela.cautela_tipo==='direto' ? 'O operário deve autenticar neste dispositivo para confirmar a retirada.' : 'O líder deve autenticar neste dispositivo para confirmar a retirada.'}</div>
                   <div className="auth-device-box">
                     <h4 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="lock" size={16}/> Autenticação {retiradaModal.cautela.cautela_tipo==='direto' ? 'do Operário' : 'do Líder'}: {retiradaModal.sol.lider_nome}</h4>
-                    {authErr && <div className="alert alert-error">{authErr}</div>}
+                    {authErr && <div className="alert alert-error" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={15}/> {authErr}</div>}
                     <div className="form-grid">
                       <div className="form-group"><label>Email</label><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder={retiradaModal.sol.lider_email} /></div>
                       <div className="form-group"><label>Senha</label><input type="password" value={authSenha} onChange={e=>setAuthSenha(e.target.value)} placeholder="••••••••" /></div>
@@ -1146,7 +1147,7 @@ function SolicitacoesPage({ user, navigate, addToast }) {
                       <span style={{color:'var(--success)'}}>{fmtBRL(retiradaModal.sol.valor_total)}</span>
                     </div>
                   </div>
-                  <div className="alert alert-warning">Ao assinar, você confirma o recebimento das ferramentas e assume a responsabilidade perante a {empresaInfo.nome}.</div>
+                  <div className="alert alert-warning" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={16}/> Ao assinar, você confirma o recebimento das ferramentas e assume a responsabilidade perante a {empresaInfo.razaoSocial}.</div>
                   <SignaturePad label={`Assinatura de ${authUser.nome}`} onConfirm={confirmarRetirada} onCancel={()=>setAuthStep('termo')} />
                 </>
               )}
@@ -1535,7 +1536,7 @@ function CautelasPage({ user, navigate, addToast }) {
                   <div className="alert alert-info">O operário deve autenticar neste dispositivo para confirmar o recebimento.</div>
                   <div className="auth-device-box">
                     <h4 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="lock" size={16}/> Autenticação do Operário</h4>
-                    {authErr && <div className="alert alert-error">{authErr}</div>}
+                    {authErr && <div className="alert alert-error" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={15}/> {authErr}</div>}
                     <div className="form-grid">
                       <div className="form-group"><label>Email do operário</label><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="operario@email.com" /></div>
                       <div className="form-group"><label>Senha</label><input type="password" value={authSenha} onChange={e=>setAuthSenha(e.target.value)} placeholder="••••••••" /></div>
@@ -1573,7 +1574,7 @@ function CautelasPage({ user, navigate, addToast }) {
                       </div>
                     ))}
                   </div>
-                  <div className="alert alert-warning">Ao assinar, {authUser.nome} confirma o recebimento e assume responsabilidade por estes itens.</div>
+                  <div className="alert alert-warning" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={16}/> Ao assinar, {authUser.nome} confirma o recebimento e assume responsabilidade por estes itens.</div>
                   <SignaturePad label={`Assinatura de ${authUser.nome} (Operário)`} onConfirm={confirmarEntrega} onCancel={()=>setAuthStep('termo')} />
                 </>
               )}
@@ -1600,7 +1601,7 @@ function CautelasPage({ user, navigate, addToast }) {
                   </div>
                   <div className="auth-device-box">
                     <h4 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="lock" size={16}/> Autenticação do {devModal.cautela_tipo==='direto'?'Operário':'Líder'}: {devModal.lider_nome}</h4>
-                    {devErr && <div className="alert alert-error">{devErr}</div>}
+                    {devErr && <div className="alert alert-error" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={15}/> {devErr}</div>}
                     <div className="form-grid">
                       <div className="form-group"><label>Email</label><input type="email" value={devEmail} onChange={e=>setDevEmail(e.target.value)} placeholder={devModal.lider_email} /></div>
                       <div className="form-group"><label>Senha</label><input type="password" value={devSenha} onChange={e=>setDevSenha(e.target.value)} placeholder="••••••••" /></div>
@@ -1793,7 +1794,7 @@ function EmprestimosPage({ user, addToast }) {
             <div className="modal-body">
               <p style={{marginBottom:8}}><strong>De:</strong> {sigModal.solicitante_nome} → <strong>Para:</strong> {sigModal.tomador_nome}</p>
               <p style={{marginBottom:12}}>Itens: {sigModal.itens.map(i=>`${i.ferramenta_nome} (${i.quantidade}x)`).join(', ')}</p>
-              <div className="alert alert-warning">Ambos os operários confirmaram. Ao assinar, você aprova este empréstimo.</div>
+              <div className="alert alert-warning" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="alertTriangle" size={16}/> Ambos os operários confirmaram. Ao assinar, você aprova este empréstimo.</div>
               <SignaturePad label={`Aval de ${user.nome}`} onConfirm={avalLider} onCancel={()=>setSigModal(null)} />
             </div>
           </div>
@@ -2369,6 +2370,7 @@ function startApp() {
 // se falhar, segue com o valor genérico padrão em vez de travar o carregamento.
 fetch('/api/empresa').then(r => r.json()).then(e => {
   if (e && e.nome) empresaInfo.nome = e.nome
+  if (e && e.razaoSocial) empresaInfo.razaoSocial = e.razaoSocial
   if (e && e.logoUrl) empresaInfo.logoUrl = e.logoUrl
 }).catch(() => {}).finally(startApp)
 </script>

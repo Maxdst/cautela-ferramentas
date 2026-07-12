@@ -55,7 +55,12 @@ const SECRET = process.env.JWT_SECRET || (() => {
 })()
 
 const EMPRESA = {
+  // Nome de exibição (curto, nome fantasia) — usado na UI: tela de login, sidebar, header.
+  // Manter curto e sem sufixo societário (LTDA/ME/EIRELI) para não pesar visualmente no primeiro contato.
   nome:     process.env.EMPRESA_NOME     || 'EMPRESA NÃO CONFIGURADA (definir EMPRESA_NOME)',
+  // Razão social completa — usada só nos textos legais (Termo de Responsabilidade, cláusulas de isenção).
+  // Se não for definida, cai no nome de exibição (comportamento antigo, sem quebra).
+  razaoSocial: process.env.EMPRESA_RAZAO_SOCIAL || process.env.EMPRESA_NOME || 'EMPRESA NÃO CONFIGURADA (definir EMPRESA_NOME)',
   cnpj:     process.env.EMPRESA_CNPJ     || 'XX.XXX.XXX/XXXX-XX',
   endereco: process.env.EMPRESA_ENDERECO || 'Endereço não configurado (definir EMPRESA_ENDERECO)',
   cidade:   process.env.EMPRESA_CIDADE   || 'Cidade não configurada (definir EMPRESA_CIDADE)',
@@ -479,11 +484,11 @@ function gerarTermoHTML(cautela_id, tipo) {
     const empresa = c.lider_empresa || c.lider_nome
     return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Termo de Comodato — ${c.numero}</title>${styles}</head><body>
-<div class="hdr"><div class="co">${EMPRESA.nome}</div><div>Sistema de Controle de Ferramentas</div></div>
+<div class="hdr"><div class="co">${EMPRESA.razaoSocial}</div><div>Sistema de Controle de Ferramentas</div></div>
 <h1>Termo de Comodato de Ferramentas e Equipamentos</h1>
 <h2>Cautela nº ${c.numero} — Retirada em ${fmtData(c.data_retirada || c.criado_em)}</h2>
 <div class="partes"><h3>IDENTIFICAÇÃO DAS PARTES</h3>
-<p><strong>COMODANTE:</strong> ${EMPRESA.nome}, CNPJ nº ${EMPRESA.cnpj}, com sede em ${EMPRESA.endereco}.</p>
+<p><strong>COMODANTE:</strong> ${EMPRESA.razaoSocial}, CNPJ nº ${EMPRESA.cnpj}, com sede em ${EMPRESA.endereco}.</p>
 <p><strong>COMODATÁRIA:</strong> ${empresa}, CNPJ/CPF nº ${cnpj}${c.lider_endereco ? ', ' + c.lider_endereco : ''}, representada por ${c.lider_nome} (${c.lider_email}).</p>
 </div>
 <div class="cl"><h4>CLÁUSULA 1ª – DO OBJETO</h4>
@@ -513,7 +518,7 @@ ${tabelaItens}</div>
 <div class="assinaturas">
   <div class="asb">
     <div style="height:70px;border-bottom:1px solid #000"></div>
-    <div><strong>COMODANTE</strong></div><div>${EMPRESA.nome}</div><div>CNPJ: ${EMPRESA.cnpj}</div>
+    <div><strong>COMODANTE</strong></div><div>${EMPRESA.razaoSocial}</div><div>CNPJ: ${EMPRESA.cnpj}</div>
   </div>
   <div class="asb">
     ${c.assinatura_lider ? `<img src="${c.assinatura_lider}" height="80" alt="Assinatura">` : '<div style="height:70px;border-bottom:1px solid #000"></div>'}
@@ -521,7 +526,7 @@ ${tabelaItens}</div>
   </div>
 </div>
 <div class="audit"><h5>REGISTRO DE AUTENTICIDADE</h5>
-<p>Cautela: ${c.numero} | ID: ${c.id} | Sistema: Controle de Ferramentas — ${EMPRESA.nome}</p>
+<p>Cautela: ${c.numero} | ID: ${c.id} | Sistema: Controle de Ferramentas — ${EMPRESA.razaoSocial}</p>
 <p>Líder: ${c.lider_nome} &lt;${c.lider_email}&gt;</p>
 ${c.ip_lider ? `<p>IP dispositivo: ${c.ip_lider}</p>` : ''}
 <p>Criado em: ${c.criado_em} | Lei 14.063/2020 e MP 2.200-2/2001</p></div>
@@ -534,14 +539,14 @@ ${printBtn}</body></html>`
     const hoje = new Date(c.data_devolucao || c.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
     return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Recibo de Devolução — ${c.numero}</title>${styles}</head><body>
-<div class="hdr"><div class="co">${EMPRESA.nome}</div><div>Recibo de Devolução de Ferramentas</div></div>
+<div class="hdr"><div class="co">${EMPRESA.razaoSocial}</div><div>Recibo de Devolução de Ferramentas</div></div>
 <h1>Recibo de Devolução</h1>
 <h2>Cautela nº ${c.numero} — Devolvida em ${hoje}</h2>
 <div class="partes">
-<p><strong>EMPRESA:</strong> ${EMPRESA.nome}, CNPJ nº ${EMPRESA.cnpj}.</p>
+<p><strong>EMPRESA:</strong> ${EMPRESA.razaoSocial}, CNPJ nº ${EMPRESA.cnpj}.</p>
 <p><strong>LÍDER RESPONSÁVEL:</strong> ${c.lider_nome} (${c.lider_email})${c.lider_cpf_cnpj ? ' — CPF/CNPJ: ' + c.lider_cpf_cnpj : ''}.</p>
 </div>
-<p style="margin:12px 0">O Líder identificado acima declara ter devolvido ao almoxarifado da ${EMPRESA.nome} os itens listados abaixo, em boas condições de uso, salvo desgaste natural.</p>
+<p style="margin:12px 0">O Líder identificado acima declara ter devolvido ao almoxarifado da ${EMPRESA.razaoSocial} os itens listados abaixo, em boas condições de uso, salvo desgaste natural.</p>
 ${tabelaItens}
 ${c.obs_devolucao ? `<div class="cl"><h4>Observações</h4><p>${c.obs_devolucao}</p></div>` : ''}
 <p style="text-align:center;margin-top:30px">${EMPRESA.cidade}, ${hoje}</p>
@@ -552,7 +557,7 @@ ${c.obs_devolucao ? `<div class="cl"><h4>Observações</h4><p>${c.obs_devolucao}
   </div>
   <div class="asb">
     <div style="height:70px;border-bottom:1px solid #000"></div>
-    <div><strong>RECEBEU</strong></div><div>${EMPRESA.nome}</div><div>Almoxarifado</div>
+    <div><strong>RECEBEU</strong></div><div>${EMPRESA.razaoSocial}</div><div>Almoxarifado</div>
   </div>
 </div>
 <div class="audit"><h5>REGISTRO DE AUTENTICIDADE</h5>
@@ -571,19 +576,19 @@ ${printBtn}</body></html>`
     return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Termo de Ciência e Responsabilidade — ${c.numero}</title>${styles}</head><body>
 <div class="hdr">
-  <div class="co">${EMPRESA.nome}</div>
+  <div class="co">${EMPRESA.razaoSocial}</div>
   <div>CNPJ: ${EMPRESA.cnpj} — ${EMPRESA.endereco}</div>
   <div style="margin-top:4px;font-weight:bold;font-size:13pt">TERMO DE CIÊNCIA E RESPONSABILIDADE — FERRAMENTAS E EQUIPAMENTOS</div>
 </div>
 
 <div class="partes">
-  <p><strong>EMPRESA:</strong> ${EMPRESA.nome}, CNPJ nº ${EMPRESA.cnpj}, com sede em ${EMPRESA.endereco}.</p>
+  <p><strong>EMPRESA:</strong> ${EMPRESA.razaoSocial}, CNPJ nº ${EMPRESA.cnpj}, com sede em ${EMPRESA.endereco}.</p>
   <p><strong>COLABORADOR:</strong> ${responsavel}${op.cargo ? ' — ' + op.cargo : ''}${op.cpf_cnpj ? ' — CPF/CNPJ: ' + op.cpf_cnpj : ''}.</p>
   <p><strong>CAUTELA Nº:</strong> ${c.numero} &nbsp;|&nbsp; <strong>DATA:</strong> ${fmtData(c.data_retirada || c.criado_em)}</p>
 </div>
 
 <div class="cl"><h4>CLÁUSULA 1ª — DO OBJETO</h4>
-<p>O colaborador identificado acima declara ter recebido do almoxarifado da <strong>${EMPRESA.nome}</strong>, em perfeitas condições de uso e funcionamento, os materiais e ferramentas descritos abaixo:</p>
+<p>O colaborador identificado acima declara ter recebido do almoxarifado da <strong>${EMPRESA.razaoSocial}</strong>, em perfeitas condições de uso e funcionamento, os materiais e ferramentas descritos abaixo:</p>
 ${tabelaItens}
 <p style="margin-top:8px">Valor total dos itens sob responsabilidade do colaborador: <strong>${fmtBRL(valorTotal)}</strong>.</p>
 </div>
@@ -622,7 +627,7 @@ ${tabelaItens}
   <div class="asb">
     <div style="height:70px;border-bottom:1px solid #000"></div>
     <div><strong>RESPONSÁVEL PELA ENTREGA</strong></div>
-    <div>${EMPRESA.nome}</div>
+    <div>${EMPRESA.razaoSocial}</div>
     <div>Almoxarifado</div>
   </div>
   <div class="asb">
@@ -645,7 +650,7 @@ ${printBtn}</body></html>`
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Termos de Ciência — ${c.numero}</title>${styles}</head><body>
 <div class="hdr"><div class="co">TERMOS DE CIÊNCIA POR OPERÁRIO</div>
-<div>Cautela nº ${c.numero} — ${EMPRESA.nome}</div></div>
+<div>Cautela nº ${c.numero} — ${EMPRESA.razaoSocial}</div></div>
 <h1>Termos de Responsabilidade e Ciência</h1>
 ${(() => {
   const entregas = db.prepare(`
@@ -1396,7 +1401,7 @@ app.post('/api/admin/zerar-quantidades', auth(['almoxarifado']), (req, res) => {
 })
 
 // Nome (e logo opcional) da empresa para o front-end não depender de texto/imagem fixos
-app.get('/api/empresa', (req, res) => res.json({ nome: EMPRESA.nome, logoUrl: EMPRESA.logoUrl }))
+app.get('/api/empresa', (req, res) => res.json({ nome: EMPRESA.nome, razaoSocial: EMPRESA.razaoSocial, logoUrl: EMPRESA.logoUrl }))
 
 // ─── RESET TRANSACIONAL (almoxarifado only) ───────────────────────────────────
 app.post('/api/admin/reset-transacional', auth(['almoxarifado']), (req, res) => {

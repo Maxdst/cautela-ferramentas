@@ -115,8 +115,10 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .alert-error{background:#fee2e2;color:#991b1b;border-color:var(--danger)}
 .alert-warning{background:#fef3c7;color:#92400e;border-color:var(--warning)}
 .alert-info{background:rgba(74,144,164,.12);color:#1F4B57;border-color:var(--primary-accent)}
-.empty{text-align:center;padding:48px 24px;color:var(--text-secondary)}
-.empty .empty-icon{font-size:3rem;margin-bottom:12px}
+.empty{text-align:center;padding:44px 24px;color:var(--text-secondary);display:flex;flex-direction:column;align-items:center;gap:8px}
+.empty .empty-icon{color:var(--silver);margin-bottom:4px}
+.empty p{margin:0;font-size:.92rem}
+.empty-cta{margin-top:8px}
 .pending-banner{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid var(--accent);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
 .pending-banner .msg{font-size:.95rem;font-weight:600;color:#92400e}
 .items-list{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px}
@@ -1161,7 +1163,7 @@ function SolicitacoesPage({ user, navigate, addToast }) {
                 </div></td>
               </tr>
             ))}
-            {!lista.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="clipboard" size={32}/></div><p>Nenhuma solicitação ainda.</p></div></td></tr>}
+            {!lista.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="clipboard" size={32}/></div><p>Você ainda não fez nenhuma solicitação.</p><button className="btn btn-accent empty-cta" onClick={()=>navigate('nova-solicitacao')}><Icon name="plus" size={14}/> Nova solicitação</button></div></td></tr>}
           </tbody>
         </table></div>
       </div>
@@ -1714,7 +1716,7 @@ function EmprestimosPage({ user, addToast }) {
                 </div></td>
               </tr>
             ))}
-            {!filtrados.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="handshake" size={32}/></div><p>Nenhum empréstimo.</p></div></td></tr>}
+            {!filtrados.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="handshake" size={32}/></div><p>{filtro ? 'Nenhum empréstimo com esse status.' : 'Nenhum empréstimo registrado.'}</p>{!filtro && user.role==='operario' && <button className="btn btn-accent empty-cta" onClick={()=>setModal('novo')}><Icon name="plus" size={14}/> Solicitar empréstimo</button>}</div></td></tr>}
           </tbody>
         </table></div>
       </div>
@@ -1827,7 +1829,7 @@ function FerramentasPage({ addToast }) {
                 </div></td>
               </tr>
             ))}
-            {!filtradas.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="wrench" size={32}/></div><p>Nenhuma ferramenta.</p></div></td></tr>}
+            {!filtradas.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="wrench" size={32}/></div><p>{busca ? 'Nenhuma ferramenta encontrada para essa busca.' : 'Nenhuma ferramenta cadastrada ainda.'}</p>{!busca && <button className="btn btn-accent empty-cta" onClick={()=>{setForm({quantidade_total:1});setModal('form')}}><Icon name="plus" size={14}/> Cadastrar ferramenta</button>}</div></td></tr>}
           </tbody>
         </table></div>
       </div>
@@ -1901,7 +1903,7 @@ function BolsasPage({ addToast }) {
               <td><button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...b});setItens(b.itens.map(i=>({ferramenta_id:i.ferramenta_id,quantidade:i.quantidade,ferramenta_nome:i.ferramenta_nome,valor_unitario:i.valor_unitario||0})));setModal('form')}} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="edit" size={14}/> Editar</button></td>
             </tr>
           ))}
-          {!lista.length && <tr><td colSpan="5"><div className="empty"><div className="empty-icon"><Icon name="backpack" size={32}/></div><p>Nenhuma bolsa.</p></div></td></tr>}
+          {!lista.length && <tr><td colSpan="5"><div className="empty"><div className="empty-icon"><Icon name="backpack" size={32}/></div><p>Nenhuma bolsa ou kit cadastrado.</p><button className="btn btn-accent empty-cta" onClick={()=>{setForm({});setItens([]);setModal('form')}}><Icon name="plus" size={14}/> Nova bolsa</button></div></td></tr>}
         </tbody>
       </table></div></div>
       {modal === 'form' && (
@@ -1976,7 +1978,7 @@ function UsuariosPage({ addToast }) {
                 </div></td>
               </tr>
             ))}
-            {!filtrados.length && <tr><td colSpan="7"><div className="empty"><div className="empty-icon"><Icon name="worker" size={32}/></div><p>Nenhum usuário.</p></div></td></tr>}
+            {!filtrados.length && <tr><td colSpan="7"><div className="empty"><div className="empty-icon"><Icon name="worker" size={32}/></div><p>{filtroRole ? 'Nenhum usuário com esse perfil.' : 'Nenhum usuário cadastrado.'}</p>{!filtroRole && <button className="btn btn-accent empty-cta" onClick={()=>{setForm({role:'operario',ativo:true});setModal('form')}}><Icon name="plus" size={14}/> Novo usuário</button>}</div></td></tr>}
           </tbody>
         </table></div>
       </div>

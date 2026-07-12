@@ -70,7 +70,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .btn-danger{background:var(--danger);color:white}.btn-danger:hover{background:#b91c1c}
 .btn-outline{background:var(--card);color:var(--primary);border:1.5px solid var(--primary-accent)}.btn-outline:hover{background:var(--bg)}
 .btn-ghost{background:none;color:var(--text-secondary);border:1px solid var(--border)}.btn-ghost:hover{background:var(--bg)}
-.btn-sm{padding:6px 12px;font-size:.8rem}
+.btn-sm{padding:7px 12px;font-size:.8rem;min-height:34px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
 .form-group{display:flex;flex-direction:column;gap:5px}
@@ -101,7 +101,8 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .modal-sm{max-width:460px}.modal-md{max-width:620px}.modal-lg{max-width:820px}
 .modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .modal-header h3{font-size:1.05rem;font-weight:700}
-.modal-close{background:none;border:none;cursor:pointer;font-size:1.4rem;color:var(--text-secondary);line-height:1}
+.modal-close{background:none;border:none;cursor:pointer;font-size:1.5rem;color:var(--text-secondary);line-height:1;width:38px;height:38px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s;margin:-6px -10px -6px 0}
+.modal-close:hover{background:var(--bg);color:var(--text)}
 .modal-body{padding:24px;overflow-y:auto;flex:1}
 .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap}
 .sig-wrap{border:2px dashed var(--border);border-radius:10px;padding:12px;background:var(--card);text-align:center}
@@ -150,7 +151,8 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 /* Bottom nav */
 .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:var(--bottom-nav-h);background:var(--primary);z-index:100;border-top:2px solid rgba(255,255,255,.1)}
 .bottom-nav-inner{display:flex;height:100%}
-.bottom-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;padding:4px 2px;transition:all .15s;position:relative}
+.bottom-nav-btn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.02em;padding:4px 2px;transition:all .15s;position:relative}
+.bottom-nav-btn .bn-label{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 .bottom-nav-btn .bn-icon{display:flex;align-items:center;justify-content:center;line-height:1}
 .bottom-nav-btn.active{color:var(--accent)}
 .bn-badge{position:absolute;top:6px;right:8px;background:var(--danger);color:white;border-radius:8px;font-size:.6rem;font-weight:800;padding:1px 5px;min-width:14px;text-align:center}
@@ -2244,8 +2246,8 @@ function BottomNav({ user, page, navigate, notif }) {
     { id: 'dashboard', icon: 'dashboard', label: 'Painel' },
     { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||op },
-    { id: 'emprestimos', icon: 'exchange', label: 'Emprést.', badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
-    { id: 'ferramentas', icon: 'wrench', label: 'Ferrament.', show: alm },
+    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
+    { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
   ].filter(i => i.show !== false).slice(0,5)
   return (
     <nav className="bottom-nav">
@@ -2253,7 +2255,7 @@ function BottomNav({ user, page, navigate, notif }) {
         {items.map(item=>(
           <button key={item.id} className={`bottom-nav-btn ${page===item.id?'active':''}`} onClick={()=>navigate(item.id)}>
             <span className="bn-icon"><Icon name={item.icon} size={20}/></span>
-            <span>{item.label}</span>
+            <span className="bn-label">{item.label}</span>
             {item.badge > 0 && <span className="bn-badge">{item.badge}</span>}
           </button>
         ))}

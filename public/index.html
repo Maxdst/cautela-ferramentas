@@ -66,7 +66,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:all .15s;text-decoration:none;white-space:nowrap}
 .btn-primary{background:var(--primary-accent);color:white}.btn-primary:hover{background:#3d7a8e}
 .btn-accent{background:var(--accent);color:white}.btn-accent:hover{background:var(--accent-dark)}
-.btn-success{background:var(--success);color:white}.btn-success:hover{background:#047857}
+.btn-success{background:var(--success);color:white}.btn-success:hover{background:#256257}
 .btn-danger{background:var(--danger);color:white}.btn-danger:hover{background:#b91c1c}
 .btn-outline{background:var(--card);color:var(--primary);border:1.5px solid var(--primary-accent)}.btn-outline:hover{background:var(--bg)}
 .btn-ghost{background:none;color:var(--text-secondary);border:1px solid var(--border)}.btn-ghost:hover{background:var(--bg)}
@@ -294,13 +294,13 @@ function ItemsEditor({ ferramentas, value, onChange }) {
             <div key={i.ferramenta_id} className="item-row">
               <span style={{fontSize:'.88rem'}}>{i.ferramenta_nome}</span>
               <input type="number" min="1" value={i.quantidade} onChange={e=>updateQty(i.ferramenta_id,e.target.value)} style={{padding:'4px 8px',fontSize:'.85rem'}} />
-              <span style={{fontSize:'.82rem',color:'#059669',fontWeight:600}}>{fmtBRL((i.valor_unitario||0)*(i.quantidade||1))}</span>
+              <span style={{fontSize:'.82rem',color:'var(--success)',fontWeight:600}}>{fmtBRL((i.valor_unitario||0)*(i.quantidade||1))}</span>
               <button className="btn btn-danger btn-sm" type="button" onClick={()=>remove(i.ferramenta_id)} style={{display:'inline-flex',alignItems:'center'}}><Icon name="x" size={14}/></button>
             </div>
           ))}
-          {total > 0 && <div style={{padding:'8px 12px',background:'#f0fdf4',display:'flex',justifyContent:'flex-end',gap:8,fontWeight:700}}>
+          {total > 0 && <div style={{padding:'8px 12px',background:'rgba(46,125,107,.08)',display:'flex',justifyContent:'flex-end',gap:8,fontWeight:700}}>
             <span className="text-muted">Total estimado:</span>
-            <span style={{color:'#059669'}}>{fmtBRL(total)}</span>
+            <span style={{color:'var(--success)'}}>{fmtBRL(total)}</span>
           </div>}
         </div>
       )}
@@ -861,12 +861,12 @@ function SolicitacoesPage({ user, navigate, addToast }) {
                   <div key={i.id} className="item-row">
                     <span>{i.ferramenta_nome}</span>
                     <span><strong>{i.quantidade}x</strong></span>
-                    <span style={{color:'#059669',fontSize:'.82rem'}}>{fmtBRL(i.valor_unitario||0)}</span>
+                    <span style={{color:'var(--success)',fontSize:'.82rem'}}>{fmtBRL(i.valor_unitario||0)}</span>
                     <span style={{fontWeight:600}}>{fmtBRL(i.valor_item||0)}</span>
                   </div>
                 ))}
-                <div style={{padding:'8px 12px',background:'#f0fdf4',fontWeight:700,display:'flex',justifyContent:'flex-end',gap:8}}>
-                  <span className="text-muted">Total:</span><span style={{color:'#059669'}}>{fmtBRL(detalhe.valor_total)}</span>
+                <div style={{padding:'8px 12px',background:'rgba(46,125,107,.08)',fontWeight:700,display:'flex',justifyContent:'flex-end',gap:8}}>
+                  <span className="text-muted">Total:</span><span style={{color:'var(--success)'}}>{fmtBRL(detalhe.valor_total)}</span>
                 </div>
               </div>
             </div>
@@ -1108,16 +1108,16 @@ function SolicitacoesPage({ user, navigate, addToast }) {
               {authStep === 'sign' && authUser && (
                 <>
                   <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="checkCircle" size={16}/> Autenticado como {authUser.nome}. Confira os itens e assine abaixo.</div>
-                  <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,padding:12,marginBottom:16}}>
+                  <div style={{background:'rgba(46,125,107,.08)',border:'1px solid rgba(46,125,107,.35)',borderRadius:8,padding:12,marginBottom:16}}>
                     {retiradaModal.sol.itens.map(i=>(
                       <div key={i.id} style={{display:'flex',justifyContent:'space-between',fontSize:'.85rem',marginBottom:4}}>
                         <span>{i.ferramenta_nome} × {i.quantidade}</span>
-                        <span style={{color:'#059669',fontWeight:600}}>{fmtBRL(i.valor_item||0)}</span>
+                        <span style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(i.valor_item||0)}</span>
                       </div>
                     ))}
-                    <div style={{borderTop:'1px solid #86efac',marginTop:8,paddingTop:8,display:'flex',justifyContent:'space-between',fontWeight:700}}>
+                    <div style={{borderTop:'1px solid rgba(46,125,107,.35)',marginTop:8,paddingTop:8,display:'flex',justifyContent:'space-between',fontWeight:700}}>
                       <span>TOTAL SOB RESPONSABILIDADE:</span>
-                      <span style={{color:'#059669'}}>{fmtBRL(retiradaModal.sol.valor_total)}</span>
+                      <span style={{color:'var(--success)'}}>{fmtBRL(retiradaModal.sol.valor_total)}</span>
                     </div>
                   </div>
                   <div className="alert alert-warning">Ao assinar, você confirma o recebimento das ferramentas e assume a responsabilidade perante a {empresaInfo.nome}.</div>
@@ -1146,7 +1146,7 @@ function SolicitacoesPage({ user, navigate, addToast }) {
               <tr key={s.id}>
                 <td className="fw-bold">{s.numero}</td>
                 <td>{s.itens.length} tipo(s)</td>
-                <td style={{color:'#059669',fontWeight:600}}>{fmtBRL(s.valor_total)}</td>
+                <td style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(s.valor_total)}</td>
                 <td>{fmt(s.criado_em)}</td>
                 <td><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
                 <td><div className="actions">
@@ -1174,12 +1174,12 @@ function SolicitacoesPage({ user, navigate, addToast }) {
                   <div key={i.id} className="item-row">
                     <span>{i.ferramenta_nome}</span>
                     <span><strong>{i.quantidade}x</strong></span>
-                    <span style={{color:'#059669',fontSize:'.82rem'}}>{fmtBRL(i.valor_unitario||0)}</span>
+                    <span style={{color:'var(--success)',fontSize:'.82rem'}}>{fmtBRL(i.valor_unitario||0)}</span>
                     <span style={{fontWeight:600}}>{fmtBRL(i.valor_item||0)}</span>
                   </div>
                 ))}
-                <div style={{padding:'8px 12px',background:'#f0fdf4',fontWeight:700,display:'flex',justifyContent:'flex-end',gap:8}}>
-                  <span className="text-muted">Total:</span><span style={{color:'#059669'}}>{fmtBRL(detalhe.valor_total)}</span>
+                <div style={{padding:'8px 12px',background:'rgba(46,125,107,.08)',fontWeight:700,display:'flex',justifyContent:'flex-end',gap:8}}>
+                  <span className="text-muted">Total:</span><span style={{color:'var(--success)'}}>{fmtBRL(detalhe.valor_total)}</span>
                 </div>
               </div>
             </div>
@@ -1423,7 +1423,7 @@ function CautelasPage({ user, navigate, addToast }) {
                 <div><span className="text-muted">{detalhe.cautela_tipo==='direto'?'Operário (responsável)':'Líder'}</span><br/><strong>{detalhe.lider_nome}</strong></div>
                 <div><span className="text-muted">Status</span><br/><span className={`badge badge-${detalhe.status}`}>{STATUS_LABEL[detalhe.status]}</span></div>
                 <div><span className="text-muted">Retirada</span><br/><strong>{fmtDT(detalhe.data_retirada)}</strong></div>
-                <div><span className="text-muted">Valor total</span><br/><strong style={{color:'#059669'}}>{fmtBRL(detalhe.valor_total)}</strong></div>
+                <div><span className="text-muted">Valor total</span><br/><strong style={{color:'var(--success)'}}>{fmtBRL(detalhe.valor_total)}</strong></div>
               </div>
               {detalhe.ip_lider && <p className="text-muted" style={{fontSize:'.75rem',marginBottom:8}}>IP retirada: {detalhe.ip_lider}</p>}
               <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
@@ -1437,7 +1437,7 @@ function CautelasPage({ user, navigate, addToast }) {
                   <div key={i.id} className="item-row">
                     <span>{i.ferramenta_nome}{i.codigo && <span className="text-muted"> ({i.codigo})</span>}</span>
                     <span><strong>{i.quantidade}x</strong></span>
-                    <span style={{color:'#059669',fontSize:'.82rem'}}>{fmtBRL(i.valor_unitario||0)}</span>
+                    <span style={{color:'var(--success)',fontSize:'.82rem'}}>{fmtBRL(i.valor_unitario||0)}</span>
                     <span style={{fontWeight:600}}>{fmtBRL(i.valor_item||0)}</span>
                   </div>
                 ))}
@@ -1539,11 +1539,11 @@ function CautelasPage({ user, navigate, addToast }) {
               {authStep === 'sign' && authUser && (
                 <>
                   <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:8}}><Icon name="checkCircle" size={16}/> Autenticado como {authUser.nome}. Confira os itens e assine o Termo de Ciência.</div>
-                  <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:8,padding:12,marginBottom:16}}>
+                  <div style={{background:'rgba(46,125,107,.08)',border:'1px solid rgba(46,125,107,.35)',borderRadius:8,padding:12,marginBottom:16}}>
                     {entregaItens.map(i=>(
                       <div key={i.ferramenta_id} style={{display:'flex',justifyContent:'space-between',fontSize:'.85rem',marginBottom:4}}>
                         <span>{i.ferramenta_nome} × {i.quantidade}</span>
-                        <span style={{color:'#059669',fontWeight:600}}>{fmtBRL((i.valor_unitario||0)*i.quantidade)}</span>
+                        <span style={{color:'var(--success)',fontWeight:600}}>{fmtBRL((i.valor_unitario||0)*i.quantidade)}</span>
                       </div>
                     ))}
                   </div>
@@ -1893,7 +1893,7 @@ function BolsasPage({ addToast }) {
               <td><strong>{b.nome}</strong></td>
               <td className="text-muted">{b.descricao||'—'}</td>
               <td>{b.itens.length} tipo(s)</td>
-              <td style={{color:'#059669',fontWeight:600}}>{fmtBRL(b.valor_total||0)}</td>
+              <td style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(b.valor_total||0)}</td>
               <td><button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...b});setItens(b.itens.map(i=>({ferramenta_id:i.ferramenta_id,quantidade:i.quantidade,ferramenta_nome:i.ferramenta_nome,valor_unitario:i.valor_unitario||0})));setModal('form')}} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="edit" size={14}/> Editar</button></td>
             </tr>
           ))}

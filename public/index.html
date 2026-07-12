@@ -15,7 +15,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
-:root{--primary:#1A2535;--primary-light:#2E3F55;--primary-accent:#4A90A4;--silver:#8A9BB0;--silver-light:#C4CDD8;--accent:#A07C4E;--accent-dark:#8B6B3D;--success:#2E7D6B;--danger:#7A2E2E;--warning:#B8860B;--bg:#E8ECF0;--card:#F6F8FA;--border:#C4CDD8;--text:#0F1820;--text-secondary:#566475;--sidebar-w:240px;--bottom-nav-h:60px}
+:root{--primary:#1A2535;--primary-light:#2E3F55;--primary-accent:#4A90A4;--silver:#8A9BB0;--silver-light:#C4CDD8;--accent:#A07C4E;--accent-dark:#8B6B3D;--success:#2E7D6B;--danger:#7A2E2E;--warning:#B8860B;--notif:#B23A2C;--bg:#E8ECF0;--card:#F6F8FA;--border:#C4CDD8;--text:#0F1820;--text-secondary:#566475;--sidebar-w:240px;--bottom-nav-h:60px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 #root{display:flex;flex-direction:column;min-height:100vh}
@@ -39,7 +39,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .nav-item:hover{background:rgba(255,255,255,.1);color:white}
 .nav-item.active{background:rgba(74,144,164,.15);color:var(--primary-accent);border-right:3px solid var(--primary-accent)}
 .nav-item .nav-icon{width:24px;display:inline-flex;align-items:center;justify-content:center}
-.nav-badge{background:var(--danger);color:white;border-radius:10px;font-size:.65rem;font-weight:800;padding:2px 6px;margin-left:auto}
+.nav-badge{background:var(--notif);color:white;border-radius:10px;font-size:.65rem;font-weight:800;padding:2px 6px;margin-left:auto;box-shadow:0 0 0 2px rgba(178,58,44,.25)}
 .sidebar-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.1)}
 .btn-logout{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.6);background:none;border:none;cursor:pointer;font-size:.85rem;width:100%;padding:8px}
 .btn-logout:hover{color:white}
@@ -54,11 +54,17 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .stat-card.green::before{background:var(--success)}
 .stat-card.red::before{background:var(--danger)}
 .stat-label{font-size:.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.stat-value{font-size:2.2rem;font-weight:800;margin-top:4px;line-height:1}
+.stat-value{font-size:2.2rem;font-weight:800;margin-top:4px;line-height:1;font-variant-numeric:tabular-nums}
+.stat-value.money{font-size:clamp(1.2rem,3.2vw,1.55rem);letter-spacing:-.01em}
 .stat-card.blue .stat-value{color:var(--primary)}
 .stat-card.green .stat-value{color:var(--success)}
 .stat-card.red .stat-value{color:var(--danger)}
 .stat-card .stat-value{color:var(--accent)}
+.stat-section{margin-bottom:22px}
+.stat-section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);margin:0 0 10px;display:flex;align-items:center;gap:10px}
+.stat-section-title .st-ic{color:var(--primary-accent);display:inline-flex}
+.stat-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.stat-section .stats-grid{margin-bottom:0}
 .card{background:var(--card);border-radius:12px;border:1px solid var(--border);margin-bottom:20px}
 .card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .card-title{font-size:.95rem;font-weight:600;color:var(--text)}
@@ -157,7 +163,7 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .bottom-nav-btn .bn-label{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 .bottom-nav-btn .bn-icon{display:flex;align-items:center;justify-content:center;line-height:1}
 .bottom-nav-btn.active{color:var(--accent)}
-.bn-badge{position:absolute;top:6px;right:8px;background:var(--danger);color:white;border-radius:8px;font-size:.6rem;font-weight:800;padding:1px 5px;min-width:14px;text-align:center}
+.bn-badge{position:absolute;top:6px;right:8px;background:var(--notif);color:white;border-radius:8px;font-size:.6rem;font-weight:800;padding:1px 5px;min-width:14px;text-align:center;box-shadow:0 0 0 2px var(--primary)}
 @media(max-width:768px){
   .sidebar{transform:translateX(-100%)}
   .sidebar.open{transform:translateX(0);box-shadow:4px 0 20px rgba(0,0,0,.4)}
@@ -474,15 +480,28 @@ function Dashboard({ user, navigate, addToast }) {
   if (user.role === 'almoxarifado') return (
     <div>
       <div className="topbar"><h2>Painel Geral</h2><a href="/api/admin/backup" className="btn btn-ghost btn-sm" style={{fontSize:'.8rem',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Baixar backup</a></div>
-      <div className="stats-grid">
-        <div className="stat-card blue"><div className="stat-label">Ferramentas</div><div className="stat-value">{stats.total_ferramentas||0}</div><div style={{fontSize:'.75rem',color:'#64748b',marginTop:2}}>{stats.total_unidades||0} unidades</div></div>
-        <div className="stat-card blue"><div className="stat-label">Usuários</div><div className="stat-value">{stats.total_usuarios||0}</div></div>
-        <div className="stat-card"><div className="stat-label">Solicitações novas</div><div className="stat-value">{stats.sol_solicitadas||0}</div></div>
-        <div className="stat-card"><div className="stat-label">Separando</div><div className="stat-value">{stats.sol_separando||0}</div></div>
-        <div className="stat-card"><div className="stat-label">Prontas p/ retirada</div><div className="stat-value">{stats.sol_prontas||0}</div></div>
-        <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
-        <div className="stat-card green"><div className="stat-label">Valor total cadastrado</div><div className="stat-value" style={{fontSize:'1.1rem'}}>{fmtBRL(stats.valor_total_estoque||0)}</div></div>
-        <div className="stat-card red"><div className="stat-label">Valor em campo</div><div className="stat-value" style={{fontSize:'1.1rem'}}>{fmtBRL(stats.valor_em_campo||0)}</div></div>
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="package" size={14}/></span>Estoque</div>
+        <div className="stats-grid">
+          <div className="stat-card blue"><div className="stat-label">Ferramentas</div><div className="stat-value">{stats.total_ferramentas||0}</div><div style={{fontSize:'.75rem',color:'var(--text-secondary)',marginTop:2}}>{stats.total_unidades||0} unidades</div></div>
+          <div className="stat-card blue"><div className="stat-label">Usuários</div><div className="stat-value">{stats.total_usuarios||0}</div></div>
+        </div>
+      </div>
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="clipboard" size={14}/></span>Fila de solicitações</div>
+        <div className="stats-grid">
+          <div className="stat-card"><div className="stat-label">Solicitações novas</div><div className="stat-value">{stats.sol_solicitadas||0}</div></div>
+          <div className="stat-card"><div className="stat-label">Separando</div><div className="stat-value">{stats.sol_separando||0}</div></div>
+          <div className="stat-card"><div className="stat-label">Prontas p/ retirada</div><div className="stat-value">{stats.sol_prontas||0}</div></div>
+        </div>
+      </div>
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="signature" size={14}/></span>Responsabilidade &amp; valores</div>
+        <div className="stats-grid">
+          <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
+          <div className="stat-card green"><div className="stat-label">Valor total cadastrado</div><div className="stat-value money">{fmtBRL(stats.valor_total_estoque||0)}</div></div>
+          <div className="stat-card red"><div className="stat-label">Valor em campo</div><div className="stat-value money">{fmtBRL(stats.valor_em_campo||0)}</div></div>
+        </div>
       </div>
       {(stats.sol_solicitadas > 0 || stats.sol_prontas > 0) && (
         <div className="pending-banner">
@@ -534,8 +553,8 @@ function Dashboard({ user, navigate, addToast }) {
       <div className="stats-grid">
         <div className="stat-card"><div className="stat-label">Minhas solicitações ativas</div><div className="stat-value">{stats.minhas_sol_ativas||0}</div></div>
         <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
-        <div className="stat-card red"><div className="stat-label">Minha responsabilidade</div><div className="stat-value" style={{fontSize:'1rem'}}>{fmtBRL(stats.valor_responsabilidade||0)}</div></div>
-        <div className="stat-card"><div className="stat-label">Entregue à equipe</div><div className="stat-value" style={{fontSize:'1rem'}}>{fmtBRL(stats.valor_entregue_equipe||0)}</div></div>
+        <div className="stat-card red"><div className="stat-label">Minha responsabilidade</div><div className="stat-value money">{fmtBRL(stats.valor_responsabilidade||0)}</div></div>
+        <div className="stat-card"><div className="stat-label">Entregue à equipe</div><div className="stat-value money">{fmtBRL(stats.valor_entregue_equipe||0)}</div></div>
         <div className="stat-card"><div className="stat-label">Aguard. meu aval (emprést.)</div><div className="stat-value">{stats.emp_aguardando_aval||0}</div></div>
       </div>
       <div className="card">
@@ -568,7 +587,7 @@ function Dashboard({ user, navigate, addToast }) {
         </div>
       )}
       <div className="stats-grid">
-        <div className="stat-card red"><div className="stat-label">Valor sob minha responsabilidade</div><div className="stat-value" style={{fontSize:'1rem'}}>{fmtBRL(stats.valor_responsabilidade||0)}</div></div>
+        <div className="stat-card red"><div className="stat-label">Valor sob minha responsabilidade</div><div className="stat-value money">{fmtBRL(stats.valor_responsabilidade||0)}</div></div>
         <div className="stat-card"><div className="stat-label">Empréstimos ativos</div><div className="stat-value">{stats.emp_ativos||0}</div></div>
         <div className="stat-card"><div className="stat-label">Aguard. minha confirmação</div><div className="stat-value">{stats.emp_aguardando_confirmacao||0}</div></div>
       </div>

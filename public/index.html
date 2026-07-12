@@ -113,7 +113,7 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .alert-success{background:#d1fae5;color:#065f46;border-color:var(--success)}
 .alert-error{background:#fee2e2;color:#991b1b;border-color:var(--danger)}
 .alert-warning{background:#fef3c7;color:#92400e;border-color:var(--warning)}
-.alert-info{background:#dbeafe;color:#1e40af;border-color:#3b82f6}
+.alert-info{background:rgba(74,144,164,.12);color:#1F4B57;border-color:var(--primary-accent)}
 .empty{text-align:center;padding:48px 24px;color:var(--text-secondary)}
 .empty .empty-icon{font-size:3rem;margin-bottom:12px}
 .pending-banner{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid var(--accent);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
@@ -222,6 +222,7 @@ function SignaturePad({ label, onConfirm, onCancel }) {
   const ref = useRef(null)
   const drawing = useRef(false)
   const [hasSig, setHasSig] = useState(false)
+  const [semAssinatura, setSemAssinatura] = useState(false)
   // Escala a posição do ponteiro pela razão entre a resolução interna do canvas e o tamanho
   // renderizado em CSS — sem isso, num celular onde o canvas é exibido menor que 480px (ver
   // regra .sig-canvas com max-width:100%), o traço desalinha do dedo/caneta.
@@ -233,18 +234,19 @@ function SignaturePad({ label, onConfirm, onCancel }) {
     return [(s.clientX - r.left) * scaleX, (s.clientY - r.top) * scaleY]
   }
   const start = e => { e.preventDefault(); drawing.current = true; const [x,y] = getPos(e); const ctx = ref.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(x,y) }
-  const move = e => { if (!drawing.current) return; e.preventDefault(); const [x,y] = getPos(e); const ctx = ref.current.getContext('2d'); ctx.lineWidth=2.5; ctx.strokeStyle='#1A2535'; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineTo(x,y); ctx.stroke(); setHasSig(true) }
+  const move = e => { if (!drawing.current) return; e.preventDefault(); const [x,y] = getPos(e); const ctx = ref.current.getContext('2d'); ctx.lineWidth=2.5; ctx.strokeStyle='#1A2535'; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineTo(x,y); ctx.stroke(); setHasSig(true); setSemAssinatura(false) }
   const stop = () => { drawing.current = false }
   const clear = () => { ref.current.getContext('2d').clearRect(0,0,ref.current.width,ref.current.height); setHasSig(false) }
-  const confirm = () => { if (!hasSig) { alert('Assine antes de confirmar.'); return }; onConfirm(ref.current.toDataURL()) }
+  const confirm = () => { if (!hasSig) { setSemAssinatura(true); return }; onConfirm(ref.current.toDataURL()) }
   return (
     <div>
-      <div className="sig-wrap">
+      <div className="sig-wrap" style={semAssinatura ? {borderColor:'var(--danger)'} : null}>
         <p style={{display:'flex',alignItems:'center',gap:6}}><Icon name="signature" size={15}/> {label || 'Assine no campo abaixo'}</p>
         <canvas ref={ref} width={480} height={160} className="sig-canvas"
           onMouseDown={start} onMouseMove={move} onMouseUp={stop} onMouseLeave={stop}
           onTouchStart={start} onTouchMove={move} onTouchEnd={stop} />
         <div className="sig-actions"><button className="btn btn-ghost btn-sm" onClick={clear}><Icon name="trash" size={14}/> Limpar</button></div>
+        {semAssinatura && <p style={{color:'var(--danger)',fontSize:'.8rem',marginTop:8,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="alertTriangle" size={14}/> Assine antes de confirmar.</p>}
       </div>
       <div className="modal-footer" style={{padding:'16px 0 0',border:'none'}}>
         {onCancel && <button className="btn btn-ghost" onClick={onCancel}>Cancelar</button>}

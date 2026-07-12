@@ -484,7 +484,13 @@ function Dashboard({ user, navigate, addToast }) {
         <div className="stat-section-title"><span className="st-ic"><Icon name="package" size={14}/></span>Estoque</div>
         <div className="stats-grid">
           <div className="stat-card blue"><div className="stat-label">Ferramentas</div><div className="stat-value">{stats.total_ferramentas||0}</div><div style={{fontSize:'.75rem',color:'var(--text-secondary)',marginTop:2}}>{stats.total_unidades||0} unidades</div></div>
+        </div>
+      </div>
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="exchange" size={14}/></span>Operação</div>
+        <div className="stats-grid">
           <div className="stat-card blue"><div className="stat-label">Usuários</div><div className="stat-value">{stats.total_usuarios||0}</div></div>
+          <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
         </div>
       </div>
       <div className="stat-section">
@@ -498,7 +504,6 @@ function Dashboard({ user, navigate, addToast }) {
       <div className="stat-section">
         <div className="stat-section-title"><span className="st-ic"><Icon name="signature" size={14}/></span>Responsabilidade &amp; valores</div>
         <div className="stats-grid">
-          <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
           <div className="stat-card green"><div className="stat-label">Valor total cadastrado</div><div className="stat-value money">{fmtBRL(stats.valor_total_estoque||0)}</div></div>
           <div className="stat-card red"><div className="stat-label">Valor em campo</div><div className="stat-value money">{fmtBRL(stats.valor_em_campo||0)}</div></div>
         </div>

@@ -119,17 +119,17 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .tool-item .ti-nome span.nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tool-item .ti-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .qtd-badge{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px 11px;font-weight:700;font-size:.85rem;font-variant-numeric:tabular-nums;min-width:40px;text-align:center;color:var(--text)}
-.tool-item .ti-chevron{color:var(--silver);display:inline-flex}
-/* Gaveta lateral (drawer) */
-.drawer-overlay{position:fixed;inset:0;background:rgba(15,24,32,.42);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s}
-.drawer-overlay.open{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;right:0;height:100vh;width:100%;max-width:440px;background:var(--card);z-index:201;box-shadow:-10px 0 40px rgba(0,0,0,.25);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
-.drawer.open{transform:translateX(0)}
-.drawer-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0}
-.drawer-header h3{font-size:1.1rem;font-weight:700}
-.drawer-header .dh-sub{font-size:.78rem;color:var(--text-secondary);margin-top:3px}
-.drawer-body{padding:24px;overflow-y:auto;flex:1}
-.drawer-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.tool-item .ti-chevron{color:var(--silver);display:inline-flex;transition:transform .2s}
+.tool-item.open{background:var(--bg)}
+.tool-item.open .ti-chevron{transform:rotate(90deg);color:var(--primary-accent)}
+/* Painel de edição embutido (acordeão) — abre entre os itens da lista */
+.tool-edit-panel{background:var(--bg);border-bottom:1px solid var(--border);padding:16px 20px 18px;animation:tepDown .18s ease}
+@keyframes tepDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.tep-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.tep-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary)}
+.tep-close{background:none;border:none;cursor:pointer;color:var(--text-secondary);display:inline-flex;padding:5px;border-radius:6px}
+.tep-close:hover{background:var(--border);color:var(--text)}
+.tep-footer{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-top:16px;flex-wrap:wrap}
 .sig-wrap{border:2px dashed var(--border);border-radius:10px;padding:12px;background:var(--card);text-align:center}
 .sig-wrap p{font-size:.8rem;color:var(--text-secondary);margin-bottom:8px}
 .sig-canvas{display:block;margin:0 auto;border:1px solid var(--border);border-radius:8px;cursor:crosshair;background:white;touch-action:none;max-width:100%;height:auto}
@@ -1852,16 +1852,19 @@ function EmprestimosPage({ user, addToast }) {
 // ─── FERRAMENTAS ──────────────────────────────────────────────────────────────
 function FerramentasPage({ user, addToast }) {
   const [lista, setLista] = useState([])
-  const [open, setOpen] = useState(false)
+  const [openId, setOpenId] = useState(null)   // id da ferramenta aberta, 'new', ou null
   const [form, setForm] = useState({})
   const [busca, setBusca] = useState('')
   const [confirmDel, setConfirmDel] = useState(false)
   const isMaster = !!(user && user.is_master)
   const load = () => GET('/ferramentas').then(setLista)
   useEffect(() => { load() }, [])
-  const abrirNovo = () => { setForm({quantidade_total:1}); setConfirmDel(false); setOpen(true) }
-  const abrirItem = f => { setForm({...f}); setConfirmDel(false); setOpen(true) }
-  const fechar = () => { setOpen(false); setConfirmDel(false) }
+  const abrirNovo = () => { setForm({quantidade_total:1}); setConfirmDel(false); setOpenId('new') }
+  const toggle = f => {
+    if (openId === f.id) { fechar(); return }
+    setForm({...f}); setConfirmDel(false); setOpenId(f.id)
+  }
+  const fechar = () => { setOpenId(null); setConfirmDel(false) }
   const save = async () => {
     if (!form.nome) { addToast('Informe o nome.','error'); return }
     try {
@@ -1876,57 +1879,32 @@ function FerramentasPage({ user, addToast }) {
     catch(e) { addToast(e.message,'error') }
   }
   const filtradas = lista.filter(f => !busca || f.nome.toLowerCase().includes(busca.toLowerCase()) || (f.codigo||'').toLowerCase().includes(busca.toLowerCase()))
-  const temCodigo = !!(form.codigo && form.codigo.trim())
-  const codigoLocked = !!(form.id && form.codigo && form.codigo.trim())
-  return (
-    <div>
-      <div className="topbar"><h2>Ferramentas</h2><button className="btn btn-accent" onClick={abrirNovo}><Icon name="plus" size={14}/> Cadastrar</button></div>
-      <div className="card">
-        <div className="card-body" style={{paddingBottom:12}}>
-          <input placeholder="Buscar por nome ou código..." value={busca} onChange={e=>setBusca(e.target.value)} style={{maxWidth:360}} />
+  // Painel de edição/cadastro que abre embaixo do item (acordeão)
+  const painel = () => {
+    const temCodigo = !!(form.codigo && form.codigo.trim())
+    const codigoLocked = !!(form.id && form.codigo && form.codigo.trim())
+    return (
+      <div className="tool-edit-panel">
+        <div className="tep-head">
+          <span className="tep-title">{form.id ? (form.codigo ? `Patrimônio ${form.codigo}` : 'Editar ferramenta') : 'Nova ferramenta'}</span>
+          <button className="tep-close" onClick={fechar} aria-label="Fechar"><Icon name="x" size={16}/></button>
         </div>
-        {filtradas.length ? (
-          <div className="tool-list">
-            {filtradas.map(f=>(
-              <button key={f.id} className="tool-item" onClick={()=>abrirItem(f)}>
-                <span className="ti-nome"><span className="nm">{f.nome}</span>{f.codigo && <span title="Item patrimonial único" style={{color:'var(--text-secondary)',display:'inline-flex',flexShrink:0}}><Icon name="lock" size={12}/></span>}</span>
-                <span className="ti-right"><span className="qtd-badge">{f.quantidade_total}</span><span className="ti-chevron"><Icon name="chevronRight" size={18}/></span></span>
-              </button>
-            ))}
+        <div className="form-grid">
+          <div className="form-group full"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
+          <div className="form-group">
+            <label>Código / Patrimônio</label>
+            <input value={form.codigo||''} onChange={e=>!codigoLocked&&setForm({...form,codigo:e.target.value})} placeholder="FUR-001" disabled={codigoLocked} style={codigoLocked?{background:'#EEF1F5',cursor:'not-allowed'}:{}} />
+            {codigoLocked && <span style={{fontSize:'.72rem',color:'var(--text-secondary)',marginTop:2,display:'inline-flex',alignItems:'center',gap:4}}><Icon name="lock" size={11}/> Código de patrimônio não pode ser alterado</span>}
           </div>
-        ) : (
-          <div className="empty"><div className="empty-icon"><Icon name="wrench" size={32}/></div><p>{busca ? 'Nenhuma ferramenta encontrada para essa busca.' : 'Nenhuma ferramenta cadastrada ainda.'}</p>{!busca && <button className="btn btn-accent empty-cta" onClick={abrirNovo}><Icon name="plus" size={14}/> Cadastrar ferramenta</button>}</div>
-        )}
-      </div>
-
-      {/* Gaveta de detalhes / edição */}
-      <div className={`drawer-overlay ${open?'open':''}`} onClick={fechar}></div>
-      <div className={`drawer ${open?'open':''}`} role="dialog" aria-hidden={!open}>
-        <div className="drawer-header">
-          <div>
-            <h3>{form.id ? 'Editar ferramenta' : 'Nova ferramenta'}</h3>
-            {form.id && <div className="dh-sub">{form.codigo ? `Patrimônio ${form.codigo}` : 'Item controlado por quantidade'}</div>}
+          <div className="form-group"><label>Categoria</label><input value={form.categoria||''} onChange={e=>setForm({...form,categoria:e.target.value})} /></div>
+          <div className="form-group">
+            <label>Quantidade total {temCodigo && <span style={{color:'var(--text-secondary)',fontWeight:400,fontSize:'.75rem'}}>(item único — fixo em 1)</span>}</label>
+            <input type="number" min="0" value={temCodigo ? 1 : (form.quantidade_total??0)} onChange={e=>!temCodigo&&setForm({...form,quantidade_total:Math.max(0,parseInt(e.target.value)||0)})} disabled={temCodigo} style={temCodigo?{background:'#EEF1F5',cursor:'not-allowed'}:{}} />
           </div>
-          <button className="modal-close" onClick={fechar}>×</button>
+          <div className="form-group full"><label>Valor unitário (R$)</label><input type="number" min="0" step="0.01" value={form.valor_unitario||''} onChange={e=>setForm({...form,valor_unitario:parseFloat(e.target.value)||0})} placeholder="0,00" /></div>
+          <div className="form-group full"><label>Descrição</label><textarea value={form.descricao||''} onChange={e=>setForm({...form,descricao:e.target.value})} /></div>
         </div>
-        <div className="drawer-body">
-          <div className="form-grid">
-            <div className="form-group full"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
-            <div className="form-group">
-              <label>Código / Patrimônio</label>
-              <input value={form.codigo||''} onChange={e=>!codigoLocked&&setForm({...form,codigo:e.target.value})} placeholder="FUR-001" disabled={codigoLocked} style={codigoLocked?{background:'#EEF1F5',cursor:'not-allowed'}:{}} />
-              {codigoLocked && <span style={{fontSize:'.72rem',color:'var(--text-secondary)',marginTop:2,display:'inline-flex',alignItems:'center',gap:4}}><Icon name="lock" size={11}/> Código de patrimônio não pode ser alterado</span>}
-            </div>
-            <div className="form-group"><label>Categoria</label><input value={form.categoria||''} onChange={e=>setForm({...form,categoria:e.target.value})} /></div>
-            <div className="form-group">
-              <label>Quantidade total {temCodigo && <span style={{color:'var(--text-secondary)',fontWeight:400,fontSize:'.75rem'}}>(item único — fixo em 1)</span>}</label>
-              <input type="number" min="0" value={temCodigo ? 1 : (form.quantidade_total??0)} onChange={e=>!temCodigo&&setForm({...form,quantidade_total:Math.max(0,parseInt(e.target.value)||0)})} disabled={temCodigo} style={temCodigo?{background:'#EEF1F5',cursor:'not-allowed'}:{}} />
-            </div>
-            <div className="form-group full"><label>Valor unitário (R$)</label><input type="number" min="0" step="0.01" value={form.valor_unitario||''} onChange={e=>setForm({...form,valor_unitario:parseFloat(e.target.value)||0})} placeholder="0,00" /></div>
-            <div className="form-group full"><label>Descrição</label><textarea value={form.descricao||''} onChange={e=>setForm({...form,descricao:e.target.value})} /></div>
-          </div>
-        </div>
-        <div className="drawer-footer">
+        <div className="tep-footer">
           {confirmDel ? (
             <div style={{display:'flex',alignItems:'center',gap:10,width:'100%',justifyContent:'space-between',flexWrap:'wrap'}}>
               <span style={{fontSize:'.85rem',color:'var(--danger)',fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> Excluir esta ferramenta?</span>
@@ -1935,11 +1913,37 @@ function FerramentasPage({ user, addToast }) {
           ) : (<>
             <div>{isMaster && form.id && !temCodigo && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Excluir</button>}</div>
             <div className="gap-8">
-              <button className="btn btn-ghost" onClick={fechar}>Cancelar</button>
-              <button className="btn btn-primary" onClick={save}><Icon name="check" size={14}/> Salvar</button>
+              <button className="btn btn-ghost btn-sm" onClick={fechar}>Cancelar</button>
+              <button className="btn btn-primary btn-sm" onClick={save}><Icon name="check" size={14}/> Salvar</button>
             </div>
           </>)}
         </div>
+      </div>
+    )
+  }
+  return (
+    <div style={{maxWidth:680,margin:'0 auto'}}>
+      <div className="topbar"><h2>Ferramentas</h2><button className="btn btn-accent" onClick={abrirNovo}><Icon name="plus" size={14}/> Cadastrar</button></div>
+      <div className="card">
+        <div className="card-body" style={{paddingBottom:12}}>
+          <input placeholder="Buscar por nome ou código..." value={busca} onChange={e=>setBusca(e.target.value)} />
+        </div>
+        {(filtradas.length || openId==='new') ? (
+          <div className="tool-list">
+            {openId==='new' && painel()}
+            {filtradas.map(f=>(
+              <React.Fragment key={f.id}>
+                <button className={`tool-item ${openId===f.id?'open':''}`} onClick={()=>toggle(f)}>
+                  <span className="ti-nome"><span className="nm">{f.nome}</span>{f.codigo && <span title="Item patrimonial único" style={{color:'var(--text-secondary)',display:'inline-flex',flexShrink:0}}><Icon name="lock" size={12}/></span>}</span>
+                  <span className="ti-right"><span className="qtd-badge">{f.quantidade_total}</span><span className="ti-chevron"><Icon name="chevronRight" size={18}/></span></span>
+                </button>
+                {openId===f.id && painel()}
+              </React.Fragment>
+            ))}
+          </div>
+        ) : (
+          <div className="empty"><div className="empty-icon"><Icon name="wrench" size={32}/></div><p>{busca ? 'Nenhuma ferramenta encontrada para essa busca.' : 'Nenhuma ferramenta cadastrada ainda.'}</p>{!busca && <button className="btn btn-accent empty-cta" onClick={abrirNovo}><Icon name="plus" size={14}/> Cadastrar ferramenta</button>}</div>
+        )}
       </div>
     </div>
   )

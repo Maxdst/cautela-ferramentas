@@ -54,8 +54,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .stat-card.green::before{background:var(--success)}
 .stat-card.red::before{background:var(--danger)}
 .stat-label{font-size:.75rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.stat-value{font-size:2.2rem;font-weight:800;margin-top:4px;line-height:1;font-variant-numeric:tabular-nums}
-.stat-value.money{font-size:clamp(1.2rem,3.2vw,1.55rem);letter-spacing:-.01em}
+.stat-value{font-size:1.9rem;font-weight:800;margin-top:4px;line-height:1;font-variant-numeric:tabular-nums}
+.stat-value.money{font-size:clamp(1.25rem,3.2vw,1.6rem);letter-spacing:-.01em}
 .stat-card.blue .stat-value{color:var(--primary)}
 .stat-card.green .stat-value{color:var(--success)}
 .stat-card.red .stat-value{color:var(--danger)}
@@ -111,6 +111,25 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .modal-close:hover{background:var(--bg);color:var(--text)}
 .modal-body{padding:24px;overflow-y:auto;flex:1}
 .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap}
+/* Lista compacta de ferramentas */
+.tool-list{border-top:1px solid var(--border)}
+.tool-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;background:none;border-left:0;border-right:0;border-top:0;width:100%;text-align:left;font-family:inherit;color:var(--text)}
+.tool-item:hover{background:var(--bg)}
+.tool-item .ti-nome{font-weight:600;font-size:.92rem;display:flex;align-items:center;gap:8px;min-width:0}
+.tool-item .ti-nome span.nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tool-item .ti-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.qtd-badge{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px 11px;font-weight:700;font-size:.85rem;font-variant-numeric:tabular-nums;min-width:40px;text-align:center;color:var(--text)}
+.tool-item .ti-chevron{color:var(--silver);display:inline-flex}
+/* Gaveta lateral (drawer) */
+.drawer-overlay{position:fixed;inset:0;background:rgba(15,24,32,.42);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s}
+.drawer-overlay.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:100%;max-width:440px;background:var(--card);z-index:201;box-shadow:-10px 0 40px rgba(0,0,0,.25);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
+.drawer.open{transform:translateX(0)}
+.drawer-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0}
+.drawer-header h3{font-size:1.1rem;font-weight:700}
+.drawer-header .dh-sub{font-size:.78rem;color:var(--text-secondary);margin-top:3px}
+.drawer-body{padding:24px;overflow-y:auto;flex:1}
+.drawer-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap}
 .sig-wrap{border:2px dashed var(--border);border-radius:10px;padding:12px;background:var(--card);text-align:center}
 .sig-wrap p{font-size:.8rem;color:var(--text-secondary);margin-bottom:8px}
 .sig-canvas{display:block;margin:0 auto;border:1px solid var(--border);border-radius:8px;cursor:crosshair;background:white;touch-action:none;max-width:100%;height:auto}
@@ -501,13 +520,15 @@ function Dashboard({ user, navigate, addToast }) {
           <div className="stat-card"><div className="stat-label">Prontas p/ retirada</div><div className="stat-value">{stats.sol_prontas||0}</div></div>
         </div>
       </div>
-      <div className="stat-section">
-        <div className="stat-section-title"><span className="st-ic"><Icon name="signature" size={14}/></span>Responsabilidade &amp; valores</div>
-        <div className="stats-grid">
-          <div className="stat-card green"><div className="stat-label">Valor total cadastrado</div><div className="stat-value money">{fmtBRL(stats.valor_total_estoque||0)}</div></div>
-          <div className="stat-card red"><div className="stat-label">Valor em campo</div><div className="stat-value money">{fmtBRL(stats.valor_em_campo||0)}</div></div>
+      {user.is_master && (
+        <div className="stat-section">
+          <div className="stat-section-title"><span className="st-ic"><Icon name="signature" size={14}/></span>Responsabilidade &amp; valores</div>
+          <div className="stats-grid">
+            <div className="stat-card green"><div className="stat-label">Valor total cadastrado</div><div className="stat-value money">{fmtBRL(stats.valor_total_estoque||0)}</div></div>
+            <div className="stat-card red"><div className="stat-label">Valor em campo</div><div className="stat-value money">{fmtBRL(stats.valor_em_campo||0)}</div></div>
+          </div>
         </div>
-      </div>
+      )}
       {(stats.sol_solicitadas > 0 || stats.sol_prontas > 0) && (
         <div className="pending-banner">
           <span className="msg" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> {stats.sol_solicitadas||0} nova(s) solicitação(ões) · {stats.sol_prontas||0} pronta(s) para retirada</span>
@@ -1829,89 +1850,97 @@ function EmprestimosPage({ user, addToast }) {
 }
 
 // ─── FERRAMENTAS ──────────────────────────────────────────────────────────────
-function FerramentasPage({ addToast }) {
+function FerramentasPage({ user, addToast }) {
   const [lista, setLista] = useState([])
-  const [modal, setModal] = useState(null)
+  const [open, setOpen] = useState(false)
   const [form, setForm] = useState({})
   const [busca, setBusca] = useState('')
+  const [confirmDel, setConfirmDel] = useState(false)
+  const isMaster = !!(user && user.is_master)
   const load = () => GET('/ferramentas').then(setLista)
   useEffect(() => { load() }, [])
+  const abrirNovo = () => { setForm({quantidade_total:1}); setConfirmDel(false); setOpen(true) }
+  const abrirItem = f => { setForm({...f}); setConfirmDel(false); setOpen(true) }
+  const fechar = () => { setOpen(false); setConfirmDel(false) }
   const save = async () => {
     if (!form.nome) { addToast('Informe o nome.','error'); return }
     try {
       if (form.id) await PUT(`/ferramentas/${form.id}`, form)
       else await POST('/ferramentas', form)
       addToast(form.id ? 'Atualizada!' : 'Cadastrada!', 'success')
-      setModal(null); load()
+      fechar(); load()
     } catch(e) { addToast(e.message,'error') }
   }
-  const del = async f => {
-    if (!confirm(`Excluir "${f.nome}"?`)) return
-    try { await DEL(`/ferramentas/${f.id}`); addToast('Excluída!','success'); load() }
+  const del = async () => {
+    try { await DEL(`/ferramentas/${form.id}`); addToast('Excluída!','success'); fechar(); load() }
     catch(e) { addToast(e.message,'error') }
   }
   const filtradas = lista.filter(f => !busca || f.nome.toLowerCase().includes(busca.toLowerCase()) || (f.codigo||'').toLowerCase().includes(busca.toLowerCase()))
+  const temCodigo = !!(form.codigo && form.codigo.trim())
+  const codigoLocked = !!(form.id && form.codigo && form.codigo.trim())
   return (
     <div>
-      <div className="topbar"><h2>Ferramentas</h2><button className="btn btn-accent" onClick={()=>{setForm({quantidade_total:1});setModal('form')}}><Icon name="plus" size={14}/> Cadastrar</button></div>
+      <div className="topbar"><h2>Ferramentas</h2><button className="btn btn-accent" onClick={abrirNovo}><Icon name="plus" size={14}/> Cadastrar</button></div>
       <div className="card">
-        <div className="card-body" style={{paddingBottom:0}}>
-          <input placeholder="Buscar..." value={busca} onChange={e=>setBusca(e.target.value)} style={{maxWidth:320,marginBottom:16}} />
+        <div className="card-body" style={{paddingBottom:12}}>
+          <input placeholder="Buscar por nome ou código..." value={busca} onChange={e=>setBusca(e.target.value)} style={{maxWidth:360}} />
         </div>
-        <div className="table-wrap"><table className="cards-mobile">
-          <thead><tr><th>Nome</th><th>Código</th><th>Categoria</th><th>Qtd.</th><th>Valor Unit.</th><th>Ações</th></tr></thead>
-          <tbody>
+        {filtradas.length ? (
+          <div className="tool-list">
             {filtradas.map(f=>(
-              <tr key={f.id}>
-                <td data-label="Nome"><strong>{f.nome}</strong>{f.descricao&&<><br/><span className="text-muted">{f.descricao.substring(0,60)}</span></>}</td>
-                <td data-label="Código">{f.codigo ? <span style={{fontFamily:'monospace',fontWeight:700}}>{f.codigo}</span> : '—'}</td>
-                <td data-label="Categoria">{f.categoria||'—'}</td>
-                <td data-label="Qtd."><strong>{f.quantidade_total}</strong>{f.codigo&&<span title="Item patrimonial único" style={{marginLeft:4,display:'inline-flex',color:'var(--text-secondary)',verticalAlign:'middle'}}><Icon name="lock" size={12}/></span>}</td>
-                <td data-label="Valor unit." style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(f.valor_unitario||0)}</td>
-                <td className="cell-actions"><div className="actions">
-                  <button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...f});setModal('form')}}><Icon name="edit" size={14}/></button>
-                  {!f.codigo && <button className="btn btn-danger btn-sm" onClick={()=>del(f)}><Icon name="trash" size={14}/></button>}
-                </div></td>
-              </tr>
+              <button key={f.id} className="tool-item" onClick={()=>abrirItem(f)}>
+                <span className="ti-nome"><span className="nm">{f.nome}</span>{f.codigo && <span title="Item patrimonial único" style={{color:'var(--text-secondary)',display:'inline-flex',flexShrink:0}}><Icon name="lock" size={12}/></span>}</span>
+                <span className="ti-right"><span className="qtd-badge">{f.quantidade_total}</span><span className="ti-chevron"><Icon name="chevronRight" size={18}/></span></span>
+              </button>
             ))}
-            {!filtradas.length && <tr><td colSpan="6"><div className="empty"><div className="empty-icon"><Icon name="wrench" size={32}/></div><p>{busca ? 'Nenhuma ferramenta encontrada para essa busca.' : 'Nenhuma ferramenta cadastrada ainda.'}</p>{!busca && <button className="btn btn-accent empty-cta" onClick={()=>{setForm({quantidade_total:1});setModal('form')}}><Icon name="plus" size={14}/> Cadastrar ferramenta</button>}</div></td></tr>}
-          </tbody>
-        </table></div>
+          </div>
+        ) : (
+          <div className="empty"><div className="empty-icon"><Icon name="wrench" size={32}/></div><p>{busca ? 'Nenhuma ferramenta encontrada para essa busca.' : 'Nenhuma ferramenta cadastrada ainda.'}</p>{!busca && <button className="btn btn-accent empty-cta" onClick={abrirNovo}><Icon name="plus" size={14}/> Cadastrar ferramenta</button>}</div>
+        )}
       </div>
-      {modal === 'form' && (
-        <div className="modal-overlay open">
-          <div className="modal modal-md">
-            <div className="modal-header"><h3>{form.id?'Editar':'Nova'} Ferramenta</h3><button className="modal-close" onClick={()=>setModal(null)}>×</button></div>
-            <div className="modal-body">
-              {(() => {
-                const temCodigo = !!(form.codigo && form.codigo.trim())
-                const codigoLocked = !!(form.id && form.codigo && form.codigo.trim())
-                return (
-                <div className="form-grid">
-                  <div className="form-group full"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
-                  <div className="form-group">
-                    <label>Código / Patrimônio</label>
-                    <input value={form.codigo||''} onChange={e=>!codigoLocked&&setForm({...form,codigo:e.target.value})} placeholder="FUR-001" disabled={codigoLocked} style={codigoLocked?{background:'#f3f4f6',cursor:'not-allowed'}:{}} />
-                    {codigoLocked && <span style={{fontSize:'.72rem',color:'var(--text-secondary)',marginTop:2,display:'inline-flex',alignItems:'center',gap:4}}><Icon name="lock" size={11}/> Código de patrimônio não pode ser alterado</span>}
-                  </div>
-                  <div className="form-group"><label>Categoria</label><input value={form.categoria||''} onChange={e=>setForm({...form,categoria:e.target.value})} /></div>
-                  <div className="form-group">
-                    <label>Quantidade total {temCodigo && <span style={{color:'var(--text-secondary)',fontWeight:400,fontSize:'.75rem'}}>(item único — fixo em 1)</span>}</label>
-                    <input type="number" min="0" value={temCodigo ? 1 : (form.quantidade_total??0)} onChange={e=>!temCodigo&&setForm({...form,quantidade_total:Math.max(0,parseInt(e.target.value)||0)})} disabled={temCodigo} style={temCodigo?{background:'#f3f4f6',cursor:'not-allowed'}:{}} />
-                  </div>
-                  <div className="form-group"><label>Valor unitário (R$)</label><input type="number" min="0" step="0.01" value={form.valor_unitario||''} onChange={e=>setForm({...form,valor_unitario:parseFloat(e.target.value)||0})} placeholder="0,00" /></div>
-                  <div className="form-group full"><label>Descrição</label><textarea value={form.descricao||''} onChange={e=>setForm({...form,descricao:e.target.value})} /></div>
-                </div>
-                )
-              })()}
+
+      {/* Gaveta de detalhes / edição */}
+      <div className={`drawer-overlay ${open?'open':''}`} onClick={fechar}></div>
+      <div className={`drawer ${open?'open':''}`} role="dialog" aria-hidden={!open}>
+        <div className="drawer-header">
+          <div>
+            <h3>{form.id ? 'Editar ferramenta' : 'Nova ferramenta'}</h3>
+            {form.id && <div className="dh-sub">{form.codigo ? `Patrimônio ${form.codigo}` : 'Item controlado por quantidade'}</div>}
+          </div>
+          <button className="modal-close" onClick={fechar}>×</button>
+        </div>
+        <div className="drawer-body">
+          <div className="form-grid">
+            <div className="form-group full"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
+            <div className="form-group">
+              <label>Código / Patrimônio</label>
+              <input value={form.codigo||''} onChange={e=>!codigoLocked&&setForm({...form,codigo:e.target.value})} placeholder="FUR-001" disabled={codigoLocked} style={codigoLocked?{background:'#EEF1F5',cursor:'not-allowed'}:{}} />
+              {codigoLocked && <span style={{fontSize:'.72rem',color:'var(--text-secondary)',marginTop:2,display:'inline-flex',alignItems:'center',gap:4}}><Icon name="lock" size={11}/> Código de patrimônio não pode ser alterado</span>}
             </div>
-            <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={()=>setModal(null)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={save}>Salvar</button>
+            <div className="form-group"><label>Categoria</label><input value={form.categoria||''} onChange={e=>setForm({...form,categoria:e.target.value})} /></div>
+            <div className="form-group">
+              <label>Quantidade total {temCodigo && <span style={{color:'var(--text-secondary)',fontWeight:400,fontSize:'.75rem'}}>(item único — fixo em 1)</span>}</label>
+              <input type="number" min="0" value={temCodigo ? 1 : (form.quantidade_total??0)} onChange={e=>!temCodigo&&setForm({...form,quantidade_total:Math.max(0,parseInt(e.target.value)||0)})} disabled={temCodigo} style={temCodigo?{background:'#EEF1F5',cursor:'not-allowed'}:{}} />
             </div>
+            <div className="form-group full"><label>Valor unitário (R$)</label><input type="number" min="0" step="0.01" value={form.valor_unitario||''} onChange={e=>setForm({...form,valor_unitario:parseFloat(e.target.value)||0})} placeholder="0,00" /></div>
+            <div className="form-group full"><label>Descrição</label><textarea value={form.descricao||''} onChange={e=>setForm({...form,descricao:e.target.value})} /></div>
           </div>
         </div>
-      )}
+        <div className="drawer-footer">
+          {confirmDel ? (
+            <div style={{display:'flex',alignItems:'center',gap:10,width:'100%',justifyContent:'space-between',flexWrap:'wrap'}}>
+              <span style={{fontSize:'.85rem',color:'var(--danger)',fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> Excluir esta ferramenta?</span>
+              <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={()=>setConfirmDel(false)}>Não</button><button className="btn btn-danger btn-sm" onClick={del}>Sim, excluir</button></div>
+            </div>
+          ) : (<>
+            <div>{isMaster && form.id && !temCodigo && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Excluir</button>}</div>
+            <div className="gap-8">
+              <button className="btn btn-ghost" onClick={fechar}>Cancelar</button>
+              <button className="btn btn-primary" onClick={save}><Icon name="check" size={14}/> Salvar</button>
+            </div>
+          </>)}
+        </div>
+      </div>
     </div>
   )
 }
@@ -2204,6 +2233,7 @@ const ICON_PATHS = {
   dashboard: <><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></>,
   clipboard: <><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/></>,
   plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+  chevronRight: <polyline points="9 18 15 12 9 6"/>,
   package: <><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><line x1="12" y1="13" x2="12" y2="21"/></>,
   backpack: <><path d="M6 8a6 6 0 0112 0v11a2 2 0 01-2 2H8a2 2 0 01-2-2V8z"/><path d="M9 8V6a3 3 0 016 0v2"/><line x1="9" y1="13" x2="15" y2="13"/></>,
   exchange: <><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></>,
@@ -2267,7 +2297,7 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
       </div>
       <div className="sidebar-user">
         <div className="name">{user.nome}</div>
-        <div className="role">{ROLE_LABEL[user.role]}{(user.cargo && user.cargo.trim().toLowerCase() !== ROLE_LABEL[user.role].toLowerCase()) ? ` — ${user.cargo}` : ''}</div>
+        <div className="role">{user.is_master ? 'Administrador Master' : (ROLE_LABEL[user.role] + ((user.cargo && user.cargo.trim().toLowerCase() !== ROLE_LABEL[user.role].toLowerCase()) ? ` — ${user.cargo}` : ''))}</div>
         <div style={{fontSize:'.7rem',color:'rgba(255,255,255,.45)',marginTop:4,wordBreak:'break-all'}}>{user.email}</div>
       </div>
       <nav className="sidebar-nav">

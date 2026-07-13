@@ -314,6 +314,7 @@ db.exec(`
   addCol('usuarios', 'telefone', 'TEXT')
   addCol('ferramentas', 'valor_unitario', 'REAL DEFAULT 0')
   addCol('usuarios', 'primeiro_acesso', 'INTEGER DEFAULT 0')
+  addCol('usuarios', 'is_master', 'INTEGER DEFAULT 0')
   addCol('cautelas', 'assinatura_devolucao', 'TEXT')
   addCol('cautelas', 'ip_devolucao', 'TEXT')
   addCol('cautelas', 'cautela_tipo', "TEXT DEFAULT 'lider'")
@@ -341,6 +342,28 @@ if (!db.prepare("SELECT id FROM usuarios WHERE role='almoxarifado'").get()) {
     .run(ADMIN_PADRAO.nome, ADMIN_PADRAO.email, bcrypt.hashSync(ADMIN_PADRAO.senha, 10), ADMIN_PADRAO.cargo, ADMIN_PADRAO.role, ADMIN_PADRAO.empresa, ADMIN_PADRAO.cpf_cnpj, ADMIN_PADRAO.endereco)
   console.log(`  Usuário padrão criado: ${ADMIN_PADRAO.email} / ${ADMIN_PADRAO.senha} (senha temporária — troca obrigatória no primeiro acesso)`)
 }
+// ─── ADMINISTRADOR MASTER (MindMax) ───────────────────────────────────────────
+// Conta de super-admin do fornecedor (Maxwel). Papel 'almoxarifado' + flag is_master=1:
+// evita migrar a restrição CHECK de role no banco em produção, e concede os poderes
+// extras (excluir ferramentas, ver valores financeiros no painel). Senha temporária
+// com troca obrigatória no primeiro acesso — a senha real fica só com o titular.
+const ADMIN_MASTER = {
+  nome:  process.env.ADMIN_MASTER_NOME  || 'Administrador Master',
+  email: process.env.ADMIN_MASTER_EMAIL || 'adm@mindmax.com.br',
+  senha: process.env.ADMIN_MASTER_SENHA || 'trocar123',
+  cargo: 'Administrador Master',
+}
+;(() => {
+  const existente = db.prepare('SELECT id FROM usuarios WHERE LOWER(email)=LOWER(?)').get(ADMIN_MASTER.email)
+  if (!existente) {
+    db.prepare("INSERT INTO usuarios (nome,email,senha_hash,cargo,role,primeiro_acesso,is_master) VALUES (?,?,?,?,'almoxarifado',1,1)")
+      .run(ADMIN_MASTER.nome, ADMIN_MASTER.email, bcrypt.hashSync(ADMIN_MASTER.senha, 10), ADMIN_MASTER.cargo)
+    console.log(`  Administrador master criado: ${ADMIN_MASTER.email} / ${ADMIN_MASTER.senha} (senha temporária — troca obrigatória no primeiro acesso)`)
+  } else {
+    // Garante que a conta master mantenha a flag mesmo se o registro pré-existia (idempotente)
+    db.prepare('UPDATE usuarios SET is_master=1 WHERE id=?').run(existente.id)
+  }
+})()
 // ─── SEED DE LÍDERES (Markat Engenharia) ──────────────────────────────────────
 ;(() => {
   const SENHA_PADRAO = 'Markat@2025'
@@ -394,6 +417,14 @@ function auth(roles = []) {
       next()
     } catch { res.status(401).json({ error: 'Token inválido' }) }
   }
+}
+
+// Exige administrador master (flag is_master). Usar SEMPRE encadeado após auth([...]),
+// que já validou o token e populou req.user.
+function requireMaster(req, res, next) {
+  if (!req.user || !req.user.is_master)
+    return res.status(403).json({ error: 'Ação restrita ao administrador master.' })
+  next()
 }
 
 function audit(uid, acao, tabela, id, detalhe) {
@@ -695,7 +726,7 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   const u = db.prepare('SELECT * FROM usuarios WHERE LOWER(email)=LOWER(?) AND ativo=1').get(email)
   if (!u || !bcrypt.compareSync(senha, u.senha_hash))
     return res.status(401).json({ error: 'Email ou senha incorretos' })
-  const payload = { id: u.id, nome: u.nome, email: u.email, role: u.role, cargo: u.cargo, primeiro_acesso: u.primeiro_acesso || 0 }
+  const payload = { id: u.id, nome: u.nome, email: u.email, role: u.role, cargo: u.cargo, primeiro_acesso: u.primeiro_acesso || 0, is_master: u.is_master || 0 }
   const token = jwt.sign(payload, SECRET, { expiresIn: '8h' })
   audit(u.id, 'LOGIN', 'usuarios', u.id, 'Login realizado')
   res.json({ token, user: payload })
@@ -712,7 +743,7 @@ app.get('/api/admin/backup', auth(['almoxarifado']), (req, res) => {
 })
 
 app.get('/api/auth/me', auth(), (req, res) => {
-  const u = db.prepare('SELECT id,nome,email,cargo,role,primeiro_acesso FROM usuarios WHERE id=?').get(req.user.id)
+  const u = db.prepare('SELECT id,nome,email,cargo,role,primeiro_acesso,is_master FROM usuarios WHERE id=?').get(req.user.id)
   res.json(u)
 })
 
@@ -723,7 +754,7 @@ app.post('/api/auth/trocar-senha', auth(), (req, res) => {
   db.prepare('UPDATE usuarios SET senha_hash=?, primeiro_acesso=0 WHERE id=?')
     .run(bcrypt.hashSync(nova_senha, 10), req.user.id)
   const u = db.prepare('SELECT * FROM usuarios WHERE id=?').get(req.user.id)
-  const payload = { id: u.id, nome: u.nome, email: u.email, role: u.role, cargo: u.cargo, primeiro_acesso: 0 }
+  const payload = { id: u.id, nome: u.nome, email: u.email, role: u.role, cargo: u.cargo, primeiro_acesso: 0, is_master: u.is_master || 0 }
   const newToken = jwt.sign(payload, SECRET, { expiresIn: '8h' })
   audit(req.user.id, 'TROCAR_SENHA_PRIMEIRO_ACESSO', 'usuarios', req.user.id, {})
   res.json({ token: newToken, user: payload })
@@ -745,6 +776,8 @@ app.get('/api/usuarios', auth(['almoxarifado', 'lider']), (req, res) => {
   const { role } = req.query
   let q = 'SELECT id,nome,email,cargo,role,ativo,cpf_cnpj,empresa,endereco,telefone FROM usuarios WHERE 1=1'
   const p = []
+  // A conta do administrador master só aparece para outro master (invisível ao almoxarifado do cliente)
+  if (!req.user.is_master) q += ' AND is_master=0'
   if (role) { q += ' AND role=?'; p.push(role) }
   q += ' ORDER BY nome'
   res.json(db.prepare(q).all(...p))
@@ -779,6 +812,9 @@ app.post('/api/usuarios', auth(['almoxarifado']), (req, res) => {
 
 app.put('/api/usuarios/:id', auth(['almoxarifado']), (req, res) => {
   const { nome, cargo, ativo, senha, cpf_cnpj, empresa, endereco, telefone } = req.body
+  const alvo = db.prepare('SELECT is_master FROM usuarios WHERE id=?').get(req.params.id)
+  if (alvo && alvo.is_master && !req.user.is_master)
+    return res.status(403).json({ error: 'Apenas o administrador master pode editar esta conta.' })
   const base = 'UPDATE usuarios SET nome=?,cargo=?,ativo=?,cpf_cnpj=?,empresa=?,endereco=?,telefone=?'
   if (senha) {
     db.prepare(base + ',senha_hash=? WHERE id=?')
@@ -836,7 +872,7 @@ app.put('/api/ferramentas/:id', auth(['almoxarifado']), (req, res) => {
   res.json({ ok: true })
 })
 
-app.delete('/api/ferramentas/:id', auth(['almoxarifado']), (req, res) => {
+app.delete('/api/ferramentas/:id', auth(['almoxarifado']), requireMaster, (req, res) => {
   const f = db.prepare('SELECT * FROM ferramentas WHERE id=?').get(req.params.id)
   if (!f) return res.status(404).json({ error: 'Ferramenta não encontrada' })
   if (f.codigo && f.codigo.trim()) return res.status(400).json({ error: 'Ferramentas com código de patrimônio não podem ser excluídas' })
@@ -1326,7 +1362,7 @@ app.get('/api/dashboard', auth(), (req, res) => {
   if (u.role === 'almoxarifado') {
     s.total_ferramentas   = db.prepare('SELECT COUNT(*) n FROM ferramentas').get().n
     s.total_unidades      = db.prepare('SELECT COALESCE(SUM(quantidade_total),0) n FROM ferramentas').get().n
-    s.valor_total_estoque = db.prepare('SELECT COALESCE(SUM(quantidade_total * COALESCE(valor_unitario,0)),0) v FROM ferramentas').get().v
+    if (u.is_master) s.valor_total_estoque = db.prepare('SELECT COALESCE(SUM(quantidade_total * COALESCE(valor_unitario,0)),0) v FROM ferramentas').get().v
     s.total_bolsas        = db.prepare('SELECT COUNT(*) n FROM bolsas').get().n
     s.total_usuarios      = db.prepare("SELECT COUNT(*) n FROM usuarios WHERE role!='almoxarifado'").get().n
     s.sol_solicitadas     = db.prepare("SELECT COUNT(*) n FROM solicitacoes WHERE status='solicitada'").get().n
@@ -1334,7 +1370,7 @@ app.get('/api/dashboard', auth(), (req, res) => {
     s.sol_prontas         = db.prepare("SELECT COUNT(*) n FROM solicitacoes WHERE status='pronta'").get().n
     s.cautelas_aguardando = db.prepare("SELECT COUNT(*) n FROM cautelas WHERE status='aguardando_retirada'").get().n
     s.cautelas_ativas     = db.prepare("SELECT COUNT(*) n FROM cautelas WHERE status='ativa'").get().n
-    s.valor_em_campo      = db.prepare("SELECT COALESCE(SUM(valor_total),0) v FROM cautelas WHERE status='ativa'").get().v
+    if (u.is_master) s.valor_em_campo = db.prepare("SELECT COALESCE(SUM(valor_total),0) v FROM cautelas WHERE status='ativa'").get().v
     s.solicitacoes_recentes = db.prepare(`
       SELECT s.id,s.numero,s.status,s.criado_em,l.nome lider_nome
       FROM solicitacoes s JOIN usuarios l ON l.id=s.lider_id

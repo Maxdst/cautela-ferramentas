@@ -207,6 +207,8 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
   table.cards-mobile td.cell-actions .actions .btn{flex:1;justify-content:center}
   table.cards-mobile td[colspan]{display:block;text-align:center}
   table.cards-mobile td[colspan]::before{display:none}
+  /* Linha de estado vazio nao deve virar cartao (evita cartao-dentro-de-cartao) */
+  table.cards-mobile tr:has(td[colspan]){background:none;border:0;border-radius:0;padding:0;margin:0}
 }
 </style>
 </head>
@@ -498,7 +500,7 @@ function Dashboard({ user, navigate, addToast }) {
 
   if (user.role === 'almoxarifado') return (
     <div>
-      <div className="topbar"><h2>Painel Geral</h2><a href="/api/admin/backup" className="btn btn-ghost btn-sm" style={{fontSize:'.8rem',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Baixar backup</a></div>
+      <div className="topbar"><h2>Painel Geral</h2>{user.is_master && <a href="/api/admin/backup" className="btn btn-ghost btn-sm" style={{fontSize:'.8rem',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Baixar backup</a>}</div>
       <div className="stat-section">
         <div className="stat-section-title"><span className="st-ic"><Icon name="package" size={14}/></span>Estoque</div>
         <div className="stats-grid">
@@ -1849,6 +1851,49 @@ function EmprestimosPage({ user, addToast }) {
   )
 }
 
+// ─── LISTA EM ACORDEÃO (padrão reutilizável) ──────────────────────────────────
+// Lista compacta: cada item mostra um resumo (título + info à direita). Tocar num
+// item expande o painel de edição logo abaixo dele (entre os itens); tocar de novo
+// fecha. Usado em Ferramentas, Usuários, etc. — o visual da lista/painel vive só
+// aqui, então mudanças de design são feitas uma vez e valem para todas as telas.
+function ListaAcordeao({ itens, keyOf, resumo, painel, novoAberto, painelNovo, abertoId, onToggle, vazio }) {
+  if (!itens.length && !novoAberto) return vazio || null
+  return (
+    <div className="tool-list">
+      {novoAberto && painelNovo}
+      {itens.map(it => {
+        const k = keyOf(it)
+        const isOpen = abertoId === k
+        const r = resumo(it)
+        return (
+          <React.Fragment key={k}>
+            <button className={`tool-item ${isOpen?'open':''}`} onClick={()=>onToggle(it)}>
+              <span className="ti-nome">{r.titulo}</span>
+              <span className="ti-right">{r.direita}<span className="ti-chevron"><Icon name="chevronRight" size={18}/></span></span>
+            </button>
+            {isOpen && painel(it)}
+          </React.Fragment>
+        )
+      })}
+    </div>
+  )
+}
+
+// Casca padrão do painel de edição do acordeão (cabeçalho + fechar + rodapé).
+// A página passa os campos (children) e os botões do rodapé (footer).
+function PainelEdicao({ titulo, onFechar, children, footer }) {
+  return (
+    <div className="tool-edit-panel">
+      <div className="tep-head">
+        <span className="tep-title">{titulo}</span>
+        <button className="tep-close" onClick={onFechar} aria-label="Fechar"><Icon name="x" size={16}/></button>
+      </div>
+      {children}
+      <div className="tep-footer">{footer}</div>
+    </div>
+  )
+}
+
 // ─── FERRAMENTAS ──────────────────────────────────────────────────────────────
 function FerramentasPage({ user, addToast }) {
   const [lista, setLista] = useState([])
@@ -1879,16 +1924,25 @@ function FerramentasPage({ user, addToast }) {
     catch(e) { addToast(e.message,'error') }
   }
   const filtradas = lista.filter(f => !busca || f.nome.toLowerCase().includes(busca.toLowerCase()) || (f.codigo||'').toLowerCase().includes(busca.toLowerCase()))
-  // Painel de edição/cadastro que abre embaixo do item (acordeão)
+  // Painel de edição/cadastro (usa a casca padrão PainelEdicao)
   const painel = () => {
     const temCodigo = !!(form.codigo && form.codigo.trim())
     const codigoLocked = !!(form.id && form.codigo && form.codigo.trim())
+    const titulo = form.id ? (form.codigo ? `Patrimônio ${form.codigo}` : 'Editar ferramenta') : 'Nova ferramenta'
+    const footer = confirmDel ? (
+      <div style={{display:'flex',alignItems:'center',gap:10,width:'100%',justifyContent:'space-between',flexWrap:'wrap'}}>
+        <span style={{fontSize:'.85rem',color:'var(--danger)',fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> Excluir esta ferramenta?</span>
+        <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={()=>setConfirmDel(false)}>Não</button><button className="btn btn-danger btn-sm" onClick={del}>Sim, excluir</button></div>
+      </div>
+    ) : (<>
+      <div>{isMaster && form.id && !temCodigo && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Excluir</button>}</div>
+      <div className="gap-8">
+        <button className="btn btn-ghost btn-sm" onClick={fechar}>Cancelar</button>
+        <button className="btn btn-primary btn-sm" onClick={save}><Icon name="check" size={14}/> Salvar</button>
+      </div>
+    </>)
     return (
-      <div className="tool-edit-panel">
-        <div className="tep-head">
-          <span className="tep-title">{form.id ? (form.codigo ? `Patrimônio ${form.codigo}` : 'Editar ferramenta') : 'Nova ferramenta'}</span>
-          <button className="tep-close" onClick={fechar} aria-label="Fechar"><Icon name="x" size={16}/></button>
-        </div>
+      <PainelEdicao titulo={titulo} onFechar={fechar} footer={footer}>
         <div className="form-grid">
           <div className="form-group full"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
           <div className="form-group">
@@ -1904,23 +1958,10 @@ function FerramentasPage({ user, addToast }) {
           <div className="form-group full"><label>Valor unitário (R$)</label><input type="number" min="0" step="0.01" value={form.valor_unitario||''} onChange={e=>setForm({...form,valor_unitario:parseFloat(e.target.value)||0})} placeholder="0,00" /></div>
           <div className="form-group full"><label>Descrição</label><textarea value={form.descricao||''} onChange={e=>setForm({...form,descricao:e.target.value})} /></div>
         </div>
-        <div className="tep-footer">
-          {confirmDel ? (
-            <div style={{display:'flex',alignItems:'center',gap:10,width:'100%',justifyContent:'space-between',flexWrap:'wrap'}}>
-              <span style={{fontSize:'.85rem',color:'var(--danger)',fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> Excluir esta ferramenta?</span>
-              <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={()=>setConfirmDel(false)}>Não</button><button className="btn btn-danger btn-sm" onClick={del}>Sim, excluir</button></div>
-            </div>
-          ) : (<>
-            <div>{isMaster && form.id && !temCodigo && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Excluir</button>}</div>
-            <div className="gap-8">
-              <button className="btn btn-ghost btn-sm" onClick={fechar}>Cancelar</button>
-              <button className="btn btn-primary btn-sm" onClick={save}><Icon name="check" size={14}/> Salvar</button>
-            </div>
-          </>)}
-        </div>
-      </div>
+      </PainelEdicao>
     )
   }
+  const vazio = <div className="empty"><div className="empty-icon"><Icon name="wrench" size={32}/></div><p>{busca ? 'Nenhuma ferramenta encontrada para essa busca.' : 'Nenhuma ferramenta cadastrada ainda.'}</p>{!busca && <button className="btn btn-accent empty-cta" onClick={abrirNovo}><Icon name="plus" size={14}/> Cadastrar ferramenta</button>}</div>
   return (
     <div style={{maxWidth:680,margin:'0 auto'}}>
       <div className="topbar"><h2>Ferramentas</h2><button className="btn btn-accent" onClick={abrirNovo}><Icon name="plus" size={14}/> Cadastrar</button></div>
@@ -1928,22 +1969,14 @@ function FerramentasPage({ user, addToast }) {
         <div className="card-body" style={{paddingBottom:12}}>
           <input placeholder="Buscar por nome ou código..." value={busca} onChange={e=>setBusca(e.target.value)} />
         </div>
-        {(filtradas.length || openId==='new') ? (
-          <div className="tool-list">
-            {openId==='new' && painel()}
-            {filtradas.map(f=>(
-              <React.Fragment key={f.id}>
-                <button className={`tool-item ${openId===f.id?'open':''}`} onClick={()=>toggle(f)}>
-                  <span className="ti-nome"><span className="nm">{f.nome}</span>{f.codigo && <span title="Item patrimonial único" style={{color:'var(--text-secondary)',display:'inline-flex',flexShrink:0}}><Icon name="lock" size={12}/></span>}</span>
-                  <span className="ti-right"><span className="qtd-badge">{f.quantidade_total}</span><span className="ti-chevron"><Icon name="chevronRight" size={18}/></span></span>
-                </button>
-                {openId===f.id && painel()}
-              </React.Fragment>
-            ))}
-          </div>
-        ) : (
-          <div className="empty"><div className="empty-icon"><Icon name="wrench" size={32}/></div><p>{busca ? 'Nenhuma ferramenta encontrada para essa busca.' : 'Nenhuma ferramenta cadastrada ainda.'}</p>{!busca && <button className="btn btn-accent empty-cta" onClick={abrirNovo}><Icon name="plus" size={14}/> Cadastrar ferramenta</button>}</div>
-        )}
+        <ListaAcordeao
+          itens={filtradas} keyOf={f=>f.id} abertoId={openId} onToggle={toggle}
+          novoAberto={openId==='new'} painelNovo={painel()} painel={()=>painel()} vazio={vazio}
+          resumo={f=>({
+            titulo: <><span className="nm">{f.nome}</span>{f.codigo && <span title="Item patrimonial único" style={{color:'var(--text-secondary)',display:'inline-flex',flexShrink:0}}><Icon name="lock" size={12}/></span>}</>,
+            direita: <span className="qtd-badge">{f.quantidade_total}</span>
+          })}
+        />
       </div>
     </div>
   )
@@ -2010,95 +2043,96 @@ function BolsasPage({ addToast }) {
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
 function UsuariosPage({ addToast }) {
   const [lista, setLista] = useState([])
-  const [modal, setModal] = useState(null)
+  const [openId, setOpenId] = useState(null)
   const [form, setForm] = useState({})
   const [filtroRole, setFiltroRole] = useState('')
+  const [confirmDel, setConfirmDel] = useState(false)
   const load = () => GET('/usuarios').then(setLista)
   useEffect(() => { load() }, [])
+  const abrirNovo = () => { setForm({role:'operario',ativo:true}); setConfirmDel(false); setOpenId('new') }
+  const toggle = u => {
+    if (openId === u.id) { fechar(); return }
+    setForm({...u, senha:''}); setConfirmDel(false); setOpenId(u.id)
+  }
+  const fechar = () => { setOpenId(null); setConfirmDel(false) }
   const save = async () => {
     if (!form.nome || !form.email) { addToast('Nome e email obrigatórios.','error'); return }
     if (!form.id && !form.senha) { addToast('Informe a senha.','error'); return }
     try {
       if (form.id) await PUT(`/usuarios/${form.id}`, form)
       else await POST('/usuarios', form)
-      addToast(form.id?'Atualizado!':'Criado!','success'); setModal(null); load()
+      addToast(form.id?'Atualizado!':'Criado!','success'); fechar(); load()
     } catch(e) { addToast(e.message,'error') }
   }
-  const excluir = async u => {
-    if (!confirm(`Excluir "${u.nome}" (${u.email})?\n\nEsta ação não pode ser desfeita.`)) return
-    try { await DEL(`/usuarios/${u.id}`); addToast('Usuário excluído.','success'); load() }
+  const del = async () => {
+    try { await DEL(`/usuarios/${form.id}`); addToast('Usuário excluído.','success'); fechar(); load() }
     catch(e) { addToast(e.message,'error') }
   }
   const filtrados = lista.filter(u => !filtroRole || u.role === filtroRole)
+  const painel = () => {
+    const footer = confirmDel ? (
+      <div style={{display:'flex',alignItems:'center',gap:10,width:'100%',justifyContent:'space-between',flexWrap:'wrap'}}>
+        <span style={{fontSize:'.85rem',color:'var(--danger)',fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> Excluir este usuário? Não pode ser desfeito.</span>
+        <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={()=>setConfirmDel(false)}>Não</button><button className="btn btn-danger btn-sm" onClick={del}>Sim, excluir</button></div>
+      </div>
+    ) : (<>
+      <div>{form.id && form.role !== 'almoxarifado' && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Excluir</button>}</div>
+      <div className="gap-8">
+        <button className="btn btn-ghost btn-sm" onClick={fechar}>Cancelar</button>
+        <button className="btn btn-primary btn-sm" onClick={save}><Icon name="check" size={14}/> Salvar</button>
+      </div>
+    </>)
+    return (
+      <PainelEdicao titulo={form.id ? 'Editar usuário' : 'Novo usuário'} onFechar={fechar} footer={footer}>
+        <div className="form-grid">
+          <div className="form-group"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
+          <div className="form-group"><label>Email *</label><input type="email" value={form.email||''} onChange={e=>setForm({...form,email:e.target.value})} disabled={!!form.id} /></div>
+          <div className="form-group"><label>Cargo</label><input value={form.cargo||''} onChange={e=>setForm({...form,cargo:e.target.value})} placeholder="Pedreiro, Eletricista..." /></div>
+          <div className="form-group"><label>Perfil</label>
+            <select value={form.role||'operario'} onChange={e=>setForm({...form,role:e.target.value})} disabled={!!form.id}>
+              <option value="lider">Líder</option><option value="operario">Operário</option>
+            </select>
+          </div>
+          <div className="form-group"><label>{form.id?'Nova senha (em branco = não altera)':'Senha *'}</label><input type="password" value={form.senha||''} onChange={e=>setForm({...form,senha:e.target.value})} placeholder="••••••••" /></div>
+          {form.id && <div className="form-group"><label>Status</label>
+            <select value={form.ativo?'1':'0'} onChange={e=>setForm({...form,ativo:e.target.value==='1'})}>
+              <option value="1">Ativo</option><option value="0">Inativo</option>
+            </select>
+          </div>}
+          <div className="form-group"><label>CPF / CNPJ</label><input value={form.cpf_cnpj||''} onChange={e=>setForm({...form,cpf_cnpj:e.target.value})} placeholder="000.000.000-00" /></div>
+          <div className="form-group"><label>Empresa (razão social)</label><input value={form.empresa||''} onChange={e=>setForm({...form,empresa:e.target.value})} /></div>
+          <div className="form-group"><label>Telefone</label><input value={form.telefone||''} onChange={e=>setForm({...form,telefone:e.target.value})} placeholder="(21) 99999-9999" /></div>
+          <div className="form-group"><label>Endereço</label><input value={form.endereco||''} onChange={e=>setForm({...form,endereco:e.target.value})} /></div>
+        </div>
+      </PainelEdicao>
+    )
+  }
+  const vazio = <div className="empty"><div className="empty-icon"><Icon name="worker" size={32}/></div><p>{filtroRole ? 'Nenhum usuário com esse perfil.' : 'Nenhum usuário cadastrado.'}</p>{!filtroRole && <button className="btn btn-accent empty-cta" onClick={abrirNovo}><Icon name="plus" size={14}/> Novo usuário</button>}</div>
   return (
-    <div>
-      <div className="topbar"><h2>Usuários</h2><button className="btn btn-accent" onClick={()=>{setForm({role:'operario',ativo:true});setModal('form')}}><Icon name="plus" size={14}/> Novo</button></div>
+    <div style={{maxWidth:680,margin:'0 auto'}}>
+      <div className="topbar"><h2>Usuários</h2><button className="btn btn-accent" onClick={abrirNovo}><Icon name="plus" size={14}/> Novo</button></div>
       <div className="card">
-        <div className="card-body" style={{paddingBottom:0}}>
-          <select value={filtroRole} onChange={e=>setFiltroRole(e.target.value)} style={{width:'auto',marginBottom:16}}>
-            <option value="">Todos</option><option value="lider">Líder</option><option value="operario">Operário</option>
+        <div className="card-body" style={{paddingBottom:12}}>
+          <select value={filtroRole} onChange={e=>setFiltroRole(e.target.value)} style={{width:'auto'}}>
+            <option value="">Todos os perfis</option><option value="lider">Líder</option><option value="operario">Operário</option>
           </select>
         </div>
-        <div className="table-wrap"><table className="cards-mobile">
-          <thead><tr><th>Nome / Empresa</th><th>Email</th><th>CPF/CNPJ</th><th>Cargo</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead>
-          <tbody>
-            {filtrados.map(u=>(
-              <tr key={u.id}>
-                <td data-label="Nome / Empresa"><strong>{u.nome}</strong>{u.empresa&&<><br/><span className="text-muted">{u.empresa}</span></>}</td>
-                <td data-label="Email">{u.email}</td>
-                <td data-label="CPF/CNPJ">{u.cpf_cnpj||'—'}</td>
-                <td data-label="Cargo">{u.cargo||'—'}</td>
-                <td data-label="Perfil"><span className={`badge badge-${u.role}`}>{ROLE_LABEL[u.role]}</span></td>
-                <td data-label="Status"><span className={`badge ${u.ativo?'badge-ativa':'badge-devolvida'}`}>{u.ativo?'Ativo':'Inativo'}</span></td>
-                <td className="cell-actions"><div className="actions">
-                  <button className="btn btn-ghost btn-sm" onClick={()=>{setForm({...u,senha:''});setModal('form')}}><Icon name="edit" size={14}/></button>
-                  {u.role !== 'almoxarifado' && <button className="btn btn-danger btn-sm" onClick={()=>excluir(u)}><Icon name="trash" size={14}/></button>}
-                </div></td>
-              </tr>
-            ))}
-            {!filtrados.length && <tr><td colSpan="7"><div className="empty"><div className="empty-icon"><Icon name="worker" size={32}/></div><p>{filtroRole ? 'Nenhum usuário com esse perfil.' : 'Nenhum usuário cadastrado.'}</p>{!filtroRole && <button className="btn btn-accent empty-cta" onClick={()=>{setForm({role:'operario',ativo:true});setModal('form')}}><Icon name="plus" size={14}/> Novo usuário</button>}</div></td></tr>}
-          </tbody>
-        </table></div>
+        <ListaAcordeao
+          itens={filtrados} keyOf={u=>u.id} abertoId={openId} onToggle={toggle}
+          novoAberto={openId==='new'} painelNovo={painel()} painel={()=>painel()} vazio={vazio}
+          resumo={u=>({
+            titulo: <><span className="nm">{u.nome}</span>{!u.ativo && <span className="badge badge-devolvida" style={{fontSize:'.62rem',padding:'1px 7px'}}>Inativo</span>}</>,
+            direita: <span className={`badge badge-${u.role}`}>{ROLE_LABEL[u.role]}</span>
+          })}
+        />
       </div>
-      {modal === 'form' && (
-        <div className="modal-overlay open">
-          <div className="modal modal-lg">
-            <div className="modal-header"><h3>{form.id?'Editar':'Novo'} Usuário</h3><button className="modal-close" onClick={()=>setModal(null)}>×</button></div>
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="form-group"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
-                <div className="form-group"><label>Email *</label><input type="email" value={form.email||''} onChange={e=>setForm({...form,email:e.target.value})} disabled={!!form.id} /></div>
-                <div className="form-group"><label>Cargo</label><input value={form.cargo||''} onChange={e=>setForm({...form,cargo:e.target.value})} placeholder="Pedreiro, Eletricista..." /></div>
-                <div className="form-group"><label>Perfil</label>
-                  <select value={form.role||'operario'} onChange={e=>setForm({...form,role:e.target.value})} disabled={!!form.id}>
-                    <option value="lider">Líder</option><option value="operario">Operário</option>
-                  </select>
-                </div>
-                <div className="form-group"><label>{form.id?'Nova senha (em branco = não altera)':'Senha *'}</label><input type="password" value={form.senha||''} onChange={e=>setForm({...form,senha:e.target.value})} placeholder="••••••••" /></div>
-                {form.id && <div className="form-group"><label>Status</label>
-                  <select value={form.ativo?'1':'0'} onChange={e=>setForm({...form,ativo:e.target.value==='1'})}>
-                    <option value="1">Ativo</option><option value="0">Inativo</option>
-                  </select>
-                </div>}
-                <div className="form-group"><label>CPF / CNPJ</label><input value={form.cpf_cnpj||''} onChange={e=>setForm({...form,cpf_cnpj:e.target.value})} placeholder="000.000.000-00" /></div>
-                <div className="form-group"><label>Empresa (razão social)</label><input value={form.empresa||''} onChange={e=>setForm({...form,empresa:e.target.value})} /></div>
-                <div className="form-group"><label>Telefone</label><input value={form.telefone||''} onChange={e=>setForm({...form,telefone:e.target.value})} placeholder="(21) 99999-9999" /></div>
-                <div className="form-group"><label>Endereço</label><input value={form.endereco||''} onChange={e=>setForm({...form,endereco:e.target.value})} /></div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={()=>setModal(null)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={save}>Salvar</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
 // ─── AUDITORIA ────────────────────────────────────────────────────────────────
-function AuditoriaPage({ addToast }) {
+function AuditoriaPage({ user, addToast }) {
+  const isMaster = !!(user && user.is_master)
   const [logs, setLogs] = useState([])
   const [busca, setBusca] = useState('')
   const [resetModal, setResetModal] = useState(false)
@@ -2142,20 +2176,22 @@ function AuditoriaPage({ addToast }) {
     <div>
       <div className="topbar">
         <h2>Auditoria</h2>
-        <button className="btn btn-ghost btn-sm" onClick={async ()=>{
-          try {
-            const res = await fetch('/api/admin/backup', { headers: { Authorization: `Bearer ${token.value}` } })
-            if (!res.ok) { const d = await res.json(); alert(d.error || 'Erro ao baixar backup'); return }
-            const blob = await res.blob()
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `cautela-backup-${new Date().toISOString().slice(0,10)}.db`
-            a.click(); URL.revokeObjectURL(url)
-          } catch(e) { alert('Erro: ' + e.message) }
-        }} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Baixar Backup</button>
-        <button className="btn btn-ghost btn-sm" style={{borderColor:'var(--warning)',color:'var(--warning)',display:'inline-flex',alignItems:'center',gap:6}} onClick={()=>{setZerarQtdModal(true);setZerarQtdSenha('');setZerarQtdErr('')}}><Icon name="package" size={14}/> Zerar Quantidades</button>
-        <button className="btn btn-danger btn-sm" onClick={()=>{setResetModal(true);setResetConfirm('');setResetErr('')}} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={14}/> Zerar Dados de Teste</button>
+        {isMaster && (<div className="topbar-actions">
+          <button className="btn btn-ghost btn-sm" onClick={async ()=>{
+            try {
+              const res = await fetch('/api/admin/backup', { headers: { Authorization: `Bearer ${token.value}` } })
+              if (!res.ok) { const d = await res.json(); alert(d.error || 'Erro ao baixar backup'); return }
+              const blob = await res.blob()
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `cautela-backup-${new Date().toISOString().slice(0,10)}.db`
+              a.click(); URL.revokeObjectURL(url)
+            } catch(e) { alert('Erro: ' + e.message) }
+          }} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Baixar Backup</button>
+          <button className="btn btn-ghost btn-sm" style={{borderColor:'var(--warning)',color:'var(--warning)',display:'inline-flex',alignItems:'center',gap:6}} onClick={()=>{setZerarQtdModal(true);setZerarQtdSenha('');setZerarQtdErr('')}}><Icon name="package" size={14}/> Zerar Quantidades</button>
+          <button className="btn btn-danger btn-sm" onClick={()=>{setResetModal(true);setResetConfirm('');setResetErr('')}} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={14}/> Zerar Dados de Teste</button>
+        </div>)}
       </div>
 
       {zerarQtdModal && (

@@ -733,7 +733,7 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
 })
 
 // Download do backup (somente almoxarifado)
-app.get('/api/admin/backup', auth(['almoxarifado']), (req, res) => {
+app.get('/api/admin/backup', auth(['almoxarifado']), requireMaster, (req, res) => {
   try {
     const data = new Date().toISOString().slice(0, 10)
     const dest = path.join(BACKUP_DIR, `backup-${data}.db`)
@@ -1424,7 +1424,7 @@ app.get('/api/auditoria', auth(['almoxarifado']), (req, res) => {
 })
 
 // ─── ZERAR QUANTIDADES (apenas ferramentas sem código de patrimônio) ──────────
-app.post('/api/admin/zerar-quantidades', auth(['almoxarifado']), (req, res) => {
+app.post('/api/admin/zerar-quantidades', auth(['almoxarifado']), requireMaster, (req, res) => {
   try {
     const info = db.prepare(
       "UPDATE ferramentas SET quantidade_total=0, quantidade_disponivel=0 WHERE codigo IS NULL OR TRIM(codigo)=''"
@@ -1440,7 +1440,7 @@ app.post('/api/admin/zerar-quantidades', auth(['almoxarifado']), (req, res) => {
 app.get('/api/empresa', (req, res) => res.json({ nome: EMPRESA.nome, razaoSocial: EMPRESA.razaoSocial, logoUrl: EMPRESA.logoUrl }))
 
 // ─── RESET TRANSACIONAL (almoxarifado only) ───────────────────────────────────
-app.post('/api/admin/reset-transacional', auth(['almoxarifado']), (req, res) => {
+app.post('/api/admin/reset-transacional', auth(['almoxarifado']), requireMaster, (req, res) => {
   const { confirmacao, senha_gestor } = req.body
   if (confirmacao !== 'CONFIRMAR RESET') return res.status(400).json({ error: 'Texto de confirmação inválido' })
   const GESTOR_SENHA = (process.env.GESTOR_RESET_SENHA || process.env.Gestor_Reset_Senha || '').trim()

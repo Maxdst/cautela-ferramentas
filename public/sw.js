@@ -1,7 +1,7 @@
 // Service Worker — Cautela de Ferramentas | Markat Engenharia
 // Desenvolvido por MindMax Tecnologia
 
-const CACHE_NAME = 'markat-cautela-v2'
+const CACHE_NAME = 'markat-cautela-v3'
 
 // Assets que serão cacheados no primeiro acesso
 const PRECACHE = [

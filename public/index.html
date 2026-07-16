@@ -762,23 +762,38 @@ function SolicitacoesPage({ user, navigate, addToast }) {
     setPorOpAuthEmail(''); setPorOpAuthSenha(''); setPorOpAuthErr('')
   }
 
+  // Disponível de uma ferramenta (do estoque já calculado pelo backend)
+  const dispPorOp = fid => { const f = ferramentasLista.find(x => x.id == fid); return f ? (f.quantidade_disponivel != null ? f.quantidade_disponivel : (f.quantidade_total || 0)) : 0 }
+  // Ao escolher a bolsa, expande os itens dela para uma lista editável (permite remover o que falta)
+  const selecionarBolsaPorOp = id => {
+    setPorOpBolsaId(id); setPorOpErr('')
+    const b = bolsasLista.find(x => x.id == id)
+    setPorOpItens(b && b.itens ? b.itens.map(i => ({ ferramenta_id: i.ferramenta_id, quantidade: i.quantidade, nome: i.ferramenta_nome })) : [])
+  }
+  const removerIndisponiveisPorOp = () => { setPorOpItens(porOpItens.filter(it => it.quantidade <= dispPorOp(it.ferramenta_id))); setPorOpErr('') }
+  const setQtdPorOp = (idx, q) => setPorOpItens(porOpItens.map((it, j) => j === idx ? { ...it, quantidade: Math.max(1, Math.min(parseInt(q) || 1, dispPorOp(it.ferramenta_id) || 1)) } : it))
+  const itensSemEstoquePorOp = () => porOpItens.filter(it => it.quantidade > dispPorOp(it.ferramenta_id))
+
   const addItemPorOp = () => {
     if (!porOpSelFerr) return
     const f = ferramentasLista.find(f => f.id == porOpSelFerr)
     if (!f) return
+    const disp = dispPorOp(f.id)
+    if (disp <= 0) { setPorOpErr(`"${f.nome}" está sem disponibilidade no estoque.`); return }
     const existe = porOpItens.find(i => i.ferramenta_id == porOpSelFerr)
     if (existe) {
-      setPorOpItens(porOpItens.map(i => i.ferramenta_id == porOpSelFerr ? {...i, quantidade: i.quantidade + porOpSelQtd} : i))
+      setPorOpItens(porOpItens.map(i => i.ferramenta_id == porOpSelFerr ? {...i, quantidade: Math.min(i.quantidade + porOpSelQtd, disp)} : i))
     } else {
-      setPorOpItens([...porOpItens, { ferramenta_id: f.id, quantidade: porOpSelQtd, nome: f.nome }])
+      setPorOpItens([...porOpItens, { ferramenta_id: f.id, quantidade: Math.min(porOpSelQtd, disp), nome: f.nome }])
     }
-    setPorOpSelFerr(''); setPorOpSelQtd(1)
+    setPorOpSelFerr(''); setPorOpSelQtd(1); setPorOpErr('')
   }
 
   const avancarParaAssinatura = () => {
     if (!porOpOperario) { setPorOpErr('Selecione o operário.'); return }
     if (porOpTipo === 'bolsa' && !porOpBolsaId) { setPorOpErr('Selecione uma bolsa.'); return }
-    if (porOpTipo === 'itens' && !porOpItens.length) { setPorOpErr('Adicione ao menos um item.'); return }
+    if (!porOpItens.length) { setPorOpErr(porOpTipo === 'bolsa' ? 'A bolsa ficou sem itens. Escolha outra ou adicione itens.' : 'Adicione ao menos um item.'); return }
+    if (itensSemEstoquePorOp().length) { setPorOpErr('Há itens sem estoque suficiente (marcados em vermelho). Remova-os ou reduza a quantidade para prosseguir.'); return }
     setPorOpErr(''); setPorOpStep('sign')
   }
 
@@ -789,8 +804,9 @@ function SolicitacoesPage({ user, navigate, addToast }) {
     try {
       await POST('/solicitacoes/por-operario', {
         operario_id: parseInt(porOpOperario),
+        // bolsa_id fica só como referência de origem; os itens de fato são os editados (já sem o que faltava)
         bolsa_id: porOpTipo === 'bolsa' ? parseInt(porOpBolsaId) : null,
-        itens: porOpTipo === 'itens' ? porOpItens : [],
+        itens: porOpItens,
         obs: porOpObs,
         email_operario: porOpAuthEmail,
         senha_operario: porOpAuthSenha
@@ -1075,41 +1091,48 @@ function SolicitacoesPage({ user, navigate, addToast }) {
                   {porOpTipo === 'bolsa' && (
                     <div className="form-group" style={{marginTop:12}}>
                       <label>Bolsa *</label>
-                      <select value={porOpBolsaId} onChange={e=>setPorOpBolsaId(e.target.value)}>
+                      <select value={porOpBolsaId} onChange={e=>selecionarBolsaPorOp(e.target.value)}>
                         <option value="">Selecione a bolsa...</option>
                         {bolsasLista.map(b=><option key={b.id} value={b.id}>{b.nome}</option>)}
                       </select>
+                      {porOpBolsaId && <p className="text-muted" style={{fontSize:'.75rem',marginTop:4}}>Itens da bolsa abaixo — remova o que estiver sem estoque para prosseguir.</p>}
                     </div>
                   )}
                   {porOpTipo === 'itens' && (
-                    <div style={{marginTop:12}}>
-                      <div style={{display:'flex',gap:8,alignItems:'flex-end',marginBottom:8}}>
-                        <div className="form-group" style={{flex:1,marginBottom:0}}>
-                          <label>Ferramenta</label>
-                          <select value={porOpSelFerr} onChange={e=>setPorOpSelFerr(e.target.value)}>
-                            <option value="">Selecione...</option>
-                            {ferramentasLista.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
-                          </select>
-                        </div>
-                        <div className="form-group" style={{width:72,marginBottom:0}}>
-                          <label>Qtd</label>
-                          <input type="number" min="1" value={porOpSelQtd} onChange={e=>setPorOpSelQtd(parseInt(e.target.value)||1)} />
-                        </div>
-                        <button className="btn btn-primary btn-sm" style={{marginBottom:0,height:38}} onClick={addItemPorOp}><Icon name="plus" size={14}/> Add</button>
+                    <div style={{marginTop:12,display:'flex',gap:8,alignItems:'flex-end'}}>
+                      <div className="form-group" style={{flex:1,marginBottom:0}}>
+                        <label>Ferramenta</label>
+                        <select value={porOpSelFerr} onChange={e=>setPorOpSelFerr(e.target.value)}>
+                          <option value="">Selecione...</option>
+                          {ferramentasLista.map(f=>{const d=dispPorOp(f.id); return <option key={f.id} value={f.id} disabled={d<=0}>{f.nome} — {d>0?`${d} disp.`:'sem estoque'}</option>})}
+                        </select>
                       </div>
-                      {porOpItens.length > 0 && (
-                        <div style={{background:'var(--bg)',borderRadius:6,padding:8}}>
-                          {porOpItens.map((it,i)=>(
-                            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'.85rem',padding:'3px 0'}}>
-                              <span>{it.nome}</span>
-                              <span style={{display:'flex',gap:8,alignItems:'center'}}>
-                                <strong>{it.quantidade}x</strong>
-                                <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--danger)',padding:0,display:'inline-flex',alignItems:'center'}} onClick={()=>setPorOpItens(porOpItens.filter((_,j)=>j!==i))}><Icon name="x" size={13}/></button>
-                              </span>
-                            </div>
-                          ))}
+                      <div className="form-group" style={{width:72,marginBottom:0}}>
+                        <label>Qtd</label>
+                        <input type="number" min="1" value={porOpSelQtd} onChange={e=>setPorOpSelQtd(parseInt(e.target.value)||1)} />
+                      </div>
+                      <button className="btn btn-primary btn-sm" style={{marginBottom:0,height:38}} onClick={addItemPorOp}><Icon name="plus" size={14}/> Add</button>
+                    </div>
+                  )}
+                  {porOpItens.length > 0 && (
+                    <div style={{marginTop:12}}>
+                      {itensSemEstoquePorOp().length > 0 && (
+                        <div className="alert alert-warning" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap',margin:'0 0 8px',padding:'8px 12px'}}>
+                          <span style={{display:'inline-flex',alignItems:'center',gap:8,fontSize:'.85rem'}}><Icon name="alertTriangle" size={15}/> Itens em vermelho estão sem estoque suficiente.</span>
+                          <button className="btn btn-danger btn-sm" type="button" onClick={removerIndisponiveisPorOp}><Icon name="trash" size={13}/> Remover indisponíveis</button>
                         </div>
                       )}
+                      <div style={{background:'var(--bg)',borderRadius:8,padding:'2px 12px'}}>
+                        {porOpItens.map((it,i)=>{ const d=Math.max(0,dispPorOp(it.ferramenta_id)); const falta=it.quantidade>dispPorOp(it.ferramenta_id); return (
+                          <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,fontSize:'.85rem',padding:'8px 0',borderBottom:i===porOpItens.length-1?'none':'1px solid var(--border)'}}>
+                            <span style={{minWidth:0}}>{it.nome}<span className="text-muted" style={{fontSize:'.72rem'}}> · {d} disp.</span>{falta && <span style={{color:'var(--danger)',fontSize:'.72rem',fontWeight:700}}> — sem estoque</span>}</span>
+                            <span style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
+                              <input type="number" min="1" value={it.quantidade} onChange={e=>setQtdPorOp(i,e.target.value)} style={{width:56,padding:'4px 6px',fontSize:'.82rem',borderColor:falta?'var(--danger)':undefined}} />
+                              <button title="Remover item" style={{background:'none',border:'none',cursor:'pointer',color:'var(--danger)',padding:0,display:'inline-flex',alignItems:'center'}} onClick={()=>setPorOpItens(porOpItens.filter((_,j)=>j!==i))}><Icon name="trash" size={14}/></button>
+                            </span>
+                          </div>
+                        )})}
+                      </div>
                     </div>
                   )}
                   <div className="form-group" style={{marginTop:12}}>
@@ -1127,7 +1150,7 @@ function SolicitacoesPage({ user, navigate, addToast }) {
                     <h4 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="lock" size={16}/> {operarios.find(o=>o.id==porOpOperario)?.nome || 'Operário'} — confirme seu acesso</h4>
                     <p style={{fontSize:'.82rem',color:'var(--text-secondary)',marginBottom:12}}>
                       {porOpTipo==='bolsa'
-                        ? `Bolsa: ${bolsasLista.find(b=>b.id==porOpBolsaId)?.nome || '—'}`
+                        ? `Bolsa ${bolsasLista.find(b=>b.id==porOpBolsaId)?.nome || '—'} · ${porOpItens.length} item(ns)`
                         : `${porOpItens.length} item(ns) avulso(s)`}
                       {porOpObs && ` · Obs: ${porOpObs}`}
                     </p>

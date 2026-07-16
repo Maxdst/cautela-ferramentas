@@ -839,9 +839,56 @@ app.delete('/api/usuarios/:id', auth(['almoxarifado']), (req, res) => {
   res.json({ ok: true })
 })
 
+// ─── DISPONIBILIDADE DE ESTOQUE ───────────────────────────────────────────────
+// A disponibilidade NÃO é um contador armazenado (que desincroniza) — é calculada:
+// total − o que já está reservado (solicitação em andamento) − o que está fora
+// (cautela aguardando retirada ou ativa). Assim a "baixa" acontece sozinha quando
+// uma cautela nasce, e volta sozinha na devolução (status vira 'devolvida').
+function qtdReservada(ferramenta_id, { exclSolicitacaoId = null, exclCautelaId = null } = {}) {
+  const emSolicitacao = db.prepare(`
+    SELECT COALESCE(SUM(si.quantidade),0) q FROM solicitacao_itens si
+    JOIN solicitacoes s ON s.id=si.solicitacao_id
+    WHERE si.ferramenta_id=? AND s.status IN ('solicitada','separando') AND (? IS NULL OR s.id<>?)`)
+    .get(ferramenta_id, exclSolicitacaoId, exclSolicitacaoId).q
+  const emCautela = db.prepare(`
+    SELECT COALESCE(SUM(ci.quantidade),0) q FROM cautela_itens ci
+    JOIN cautelas c ON c.id=ci.cautela_id
+    WHERE ci.ferramenta_id=? AND c.status IN ('aguardando_retirada','ativa') AND (? IS NULL OR c.id<>?)`)
+    .get(ferramenta_id, exclCautelaId, exclCautelaId).q
+  return emSolicitacao + emCautela
+}
+function qtdDisponivel(ferramenta_id, opts) {
+  const f = db.prepare('SELECT quantidade_total q FROM ferramentas WHERE id=?').get(ferramenta_id)
+  return (f ? f.q : 0) - qtdReservada(ferramenta_id, opts)
+}
+// Valida uma lista de {ferramenta_id, quantidade}. Retorna mensagem de erro ou null.
+function erroDisponibilidade(itens, opts = {}) {
+  for (const it of itens || []) {
+    const qtd = parseInt(it.quantidade) || 0
+    if (qtd <= 0) continue
+    const disp = qtdDisponivel(it.ferramenta_id, opts)
+    if (qtd > disp) {
+      const nome = (db.prepare('SELECT nome FROM ferramentas WHERE id=?').get(it.ferramenta_id) || {}).nome || `Item #${it.ferramenta_id}`
+      return `"${nome}": pedido ${qtd}, mas há ${Math.max(0, disp)} disponível(is) no estoque.`
+    }
+  }
+  return null
+}
+
 // ─── FERRAMENTAS ──────────────────────────────────────────────────────────────
 app.get('/api/ferramentas', auth(), (req, res) => {
-  res.json(db.prepare('SELECT * FROM ferramentas ORDER BY nome').all())
+  // Cada ferramenta já vem com quantidade_disponivel calculada (total − reservado/em campo).
+  res.json(db.prepare(`
+    SELECT f.*,
+      f.quantidade_total - (
+        COALESCE((SELECT SUM(si.quantidade) FROM solicitacao_itens si
+                  JOIN solicitacoes s ON s.id=si.solicitacao_id
+                  WHERE si.ferramenta_id=f.id AND s.status IN ('solicitada','separando')),0)
+        + COALESCE((SELECT SUM(ci.quantidade) FROM cautela_itens ci
+                  JOIN cautelas c ON c.id=ci.cautela_id
+                  WHERE ci.ferramenta_id=f.id AND c.status IN ('aguardando_retirada','ativa')),0)
+      ) AS quantidade_disponivel
+    FROM ferramentas f ORDER BY f.nome`).all())
 })
 
 app.post('/api/ferramentas', auth(['almoxarifado']), (req, res) => {
@@ -972,6 +1019,8 @@ app.post('/api/solicitacoes/por-operario', auth(['almoxarifado']), (req, res) =>
     itensFinal = db.prepare('SELECT ferramenta_id, quantidade FROM bolsa_itens WHERE bolsa_id=?').all(bolsa_id)
   }
   if (!itensFinal.length) return res.status(400).json({ error: 'Adicione ao menos um item ou selecione uma bolsa' })
+  const semEstoque = erroDisponibilidade(itensFinal)
+  if (semEstoque) return res.status(400).json({ error: 'Estoque insuficiente — ' + semEstoque })
   const ip = getIP(req)
   const marcador = 'AUTH:' + new Date().toISOString()
   const id = db.transaction(() => {
@@ -989,6 +1038,8 @@ app.post('/api/solicitacoes/por-operario', auth(['almoxarifado']), (req, res) =>
 app.post('/api/solicitacoes', auth(['lider']), (req, res) => {
   const { bolsa_id, itens, obs } = req.body
   if (!itens || !itens.length) return res.status(400).json({ error: 'Adicione ao menos um item' })
+  const semEstoque = erroDisponibilidade(itens)
+  if (semEstoque) return res.status(400).json({ error: 'Estoque insuficiente — ' + semEstoque })
   const id = db.transaction(() => {
     const numero = gerarNumero('SOL')
     const r = db.prepare('INSERT INTO solicitacoes (numero,lider_id,bolsa_id,obs) VALUES (?,?,?,?)')
@@ -1016,6 +1067,8 @@ app.put('/api/solicitacoes/:id/itens', auth(['almoxarifado']), (req, res) => {
   if (!s || s.status !== 'separando') return res.status(400).json({ error: 'Só é possível editar itens durante a separação' })
   const { itens } = req.body
   if (!itens || !itens.length) return res.status(400).json({ error: 'A lista não pode ficar vazia' })
+  const semEstoque = erroDisponibilidade(itens, { exclSolicitacaoId: s.id })
+  if (semEstoque) return res.status(400).json({ error: 'Estoque insuficiente — ' + semEstoque })
   db.transaction(() => {
     db.prepare('DELETE FROM solicitacao_itens WHERE solicitacao_id=?').run(s.id)
     const ins = db.prepare('INSERT INTO solicitacao_itens (solicitacao_id,ferramenta_id,quantidade) VALUES (?,?,?)')
@@ -1028,6 +1081,11 @@ app.put('/api/solicitacoes/:id/itens', auth(['almoxarifado']), (req, res) => {
 app.post('/api/solicitacoes/:id/pronta', auth(['almoxarifado']), (req, res) => {
   const s = db.prepare('SELECT * FROM solicitacoes WHERE id=?').get(req.params.id)
   if (!s || s.status !== 'separando') return res.status(400).json({ error: 'Status inválido' })
+
+  // Guarda final: se o estoque mudou durante a separação, não deixa criar cautela sem lastro.
+  const itensSol = db.prepare('SELECT ferramenta_id, quantidade FROM solicitacao_itens WHERE solicitacao_id=?').all(req.params.id)
+  const semEstoque = erroDisponibilidade(itensSol, { exclSolicitacaoId: s.id })
+  if (semEstoque) return res.status(400).json({ error: 'Estoque insuficiente — ' + semEstoque + ' Ajuste os itens antes de finalizar.' })
 
   // Cria a cautela automaticamente
   const cautela_id = db.transaction(() => {
@@ -1114,6 +1172,8 @@ app.post('/api/cautelas/direta', auth(['almoxarifado']), (req, res) => {
   if (!itens || !itens.length) return res.status(400).json({ error: 'Adicione ao menos um item' })
   const op = db.prepare("SELECT * FROM usuarios WHERE id=? AND role='operario' AND ativo=1").get(operario_id)
   if (!op) return res.status(404).json({ error: 'Operário não encontrado' })
+  const semEstoque = erroDisponibilidade(itens)
+  if (semEstoque) return res.status(400).json({ error: 'Estoque insuficiente — ' + semEstoque })
   const id = db.transaction(() => {
     let valor_total = 0
     for (const it of itens) {
@@ -1427,7 +1487,7 @@ app.get('/api/auditoria', auth(['almoxarifado']), (req, res) => {
 app.post('/api/admin/zerar-quantidades', auth(['almoxarifado']), requireMaster, (req, res) => {
   try {
     const info = db.prepare(
-      "UPDATE ferramentas SET quantidade_total=0, quantidade_disponivel=0 WHERE codigo IS NULL OR TRIM(codigo)=''"
+      "UPDATE ferramentas SET quantidade_total=0 WHERE codigo IS NULL OR TRIM(codigo)=''"
     ).run()
     audit(req.user.id, 'ZERAR_QUANTIDADES', null, null, { alteradas: info.changes, por: req.user.email })
     res.json({ ok: true, alteradas: info.changes })

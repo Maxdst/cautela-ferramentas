@@ -101,6 +101,18 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .badge-lider{background:#dbeafe;color:#1e40af}
 .badge-operario{background:#f0fdf4;color:#166534}
 .badge-almoxarifado{background:#fdf4ff;color:#7e22ce}
+.badge-administracao{background:#fef9c3;color:#854d0e}
+.badge-compras{background:#e0f2fe;color:#075985}
+/* Módulo Uniformes / EPI */
+.uni-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.uni-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);background:var(--card);border-radius:8px;cursor:pointer;font-size:.85rem;color:var(--text-secondary);font-weight:600}
+.uni-tab.active{background:var(--primary-accent);color:#fff;border-color:var(--primary-accent)}
+.uni-switch{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.uni-switch button{padding:6px 12px;background:var(--card);border:none;cursor:pointer;font-size:.8rem;color:var(--text-secondary)}
+.uni-switch button.active{background:var(--primary-accent);color:#fff}
+.uni-linha{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.uni-linha select{flex:2;min-width:130px}
+.uni-linha input.obs{flex:1;min-width:100px}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center;padding:20px}
 .modal-overlay.open{display:flex}
 .modal{background:white;border-radius:14px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);max-height:90vh;display:flex;flex-direction:column}
@@ -260,7 +272,28 @@ const STATUS_LABEL = {
   aguardando_tomador: 'Aguard. confirmação', aguardando_lider: 'Aguard. líder',
   ativo: 'Ativo', devolvido: 'Devolvido', recusado: 'Recusado'
 }
-const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário' }
+const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário', administracao: 'Administração', compras: 'Compras' }
+// Perfis com acesso ao módulo Uniformes/EPI (mesmo conjunto do backend UNIF_ROLES).
+const PERFIS_UNIFORME = ['almoxarifado', 'administracao', 'compras']
+
+// ── Helpers de estoque por tamanho (uniformes) ──
+const SEM_TAM_UI = '—'
+const gradeDe = it => (it && it.tamanhos || '').split(',').map(s => s.trim()).filter(Boolean)
+// Lista de tamanhos para exibir/selecionar: a grade, ou [SEM_TAM_UI] para item de tamanho único.
+const tamsDe = it => { const g = gradeDe(it); return g.length ? g : [SEM_TAM_UI] }
+// Disponível de um tamanho (usa o detalhamento que o backend já calculou).
+const dispDeTam = (it, tam) => {
+  const arr = (it && it.estoque_por_tamanho) || []
+  const linha = arr.find(l => l.tamanho === (tam || SEM_TAM_UI))
+  return linha ? linha.disponivel : 0
+}
+// min_por_tamanho vem do backend como string JSON; converte para objeto de trabalho.
+const parseMinTam = v => { if (!v) return {}; if (typeof v === 'object') return v; try { return JSON.parse(v) || {} } catch { return {} } }
+// Chip visual de "tamanho: disponível" (vermelho quando zerado ou abaixo do mínimo).
+function TamChip({ tamanho, disponivel, baixo }) {
+  const low = disponivel <= 0 || baixo
+  return <span style={{ fontSize: '.68rem', padding: '1px 7px', borderRadius: 10, border: '1px solid', borderColor: low ? 'var(--danger)' : 'var(--border)', color: low ? 'var(--danger)' : 'var(--text-secondary)', background: low ? 'rgba(122,46,46,.06)' : 'var(--bg)', whiteSpace: 'nowrap' }}>{tamanho === SEM_TAM_UI ? 'único' : tamanho}: <strong>{disponivel}</strong></span>
+}
 
 // ─── SIGNATURE PAD ────────────────────────────────────────────────────────────
 function SignaturePad({ label, onConfirm, onCancel }) {
@@ -514,6 +547,37 @@ function LoginPage({ onLogin }) {
 function Dashboard({ user, navigate, addToast }) {
   const [stats, setStats] = useState({})
   useEffect(() => { GET('/dashboard').then(setStats).catch(() => {}) }, [])
+
+  // Administração e Compras: painel focado no módulo Uniformes/EPI.
+  if (user.role === 'administracao' || user.role === 'compras') return (
+    <div>
+      <div className="topbar"><h2>Painel — Uniformes / EPI</h2></div>
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="shirt" size={14}/></span>Estoque</div>
+        <div className="stats-grid">
+          <div className="stat-card blue"><div className="stat-label">Itens no catálogo</div><div className="stat-value">{stats.uniforme_total_itens||0}</div></div>
+          <div className="stat-card red"><div className="stat-label">Abaixo do mínimo</div><div className="stat-value">{stats.uniforme_abaixo_minimo||0}</div></div>
+          <div className="stat-card"><div className="stat-label">Colaboradores</div><div className="stat-value">{stats.uniforme_colaboradores||0}</div></div>
+        </div>
+      </div>
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="alertTriangle" size={14}/></span>Alertas &amp; movimento</div>
+        <div className="stats-grid">
+          <div className="stat-card"><div className="stat-label">Desgaste vencendo (30d)</div><div className="stat-value">{stats.uniforme_desgaste_30d||0}</div></div>
+          <div className="stat-card green"><div className="stat-label">Entregas no mês</div><div className="stat-value">{stats.uniforme_entregas_mes||0}</div></div>
+        </div>
+      </div>
+      {((stats.uniforme_abaixo_minimo||0) > 0 || (stats.uniforme_desgaste_30d||0) > 0) && (
+        <div className="pending-banner">
+          <span className="msg" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> {stats.uniforme_abaixo_minimo||0} item(ns) no mínimo · {stats.uniforme_desgaste_30d||0} com desgaste vencendo</span>
+          <button className="btn btn-accent btn-sm" onClick={()=>navigate('uniformes')}>Abrir módulo →</button>
+        </div>
+      )}
+      <div className="card"><div className="card-body" style={{textAlign:'center',padding:24}}>
+        <button className="btn btn-primary" onClick={()=>navigate('uniformes')}><Icon name="shirt" size={15}/> Ir para Uniformes / EPI</button>
+      </div></div>
+    </div>
+  )
 
   if (user.role === 'almoxarifado') return (
     <div>
@@ -2027,6 +2091,586 @@ function FerramentasPage({ user, addToast }) {
   )
 }
 
+// ─── UNIFORMES / EPI ──────────────────────────────────────────────────────────
+function UniformesPage({ user, addToast }) {
+  const [aba, setAba] = useState('estoque')
+  const abas = [
+    { id: 'estoque', label: 'Estoque', icon: 'shirt' },
+    { id: 'retirada', label: 'Retirada', icon: 'signature' },
+    { id: 'entradas', label: 'Entradas', icon: 'inbox' },
+    { id: 'colaboradores', label: 'Colaboradores', icon: 'users' },
+    { id: 'alertas', label: 'Alertas', icon: 'alertTriangle' },
+    { id: 'assinatura', label: 'Minha assinatura', icon: 'signature' },
+  ]
+  return (
+    <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <div className="topbar"><h2>Uniformes / EPI</h2></div>
+      <div className="uni-tabs">
+        {abas.map(a => (
+          <button key={a.id} className={`uni-tab ${aba === a.id ? 'active' : ''}`} onClick={() => setAba(a.id)}>
+            <Icon name={a.icon} size={15} /> {a.label}
+          </button>
+        ))}
+      </div>
+      {aba === 'estoque' && <UniEstoque user={user} addToast={addToast} />}
+      {aba === 'retirada' && <UniRetirada user={user} addToast={addToast} />}
+      {aba === 'entradas' && <UniEntradas addToast={addToast} />}
+      {aba === 'colaboradores' && <UniColaboradores addToast={addToast} />}
+      {aba === 'alertas' && <UniAlertas />}
+      {aba === 'assinatura' && <UniMinhaAssinatura user={user} addToast={addToast} />}
+    </div>
+  )
+}
+
+// Minha assinatura — o responsável registra a assinatura uma vez; ela é aplicada
+// automaticamente ("lastreada") como assinatura do responsável nos termos de retirada.
+function UniMinhaAssinatura({ user, addToast }) {
+  const [assin, setAssin] = useState(null)
+  const [editando, setEditando] = useState(false)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { GET('/perfil/assinatura').then(r => { setAssin(r.assinatura); setLoading(false) }).catch(() => setLoading(false)) }, [])
+  const salvar = async sig => {
+    try { await PUT('/perfil/assinatura', { assinatura: sig }); setAssin(sig); setEditando(false); addToast('Assinatura registrada!', 'success') }
+    catch (e) { addToast(e.message, 'error') }
+  }
+  const remover = async () => {
+    try { await PUT('/perfil/assinatura', { assinatura: null }); setAssin(null); setEditando(false); addToast('Assinatura removida.', 'success') }
+    catch (e) { addToast(e.message, 'error') }
+  }
+  return (
+    <div className="card"><div className="card-body">
+      <p className="text-muted" style={{ fontSize: '.88rem', marginBottom: 16 }}>
+        Registre sua assinatura uma vez. Ela será aplicada automaticamente como <strong>assinatura do responsável</strong> nos termos de retirada de uniforme/EPI gerados no seu login — sem precisar assinar cada documento. Em qualquer retirada você ainda pode optar por assinar diferente.
+      </p>
+      {loading ? <p className="text-muted">Carregando...</p> : (!editando && assin) ? (
+        <div>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 16, background: '#fff', display: 'inline-block' }}>
+            <img src={assin} alt="Minha assinatura" style={{ maxWidth: 300, maxHeight: 120, display: 'block' }} />
+          </div>
+          <div style={{ marginTop: 8, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 6, fontSize: '.85rem' }}><Icon name="checkCircle" size={15} /> Assinatura registrada para {user.nome}.</div>
+          <div className="gap-8" style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap' }}>
+            <button className="btn btn-outline btn-sm" onClick={() => setEditando(true)}><Icon name="signature" size={14} /> Refazer</button>
+            <button className="btn btn-danger btn-sm" onClick={remover}><Icon name="trash" size={14} /> Remover</button>
+          </div>
+        </div>
+      ) : (
+        <SignaturePad label={`Assine — ${user.nome}`} onConfirm={salvar} onCancel={assin ? () => setEditando(false) : undefined} />
+      )}
+    </div></div>
+  )
+}
+
+// Estoque — catálogo de itens com edição em acordeão (mesmo padrão de Ferramentas).
+function UniEstoque({ user, addToast }) {
+  const [lista, setLista] = useState([])
+  const [openId, setOpenId] = useState(null)
+  const [form, setForm] = useState({})
+  const [confirmDel, setConfirmDel] = useState(false)
+  const isMaster = !!(user && user.is_master)
+  const load = () => GET('/uniformes/itens').then(setLista)
+  useEffect(() => { load() }, [])
+  const abrirNovo = () => { setForm({ categoria: 'Uniforme', unidade: 'un', estoque_minimo: 0 }); setConfirmDel(false); setOpenId('new') }
+  const toggle = it => { if (openId === it.id) { fechar(); return } setForm({ ...it, min_por_tamanho: parseMinTam(it.min_por_tamanho) }); setConfirmDel(false); setOpenId(it.id) }
+  const fechar = () => { setOpenId(null); setConfirmDel(false) }
+  const save = async () => {
+    if (!form.nome) { addToast('Informe o nome.', 'error'); return }
+    try {
+      if (form.id) await PUT(`/uniformes/itens/${form.id}`, form)
+      else await POST('/uniformes/itens', form)
+      addToast(form.id ? 'Atualizado!' : 'Cadastrado!', 'success'); fechar(); load()
+    } catch (e) { addToast(e.message, 'error') }
+  }
+  const del = async () => {
+    try { await DEL(`/uniformes/itens/${form.id}`); addToast('Excluído!', 'success'); fechar(); load() }
+    catch (e) { addToast(e.message, 'error') }
+  }
+  const painel = () => {
+    const titulo = form.id ? `Editar ${form.nome}` : 'Novo item'
+    const footer = confirmDel ? (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '.85rem', color: 'var(--danger)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="alertTriangle" size={15} /> Excluir este item?</span>
+        <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={() => setConfirmDel(false)}>Não</button><button className="btn btn-danger btn-sm" onClick={del}>Sim, excluir</button></div>
+      </div>
+    ) : (<>
+      <div>{isMaster && form.id && <button className="btn btn-danger btn-sm" onClick={() => setConfirmDel(true)}><Icon name="trash" size={14} /> Excluir</button>}</div>
+      <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={fechar}>Cancelar</button><button className="btn btn-primary btn-sm" onClick={save}><Icon name="check" size={14} /> Salvar</button></div>
+    </>)
+    return (
+      <PainelEdicao titulo={titulo} onFechar={fechar} footer={footer}>
+        <div className="form-grid">
+          <div className="form-group full"><label>Nome *</label><input value={form.nome || ''} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
+          <div className="form-group"><label>Categoria</label><select value={form.categoria || 'Uniforme'} onChange={e => setForm({ ...form, categoria: e.target.value })}><option>Uniforme</option><option>EPI</option></select></div>
+          <div className="form-group"><label>Unidade</label><input value={form.unidade || 'un'} onChange={e => setForm({ ...form, unidade: e.target.value })} placeholder="un, par..." /></div>
+          <div className="form-group"><label>Estoque mínimo (por tamanho)</label><input type="number" min="0" value={form.estoque_minimo ?? 0} onChange={e => setForm({ ...form, estoque_minimo: Math.max(0, parseInt(e.target.value) || 0) })} /></div>
+          <div className="form-group"><label>Vida útil (meses)</label><input type="number" min="0" value={form.vida_util_meses ?? ''} onChange={e => setForm({ ...form, vida_util_meses: e.target.value === '' ? null : Math.max(0, parseInt(e.target.value) || 0) })} placeholder="sem prazo" /></div>
+          <div className="form-group"><label>Custo de reposição (R$)</label><input type="number" min="0" step="0.01" value={form.custo_reposicao || ''} onChange={e => setForm({ ...form, custo_reposicao: parseFloat(e.target.value) || 0 })} placeholder="0,00" /></div>
+          <div className="form-group full"><label>Tamanhos disponíveis</label><input value={form.tamanhos || ''} onChange={e => setForm({ ...form, tamanhos: e.target.value })} placeholder="P, M, G, GG  —  deixe vazio se for tamanho único" />
+            <span style={{ fontSize: '.72rem', color: 'var(--text-secondary)', marginTop: 4, display: 'block' }}>Separe por vírgula. O estoque passa a ser controlado por tamanho.</span>
+          </div>
+          {gradeDe(form).length > 0 && (() => {
+            const minObj = parseMinTam(form.min_por_tamanho)
+            const setMinTam = (t, v) => { const o = { ...minObj }; if (v === '') delete o[t]; else o[t] = Math.max(0, parseInt(v) || 0); setForm({ ...form, min_por_tamanho: o }) }
+            return (
+              <div className="form-group full">
+                <label>Mínimo por tamanho (opcional)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                  {gradeDe(form).map(t => (
+                    <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: '.78rem', minWidth: 26, color: 'var(--text-secondary)' }}>{t}</span>
+                      <input type="number" min="0" value={minObj[t] ?? ''} placeholder={form.estoque_minimo ?? 0} onChange={e => setMinTam(t, e.target.value)} style={{ width: 64 }} />
+                    </div>
+                  ))}
+                </div>
+                <span style={{ fontSize: '.72rem', color: 'var(--text-secondary)', marginTop: 4, display: 'block' }}>Vazio = usa o mínimo geral acima ({form.estoque_minimo ?? 0}).</span>
+              </div>
+            )
+          })()}
+          {form.id && (
+            <div className="form-group full">
+              <span style={{ fontSize: '.75rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 6 }}><Icon name="package" size={12} /> {form.estoque_atual ?? 0} em estoque agora</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {(form.estoque_por_tamanho || []).map(l => <TamChip key={l.tamanho} {...l} />)}
+              </div>
+            </div>
+          )}
+        </div>
+      </PainelEdicao>
+    )
+  }
+  const vazio = <div className="empty"><div className="empty-icon"><Icon name="shirt" size={32} /></div><p>Nenhum item cadastrado.</p><button className="btn btn-accent empty-cta" onClick={abrirNovo}><Icon name="plus" size={14} /> Cadastrar item</button></div>
+  return (
+    <div className="card">
+      <div className="card-header"><span className="card-title">Itens em estoque</span><button className="btn btn-accent btn-sm" onClick={abrirNovo}><Icon name="plus" size={14} /> Novo item</button></div>
+      <ListaAcordeao
+        itens={lista} keyOf={i => i.id} abertoId={openId} onToggle={toggle}
+        novoAberto={openId === 'new'} painelNovo={painel()} painel={() => painel()} vazio={vazio}
+        resumo={i => {
+          const algumBaixo = (i.estoque_por_tamanho || []).some(l => l.baixo)
+          return {
+            titulo: <>
+              <div><span className="nm">{i.nome}</span> <span className="badge" style={{ background: i.categoria === 'EPI' ? '#fef3c7' : '#e0e7ff', color: i.categoria === 'EPI' ? '#92400e' : '#3730a3', fontSize: '.65rem' }}>{i.categoria}</span></div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>{(i.estoque_por_tamanho || []).map(l => <TamChip key={l.tamanho} {...l} />)}</div>
+            </>,
+            direita: <span className="qtd-badge" title={`${i.estoque_atual} no total`} style={algumBaixo ? { color: 'var(--danger)', borderColor: 'var(--danger)', display: 'inline-flex', alignItems: 'center', gap: 4 } : null}>{i.estoque_atual}{algumBaixo && <Icon name="alertTriangle" size={12} />}</span>
+          }
+        }}
+      />
+    </div>
+  )
+}
+
+// Entradas — manual + importação de XML de NF-e (revisão/mapeamento antes de gravar).
+function UniEntradas({ addToast }) {
+  const [itens, setItens] = useState([])
+  const [entradas, setEntradas] = useState([])
+  const [modo, setModo] = useState('manual')
+  const [form, setForm] = useState({ item_id: '', quantidade: '', custo_unitario: '', fornecedor: '', tamanho: '' })
+  const [nfe, setNfe] = useState(null)
+  const load = () => { GET('/uniformes/itens').then(setItens); GET('/uniformes/entradas').then(setEntradas) }
+  useEffect(() => { load() }, [])
+  const itemSel = itens.find(i => String(i.id) === String(form.item_id))
+  const gradeSel = gradeDe(itemSel)
+  const salvarManual = async () => {
+    if (!form.item_id || !form.quantidade) { addToast('Item e quantidade são obrigatórios.', 'error'); return }
+    if (gradeSel.length && !form.tamanho) { addToast('Selecione o tamanho.', 'error'); return }
+    try { await POST('/uniformes/entradas', form); addToast('Entrada registrada!', 'success'); setForm({ item_id: '', quantidade: '', custo_unitario: '', fornecedor: '', tamanho: '' }); load() }
+    catch (e) { addToast(e.message, 'error') }
+  }
+  const lerXML = file => {
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const parsed = await POST('/uniformes/nfe/parse', { xml: reader.result })
+        parsed._linhas = parsed.itens.map(l => ({ ...l, item_id: l.item_id_sugerido || '' }))
+        setNfe(parsed)
+        if (parsed.ja_importada) addToast('Atenção: esta NF-e já foi importada antes.', 'warning')
+      } catch (e) { addToast(e.message, 'error') }
+    }
+    reader.readAsText(file)
+  }
+  const setLinha = (idx, patch) => setNfe(n => ({ ...n, _linhas: n._linhas.map((l, i) => i === idx ? { ...l, ...patch } : l) }))
+  const gradeCat = id => gradeDe(nfe && nfe.catalogo.find(c => String(c.id) === String(id)))
+  const confirmarNFe = async () => {
+    const mapeadas = nfe._linhas.filter(l => l.item_id)
+    if (!mapeadas.length) { addToast('Mapeie ao menos uma linha a um item do catálogo.', 'error'); return }
+    if (mapeadas.some(l => gradeCat(l.item_id).length && !l.tamanho)) { addToast('Selecione o tamanho das linhas mapeadas a itens com grade.', 'error'); return }
+    const linhas = mapeadas.map(l => ({ item_id: parseInt(l.item_id), quantidade: parseInt(l.quantidade) || 0, custo_unitario: l.custo_unitario || 0, tamanho: l.tamanho || '' }))
+    try { const r = await POST('/uniformes/nfe/confirmar', { chave: nfe.chave, nfe_numero: nfe.nNF, fornecedor: nfe.fornecedor, linhas }); addToast(`${r.importadas} entrada(s) importada(s)!`, 'success'); setNfe(null); load() }
+    catch (e) { addToast(e.message, 'error') }
+  }
+  return (
+    <div>
+      <div className="card">
+        <div className="card-header"><span className="card-title">Dar entrada em estoque</span>
+          <div className="uni-switch"><button className={modo === 'manual' ? 'active' : ''} onClick={() => setModo('manual')}>Manual</button><button className={modo === 'nfe' ? 'active' : ''} onClick={() => setModo('nfe')}>Importar NF-e</button></div>
+        </div>
+        <div className="card-body">
+          {modo === 'manual' ? (
+            <div className="form-grid">
+              <div className="form-group full"><label>Item *</label><select value={form.item_id} onChange={e => setForm({ ...form, item_id: e.target.value, tamanho: '' })}><option value="">Selecione...</option>{itens.map(i => <option key={i.id} value={i.id}>{i.nome} ({i.estoque_atual} em estoque)</option>)}</select></div>
+              {gradeSel.length > 0 && (
+                <div className="form-group"><label>Tamanho *</label><select value={form.tamanho || ''} onChange={e => setForm({ ...form, tamanho: e.target.value })}><option value="">Selecione...</option>{gradeSel.map(t => <option key={t} value={t}>{t} ({dispDeTam(itemSel, t)} em estoque)</option>)}</select></div>
+              )}
+              <div className="form-group"><label>Quantidade *</label><input type="number" min="1" value={form.quantidade} onChange={e => setForm({ ...form, quantidade: e.target.value })} /></div>
+              <div className="form-group"><label>Custo unitário (R$)</label><input type="number" min="0" step="0.01" value={form.custo_unitario} onChange={e => setForm({ ...form, custo_unitario: e.target.value })} placeholder="0,00" /></div>
+              <div className="form-group full"><label>Fornecedor</label><input value={form.fornecedor} onChange={e => setForm({ ...form, fornecedor: e.target.value })} /></div>
+              {itemSel && (itemSel.estoque_por_tamanho || []).length > 0 && (
+                <div className="form-group full" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                  <span style={{ fontSize: '.75rem', color: 'var(--text-secondary)' }}>Em estoque:</span>
+                  {(itemSel.estoque_por_tamanho || []).map(l => <TamChip key={l.tamanho} {...l} />)}
+                </div>
+              )}
+              <div className="form-group full"><button className="btn btn-primary" onClick={salvarManual}><Icon name="check" size={14} /> Registrar entrada</button></div>
+            </div>
+          ) : !nfe ? (
+            <div>
+              <p className="text-muted" style={{ marginBottom: 10, fontSize: '.85rem' }}>Envie o arquivo <strong>XML</strong> da NF-e (não o PDF/DANFE). Os itens são lidos e você confirma o mapeamento antes de dar entrada.</p>
+              <input type="file" accept=".xml,text/xml,application/xml" onChange={e => e.target.files[0] && lerXML(e.target.files[0])} />
+            </div>
+          ) : (
+            <div>
+              <div className="alert" style={{ marginBottom: 12 }}>NF-e {nfe.nNF || '—'} · {nfe.fornecedor || 'fornecedor não identificado'}{nfe.ja_importada && <strong style={{ color: 'var(--danger)' }}> · JÁ IMPORTADA</strong>}</div>
+              <div className="table-wrap"><table className="cards-mobile">
+                <thead><tr><th>Produto (NF-e)</th><th>Qtd</th><th>Custo un.</th><th>Mapear para item</th><th>Tamanho</th></tr></thead>
+                <tbody>
+                  {nfe._linhas.map((l, idx) => {
+                    const grade = gradeCat(l.item_id)
+                    return (
+                    <tr key={idx}>
+                      <td data-label="Produto">{l.descricao}</td>
+                      <td data-label="Qtd"><input type="number" min="0" value={l.quantidade} onChange={e => setLinha(idx, { quantidade: e.target.value })} style={{ width: 70 }} /></td>
+                      <td data-label="Custo">{fmtBRL(l.custo_unitario)}</td>
+                      <td data-label="Item"><select value={l.item_id} onChange={e => setLinha(idx, { item_id: e.target.value, tamanho: '' })}><option value="">— ignorar —</option>{nfe.catalogo.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></td>
+                      <td data-label="Tamanho">{!l.item_id ? <span className="text-muted">—</span> : grade.length ? (
+                        <select value={l.tamanho || ''} onChange={e => setLinha(idx, { tamanho: e.target.value })}><option value="">Tam...</option>{grade.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                      ) : <span className="text-muted" title="Item de tamanho único">único</span>}</td>
+                    </tr>
+                  )})}
+                </tbody>
+              </table></div>
+              <div className="gap-8" style={{ marginTop: 12, justifyContent: 'flex-end', display: 'flex' }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => setNfe(null)}>Cancelar</button>
+                <button className="btn btn-primary btn-sm" onClick={confirmarNFe}><Icon name="check" size={14} /> Confirmar entrada</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-header"><span className="card-title">Entradas recentes</span></div>
+        <div className="table-wrap"><table className="cards-mobile">
+          <thead><tr><th>Data</th><th>Item</th><th>Tam.</th><th>Qtd</th><th>Origem</th><th>Fornecedor</th></tr></thead>
+          <tbody>
+            {entradas.map(en => (
+              <tr key={en.id}>
+                <td data-label="Data">{fmtDT(en.criado_em)}</td>
+                <td data-label="Item"><strong>{en.item_nome}</strong></td>
+                <td data-label="Tam.">{en.tamanho || '—'}</td>
+                <td data-label="Qtd">+{en.quantidade}</td>
+                <td data-label="Origem"><span className="badge" style={{ background: en.origem === 'nfe' ? '#dbeafe' : '#f0fdf4', color: en.origem === 'nfe' ? '#1e40af' : '#166534', fontSize: '.65rem' }}>{en.origem === 'nfe' ? 'NF-e' : 'Manual'}</span></td>
+                <td data-label="Fornecedor" className="text-muted">{en.fornecedor || '—'}</td>
+              </tr>
+            ))}
+            {!entradas.length && <tr><td colSpan="6" className="text-muted" style={{ textAlign: 'center', padding: 20 }}>Nenhuma entrada ainda.</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  )
+}
+
+// Colaboradores — cadastro com vínculo opcional a um login (habilita reautenticação).
+function UniColaboradores({ addToast }) {
+  const [lista, setLista] = useState([])
+  const [vinculaveis, setVinculaveis] = useState([])
+  const [openId, setOpenId] = useState(null)
+  const [form, setForm] = useState({})
+  const load = () => { GET('/uniformes/colaboradores').then(setLista); GET('/uniformes/usuarios-vinculaveis').then(setVinculaveis).catch(() => {}) }
+  useEffect(() => { load() }, [])
+  const abrirNovo = () => { setForm({}); setOpenId('new') }
+  const toggle = c => { if (openId === c.id) { fechar(); return } setForm({ ...c }); setOpenId(c.id) }
+  const fechar = () => setOpenId(null)
+  const save = async () => {
+    if (!form.nome) { addToast('Informe o nome.', 'error'); return }
+    try { if (form.id) await PUT(`/uniformes/colaboradores/${form.id}`, form); else await POST('/uniformes/colaboradores', form); addToast(form.id ? 'Atualizado!' : 'Cadastrado!', 'success'); fechar(); load() }
+    catch (e) { addToast(e.message, 'error') }
+  }
+  const painel = () => (
+    <PainelEdicao titulo={form.id ? `Editar ${form.nome}` : 'Novo colaborador'} onFechar={fechar}
+      footer={<><div /><div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={fechar}>Cancelar</button><button className="btn btn-primary btn-sm" onClick={save}><Icon name="check" size={14} /> Salvar</button></div></>}>
+      <div className="form-grid">
+        <div className="form-group full"><label>Nome completo *</label><input value={form.nome || ''} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
+        <div className="form-group"><label>Setor / Departamento</label><input value={form.setor || ''} onChange={e => setForm({ ...form, setor: e.target.value })} /></div>
+        <div className="form-group"><label>CPF</label><input value={form.cpf || ''} onChange={e => setForm({ ...form, cpf: e.target.value })} /></div>
+        <div className="form-group"><label>Data de admissão</label><input type="date" value={form.data_admissao || ''} onChange={e => setForm({ ...form, data_admissao: e.target.value })} /></div>
+        <div className="form-group"><label>Vincular a login (opcional)</label><select value={form.usuario_id || ''} onChange={e => setForm({ ...form, usuario_id: e.target.value })}><option value="">Sem login vinculado</option>{vinculaveis.map(u => <option key={u.id} value={u.id}>{u.nome} — {u.email}</option>)}</select></div>
+      </div>
+      <p className="text-muted" style={{ fontSize: '.75rem', marginTop: 6 }}>Com login vinculado, a assinatura da retirada pode ser reautenticada por e-mail/senha do colaborador. Sem vínculo, ele assina no aparelho do responsável.</p>
+    </PainelEdicao>
+  )
+  const vazio = <div className="empty"><div className="empty-icon"><Icon name="users" size={32} /></div><p>Nenhum colaborador cadastrado.</p><button className="btn btn-accent empty-cta" onClick={abrirNovo}><Icon name="plus" size={14} /> Cadastrar colaborador</button></div>
+  return (
+    <div className="card">
+      <div className="card-header"><span className="card-title">Colaboradores</span><button className="btn btn-accent btn-sm" onClick={abrirNovo}><Icon name="plus" size={14} /> Novo</button></div>
+      <ListaAcordeao itens={lista} keyOf={c => c.id} abertoId={openId} onToggle={toggle} novoAberto={openId === 'new'} painelNovo={painel()} painel={() => painel()} vazio={vazio}
+        resumo={c => ({ titulo: <span className="nm">{c.nome}</span>, direita: <span className="text-muted" style={{ fontSize: '.8rem', display: 'inline-flex', alignItems: 'center', gap: 5 }}>{c.setor || '—'}{c.usuario_email && <span title="Login vinculado" style={{ display: 'inline-flex' }}><Icon name="key" size={12} /></span>}</span> })}
+      />
+    </div>
+  )
+}
+
+// Retirada — colaborador + itens (por tamanho, com bloqueio de estoque), conferência do
+// termo e as duas assinaturas (responsável pode usar a assinatura salva; colaborador ao vivo).
+function UniRetirada({ user, addToast }) {
+  const [colaboradores, setColaboradores] = useState([])
+  const [itensCat, setItensCat] = useState([])
+  const [entregas, setEntregas] = useState([])
+  const [colId, setColId] = useState('')
+  const [linhas, setLinhas] = useState([])
+  const [step, setStep] = useState('form')            // form | termo | assinar
+  const [termoHTML, setTermoHTML] = useState('')
+  const [assinaturas, setAssinaturas] = useState({ colab: null, almox: null })
+  const [minhaAssin, setMinhaAssin] = useState(null)  // assinatura salva do responsável
+  const [assinarDiferente, setAssinarDiferente] = useState(false)
+  const [reauth, setReauth] = useState({ email: '', senha: '' })
+  const load = () => { GET('/uniformes/colaboradores').then(setColaboradores); GET('/uniformes/itens').then(setItensCat); GET('/uniformes/entregas').then(setEntregas) }
+  useEffect(() => { load(); GET('/perfil/assinatura').then(r => setMinhaAssin(r.assinatura)).catch(() => {}) }, [])
+  const colaborador = colaboradores.find(c => String(c.id) === String(colId))
+  const addLinha = () => setLinhas([...linhas, { item_id: '', quantidade: 1, tamanho: '', observacao: '' }])
+  const setLinha = (i, patch) => setLinhas(linhas.map((l, idx) => idx === i ? { ...l, ...patch } : l))
+  const rmLinha = i => setLinhas(linhas.filter((_, idx) => idx !== i))
+
+  // Estado calculado de uma linha (item + tamanho + disponibilidade).
+  const infoLinha = l => {
+    const it = itensCat.find(x => String(x.id) === String(l.item_id))
+    if (!it) return { it: null }
+    const grade = gradeDe(it), precisaTam = grade.length > 0, tamOk = !precisaTam || !!l.tamanho
+    const disp = !tamOk ? null : dispDeTam(it, precisaTam ? l.tamanho : SEM_TAM_UI)
+    const qtd = parseInt(l.quantidade) || 0
+    const semEstoque = tamOk && disp != null && disp <= 0
+    const excede = tamOk && disp != null && qtd > disp
+    return { it, grade, precisaTam, tamOk, disp, qtd, semEstoque, excede }
+  }
+  const indisponiveis = linhas.filter(l => { const info = infoLinha(l); return info.it && (info.semEstoque || info.excede) })
+  const removerIndisponiveis = () => setLinhas(linhas.filter(l => { const info = infoLinha(l); return !(info.it && (info.semEstoque || info.excede)) }))
+  const setTamanho = (i, tamanho) => {
+    const it = itensCat.find(x => String(x.id) === String(linhas[i].item_id))
+    const disp = it ? dispDeTam(it, tamanho) : 0
+    const q = Math.min(Math.max(1, parseInt(linhas[i].quantidade) || 1), Math.max(1, disp))
+    setLinha(i, { tamanho, quantidade: q })
+  }
+  const setQtd = (i, v) => {
+    const info = infoLinha(linhas[i])
+    let q = parseInt(v) || ''
+    if (q !== '' && info.disp != null) q = Math.min(Math.max(1, q), Math.max(1, info.disp))
+    setLinha(i, { quantidade: q })
+  }
+
+  const irRevisar = async () => {
+    if (!colId) { addToast('Selecione o colaborador.', 'error'); return }
+    const validas = linhas.filter(l => l.item_id)
+    if (!validas.length) { addToast('Adicione ao menos um item.', 'error'); return }
+    for (const l of validas) {
+      const info = infoLinha(l)
+      if (info.precisaTam && !info.tamOk) { addToast(`Selecione o tamanho de ${info.it.nome}.`, 'error'); return }
+      if (info.semEstoque) { addToast(`${info.it.nome}${l.tamanho ? ' tam. ' + l.tamanho : ''} sem estoque — remova a linha.`, 'error'); return }
+      if (info.qtd <= 0) { addToast(`Quantidade inválida para ${info.it.nome}.`, 'error'); return }
+      if (info.excede) { addToast(`Quantidade acima do disponível para ${info.it.nome}.`, 'error'); return }
+    }
+    const itens = validas.map(l => ({ item_id: parseInt(l.item_id), quantidade: parseInt(l.quantidade) || 1, tamanho: l.tamanho || undefined, observacao: l.observacao }))
+    try { const r = await POST('/uniformes/entregas/previa-termo', { colaborador_id: parseInt(colId), itens }); setTermoHTML(r.html); setStep('termo') }
+    catch (e) { addToast(e.message, 'error') }
+  }
+  const verTermo = async id => { const t = await GET(`/uniformes/entregas/${id}/termo`); const w = window.open('', '_blank', 'width=900,height=700,scrollbars=yes'); w.document.write(t.html); w.document.close() }
+
+  const usaSalva = !!minhaAssin && !assinarDiferente
+  const temResp = usaSalva || !!assinaturas.almox
+  const resetTudo = () => { setColId(''); setLinhas([]); setAssinaturas({ colab: null, almox: null }); setReauth({ email: '', senha: '' }); setAssinarDiferente(false); setTermoHTML(''); setStep('form') }
+  const finalizar = async () => {
+    if (!temResp) { addToast('Falta a assinatura do responsável.', 'error'); return }
+    if (!assinaturas.colab) { addToast('Falta a assinatura do colaborador.', 'error'); return }
+    const itens = linhas.filter(l => l.item_id).map(l => ({ item_id: parseInt(l.item_id), quantidade: parseInt(l.quantidade) || 1, tamanho: l.tamanho || undefined, observacao: l.observacao }))
+    try {
+      const r = await POST('/uniformes/entregas', { colaborador_id: parseInt(colId), itens, assinatura_colaborador: assinaturas.colab, assinatura_almoxarife: assinaturas.almox || undefined, email: reauth.email || undefined, senha: reauth.senha || undefined })
+      addToast('Retirada registrada!', 'success')
+      await verTermo(r.id)
+      resetTudo(); load()
+    } catch (e) { addToast(e.message, 'error') }
+  }
+  return (
+    <div>
+      {step === 'form' && (
+        <div className="card"><div className="card-body">
+          <div className="form-group"><label>Colaborador *</label>
+            <select value={colId} onChange={e => setColId(e.target.value)}><option value="">Selecione...</option>{colaboradores.map(c => <option key={c.id} value={c.id}>{c.nome}{c.setor ? ` — ${c.setor}` : ''}</option>)}</select>
+          </div>
+          <div style={{ margin: '16px 0 8px', fontWeight: 600, fontSize: '.85rem' }}>Itens a entregar</div>
+          {linhas.map((l, i) => {
+            const info = infoLinha(l)
+            return (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <div className="uni-linha">
+                  <select value={l.item_id} onChange={e => setLinha(i, { item_id: e.target.value, tamanho: '', quantidade: 1 })}><option value="">Item...</option>{itensCat.map(it => <option key={it.id} value={it.id}>{it.nome} ({it.estoque_atual})</option>)}</select>
+                  {info.it && info.precisaTam && (
+                    <select value={l.tamanho || ''} onChange={e => setTamanho(i, e.target.value)} style={{ width: 120 }}>
+                      <option value="">Tam...</option>
+                      {info.grade.map(t => { const d = dispDeTam(info.it, t); return <option key={t} value={t} disabled={d <= 0}>{t} — {d} disp.{d <= 0 ? ' (esgotado)' : ''}</option> })}
+                    </select>
+                  )}
+                  <input type="number" min="1" value={l.quantidade} onChange={e => setQtd(i, e.target.value)} style={{ width: 60 }} title="Quantidade" disabled={info.it && !info.tamOk} />
+                  <input className="obs" value={l.observacao} onChange={e => setLinha(i, { observacao: e.target.value })} placeholder="Obs." />
+                  <button className="btn btn-ghost btn-sm" onClick={() => rmLinha(i)}><Icon name="x" size={14} /></button>
+                </div>
+                {info.it && (
+                  <div style={{ fontSize: '.72rem', marginTop: 3, marginLeft: 2, color: info.semEstoque || info.excede ? 'var(--danger)' : 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    {!info.tamOk ? <><Icon name="alertTriangle" size={12} /> selecione o tamanho</>
+                      : info.semEstoque ? <><Icon name="alertTriangle" size={12} /> sem estoque neste tamanho</>
+                      : info.excede ? <><Icon name="alertTriangle" size={12} /> só há {info.disp} disponível(is)</>
+                      : <>{info.disp} disponível(is){info.precisaTam ? ` no tam. ${l.tamanho}` : ''}</>}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {indisponiveis.length > 0 && (
+            <div className="alert" style={{ marginTop: 8, marginBottom: 8, fontSize: '.82rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', borderColor: 'var(--danger)' }}>
+              <span style={{ color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="alertTriangle" size={15} /> {indisponiveis.length} item(ns) sem estoque suficiente.</span>
+              <button className="btn btn-danger btn-sm" onClick={removerIndisponiveis}>Remover indisponíveis</button>
+            </div>
+          )}
+          <div><button className="btn btn-outline btn-sm" onClick={addLinha}><Icon name="plus" size={14} /> Adicionar item</button></div>
+          <div style={{ marginTop: 16, textAlign: 'right' }}><button className="btn btn-primary" onClick={irRevisar} disabled={indisponiveis.length > 0}><Icon name="fileText" size={15} /> Revisar termo →</button></div>
+        </div></div>
+      )}
+
+      {step === 'termo' && (
+        <div className="card"><div className="card-body">
+          <h3 style={{ marginBottom: 6 }}>Confira o termo antes de assinar</h3>
+          <p className="text-muted" style={{ fontSize: '.82rem', marginBottom: 12 }}>Verifique itens, tamanhos e quantidades. Ninguém assina sem conferir o que está assinando.</p>
+          <iframe title="Prévia do termo" srcDoc={termoHTML} style={{ width: '100%', height: '55vh', border: '1px solid var(--border)', borderRadius: 8, background: '#fff' }} />
+          <div className="gap-8" style={{ marginTop: 16, justifyContent: 'space-between', display: 'flex', flexWrap: 'wrap' }}>
+            <button className="btn btn-ghost" onClick={() => setStep('form')}>← Voltar e editar</button>
+            <button className="btn btn-primary" onClick={() => setStep('assinar')}><Icon name="signature" size={15} /> Conferi — ir para assinatura</button>
+          </div>
+        </div></div>
+      )}
+
+      {step === 'assinar' && (
+        <div className="card"><div className="card-body">
+          <h3 style={{ marginBottom: 12 }}>Assinaturas — {colaborador && colaborador.nome}</h3>
+
+          {/* Assinatura do responsável: salva ("lastreada") ou desenhada na hora */}
+          {!temResp && !minhaAssin && (
+            <div className="alert" style={{ marginBottom: 12, fontSize: '.82rem' }}>Você ainda não tem assinatura registrada. Assine abaixo — ou registre a sua em <strong>Minha assinatura</strong> para não repetir a cada retirada.</div>
+          )}
+          {usaSalva ? (
+            <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <img src={minhaAssin} alt="Assinatura" style={{ maxWidth: 160, maxHeight: 60, background: '#fff', border: '1px solid var(--border)', borderRadius: 4 }} />
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <div style={{ color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}><Icon name="checkCircle" size={16} /> Assinatura do responsável registrada</div>
+                <div className="text-muted" style={{ fontSize: '.78rem' }}>Será aplicada automaticamente ({user.nome}).</div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setAssinarDiferente(true); setAssinaturas(a => ({ ...a, almox: null })) }}>Assinar diferente</button>
+            </div>
+          ) : !assinaturas.almox ? (
+            <div style={{ marginBottom: 8 }}>
+              <SignaturePad label={`Assinatura do responsável — ${user.nome}`} onConfirm={sig => setAssinaturas(a => ({ ...a, almox: sig }))} onCancel={() => setStep('termo')} />
+              {minhaAssin && <div style={{ textAlign: 'center', marginTop: 6 }}><button className="btn btn-ghost btn-sm" onClick={() => { setAssinarDiferente(false); setAssinaturas(a => ({ ...a, almox: null })) }}>Usar minha assinatura registrada</button></div>}
+            </div>
+          ) : null}
+
+          {/* Assinatura do colaborador: sempre ao vivo (confere e assina presencialmente) */}
+          {temResp && !assinaturas.colab && colaborador && colaborador.usuario_id && (
+            <>
+              <div className="alert" style={{ marginBottom: 12, fontSize: '.82rem' }}>Este colaborador tem login. Opcionalmente, informe e-mail/senha dele para reautenticar a assinatura.</div>
+              <div className="form-grid" style={{ marginBottom: 12 }}>
+                <div className="form-group"><label>E-mail (opcional)</label><input value={reauth.email} onChange={e => setReauth({ ...reauth, email: e.target.value })} /></div>
+                <div className="form-group"><label>Senha (opcional)</label><input type="password" value={reauth.senha} onChange={e => setReauth({ ...reauth, senha: e.target.value })} /></div>
+              </div>
+            </>
+          )}
+          {temResp && !assinaturas.colab && (
+            <SignaturePad label={`Assinatura do colaborador — ${colaborador && colaborador.nome}`} onConfirm={sig => setAssinaturas(a => ({ ...a, colab: sig }))} onCancel={() => setStep('termo')} />
+          )}
+          {temResp && assinaturas.colab && (
+            <div style={{ textAlign: 'center', padding: '12px 0' }}>
+              <p style={{ color: 'var(--success)', marginBottom: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="checkCircle" size={16} /> Assinaturas prontas.</p>
+              <div className="gap-8" style={{ justifyContent: 'center', display: 'flex', flexWrap: 'wrap' }}>
+                <button className="btn btn-ghost" onClick={() => { setAssinaturas(a => ({ ...a, colab: null })) }}>Refazer assinatura</button>
+                <button className="btn btn-primary" onClick={finalizar}><Icon name="fileText" size={15} /> Finalizar e gerar termo</button>
+              </div>
+            </div>
+          )}
+        </div></div>
+      )}
+
+      <div className="card">
+        <div className="card-header"><span className="card-title">Retiradas recentes</span></div>
+        <div className="table-wrap"><table className="cards-mobile">
+          <thead><tr><th>Nº</th><th>Colaborador</th><th>Data</th><th>Itens</th><th>Termo</th></tr></thead>
+          <tbody>
+            {entregas.map(e => (
+              <tr key={e.id}>
+                <td data-label="Nº"><strong>{e.numero}</strong></td>
+                <td data-label="Colaborador">{e.colaborador_nome}</td>
+                <td data-label="Data">{fmt(e.data_retirada || e.criado_em)}</td>
+                <td data-label="Itens">{(e.itens || []).reduce((s, i) => s + i.quantidade, 0)} un</td>
+                <td data-label="Termo" className="cell-actions"><button className="btn btn-outline btn-sm" onClick={() => verTermo(e.id)}><Icon name="fileText" size={14} /> Ver termo</button></td>
+              </tr>
+            ))}
+            {!entregas.length && <tr><td colSpan="5" className="text-muted" style={{ textAlign: 'center', padding: 20 }}>Nenhuma retirada ainda.</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  )
+}
+
+// Alertas — estoque no mínimo + desgaste vencendo (≤ 30 dias).
+function UniAlertas() {
+  const [dados, setDados] = useState({ minimo: [], desgaste: [] })
+  useEffect(() => { GET('/uniformes/alertas').then(setDados).catch(() => {}) }, [])
+  return (
+    <div>
+      <div className="card">
+        <div className="card-header"><span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="package" size={15} /> Estoque no mínimo</span></div>
+        <div className="table-wrap"><table className="cards-mobile">
+          <thead><tr><th>Item</th><th>Tamanho</th><th>Categoria</th><th>Em estoque</th><th>Mínimo</th></tr></thead>
+          <tbody>
+            {dados.minimo.map(i => (
+              <tr key={`${i.id}-${i.tamanho}`}>
+                <td data-label="Item"><strong>{i.nome}</strong></td>
+                <td data-label="Tamanho">{i.tamanho === '—' ? 'único' : i.tamanho}</td>
+                <td data-label="Categoria">{i.categoria}</td>
+                <td data-label="Em estoque" style={{ color: 'var(--danger)', fontWeight: 700 }}>{i.estoque_atual} {i.unidade}</td>
+                <td data-label="Mínimo">{i.minimo}</td>
+              </tr>
+            ))}
+            {!dados.minimo.length && <tr><td colSpan="5" className="text-muted" style={{ textAlign: 'center', padding: 20 }}>Nenhum item abaixo do mínimo.</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+      <div className="card">
+        <div className="card-header"><span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="history" size={15} /> Desgaste vencendo (≤ 30 dias)</span></div>
+        <div className="table-wrap"><table className="cards-mobile">
+          <thead><tr><th>Colaborador</th><th>Item</th><th>Vence em</th><th>Faltam</th></tr></thead>
+          <tbody>
+            {dados.desgaste.map((d, i) => (
+              <tr key={i}>
+                <td data-label="Colaborador"><strong>{d.colaborador_nome}</strong>{d.setor && <span className="text-muted"> — {d.setor}</span>}</td>
+                <td data-label="Item">{d.item_nome}{d.tamanho ? ` (${d.tamanho})` : ''}</td>
+                <td data-label="Vence em">{fmt(d.vence_em)}</td>
+                <td data-label="Faltam" style={{ fontWeight: 700, color: d.dias_restantes <= 0 ? 'var(--danger)' : d.dias_restantes <= 15 ? 'var(--warning)' : 'var(--text-secondary)' }}>{d.dias_restantes <= 0 ? 'Vencido' : `${d.dias_restantes} d`}</td>
+              </tr>
+            ))}
+            {!dados.desgaste.length && <tr><td colSpan="4" className="text-muted" style={{ textAlign: 'center', padding: 20 }}>Nenhuma reposição próxima.</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  )
+}
+
 // ─── BOLSAS ───────────────────────────────────────────────────────────────────
 function BolsasPage({ addToast }) {
   const [lista, setLista] = useState([])
@@ -2136,6 +2780,7 @@ function UsuariosPage({ addToast }) {
           <div className="form-group"><label>Perfil</label>
             <select value={form.role||'operario'} onChange={e=>setForm({...form,role:e.target.value})} disabled={!!form.id}>
               <option value="lider">Líder</option><option value="operario">Operário</option>
+              <option value="administracao">Administração</option><option value="compras">Compras</option>
             </select>
           </div>
           <div className="form-group"><label>{form.id?'Nova senha (em branco = não altera)':'Senha *'}</label><input type="password" value={form.senha||''} onChange={e=>setForm({...form,senha:e.target.value})} placeholder="••••••••" /></div>
@@ -2159,7 +2804,7 @@ function UsuariosPage({ addToast }) {
       <div className="card">
         <div className="card-body" style={{paddingBottom:12}}>
           <select value={filtroRole} onChange={e=>setFiltroRole(e.target.value)} style={{width:'auto'}}>
-            <option value="">Todos os perfis</option><option value="lider">Líder</option><option value="operario">Operário</option>
+            <option value="">Todos os perfis</option><option value="lider">Líder</option><option value="operario">Operário</option><option value="administracao">Administração</option><option value="compras">Compras</option>
           </select>
         </div>
         <ListaAcordeao
@@ -2346,6 +2991,7 @@ const ICON_PATHS = {
   search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
   eyeOff: <><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a18.5 18.5 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>,
   key: <><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></>,
+  shirt: <path d="M20 6l-4-2-1.2 1.6a3.5 3.5 0 01-5.6 0L8 4 4 6l2 4 2-1v9a1 1 0 001 1h6a1 1 0 001-1v-9l2 1 2-4z"/>,
 }
 function Icon({ name, size=20 }) {
   const path = ICON_PATHS[name]
@@ -2361,12 +3007,15 @@ function Icon({ name, size=20 }) {
 function Sidebar({ user, page, navigate, onLogout, notif }) {
   const alm = user.role === 'almoxarifado'
   const lider = user.role === 'lider'
+  const op = user.role === 'operario'
+  const unif = PERFIS_UNIFORME.includes(user.role)
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel', show: true },
     { id: 'solicitacoes', icon: 'clipboard', label: 'Solicitações', show: alm || lider, badge: alm ? ((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)) : (notif.sol_prontas||0) },
     { id: 'nova-solicitacao', icon: 'plus', label: 'Nova Solicitação', show: lider },
-    { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || user.role==='operario' },
-    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: true, badge: user.role==='operario'?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
+    { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || op },
+    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm || lider || op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
+    { id: 'uniformes', icon: 'shirt', label: 'Uniformes / EPI', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
     { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
     { id: 'bolsas', icon: 'backpack', label: 'Bolsas / Kits', show: alm },
     { id: 'usuarios', icon: 'users', label: 'Usuários', show: alm },
@@ -2404,11 +3053,13 @@ function BottomNav({ user, page, navigate, notif }) {
   const alm = user.role === 'almoxarifado'
   const lider = user.role === 'lider'
   const op = user.role === 'operario'
+  const unif = PERFIS_UNIFORME.includes(user.role)
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel' },
     { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||op },
-    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
+    { id: 'uniformes', icon: 'shirt', label: 'Uniformes', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
+    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm||lider||op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
     { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
   ].filter(i => i.show !== false).slice(0,5)
   return (
@@ -2463,6 +3114,13 @@ function App() {
         const ante = prev.emprestimos_aguardando_confirmacao || 0
         if (curr > ante) addToast(`Você tem ${curr} empréstimo(s) aguardando sua confirmação`, 'warning')
       }
+      // Alertas do módulo Uniformes — para os 3 perfis com acesso
+      if (PERFIS_UNIFORME.includes(user.role)) {
+        const minCurr = n.uniforme_estoque_minimo || 0, minAnte = prev.uniforme_estoque_minimo || 0
+        if (minCurr > minAnte) addToast(`${minCurr} item(ns) de uniforme/EPI no estoque mínimo`, 'warning')
+        const desgCurr = n.uniforme_desgaste || 0, desgAnte = prev.uniforme_desgaste || 0
+        if (desgCurr > desgAnte) addToast(`${desgCurr} uniforme(s) com desgaste vencendo — repor`, 'warning')
+      }
       prev = n
       setNotif(n)
     }).catch(()=>{})
@@ -2485,6 +3143,7 @@ function App() {
     if (page === 'nova-solicitacao') return <NovaSolicitacaoPage {...props} />
     if (page === 'cautelas') return <CautelasPage {...props} />
     if (page === 'emprestimos') return <EmprestimosPage {...props} />
+    if (page === 'uniformes') return <UniformesPage {...props} />
     if (page === 'ferramentas') return <FerramentasPage {...props} />
     if (page === 'bolsas') return <BolsasPage {...props} />
     if (page === 'usuarios') return <UsuariosPage {...props} />

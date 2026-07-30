@@ -23,9 +23,12 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 - Zero-downtime: se o build falha, o Railway mantém a versão atual (healthcheck `/health`).
 - Reverter: aba Implantações do Railway → redeploy da versão anterior; ou `git revert` + `railway up`.
 
-## ⚠️ RISCO DE NEGÓCIO ABERTO
-- Conta Railway em **TRIAL** (~US$ 4,83 / ~14 dias na última verificação). Se o crédito
-  acabar, **o site do cliente sai do ar**. Resolver o plano é prioridade — decisão do Maxwel.
+## Railway — incidente de deploy resolvido (2026-07-30 tarde)
+- Houve um **incidente da plataforma Railway** ("Builds and deployments are delayed") que pausou deploys
+  dos planos **Hobby/Trial** por algumas horas. **Não era billing** do Maxwel. O site seguiu Online o tempo todo.
+- Ao liberar, o `railway up` do módulo Uniformes-por-tamanho publicou normalmente. Deploy volta a funcionar.
+- Contexto de plano: o projeto está no **Hobby** (por isso caiu na pausa; Pro fica isento). Blindar contra
+  pausas futuras por incidente = migrar para Pro (decisão de negócio, não urgente).
 
 ## Administrador master
 - Conta: **adm@mindmax.com.br** (papel `almoxarifado` + `is_master=1`). Seed em `server.js`
@@ -44,6 +47,59 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 - Tabelas viram cartões no mobile via classe `cards-mobile` (regra `:has(td[colspan])`
   evita cartão-dentro-de-cartão no estado vazio).
 
+## Módulo Uniformes / EPI (✅ EM PRODUÇÃO desde 2026-07-30)
+> Deploy verificado: build ok, migração do CHECK rodou sem violação de FK (log
+> "Migração usuarios: CHECK de role expandido"), seed dos 8 itens ok, `/health` 200,
+> endpoints `/api/uniformes/*` respondendo 401 sem token (registrados). Falta só o teste
+> logado do Maxwel (criar usuário Administração/Compras + retirada de teste).
+- **Aba nova "Uniformes / EPI"** na sidebar, visível só a `almoxarifado`, `administracao`,
+  `compras` (líder/operário não veem). Os 3 têm acesso **total e igual** ao módulo; os papéis
+  novos ficam **escopados** (só Painel + Uniformes). Só o master é ilimitado no resto do sistema.
+- **Papéis novos** `administracao` e `compras`: exigiram expandir o `CHECK(role IN ...)` de
+  `usuarios`. Feito com **migração guardada** que reconstrói a tabela uma vez (preserva colunas,
+  UNIQUE de email e ids; FK off durante a troca + `foreign_key_check`). Base schema já cria com
+  o CHECK novo; a migração só roda em bancos antigos (como o de produção).
+- **Tabelas:** `uniforme_itens` (catálogo, com `estoque_minimo`, `vida_util_meses`,
+  `custo_reposicao`), `uniforme_entradas` (manual/nfe), `colaboradores` (com `usuario_id`
+  opcional), `uniforme_entregas` + `uniforme_entrega_itens`. Estoque **calculado** (Σ entradas −
+  Σ entregas). Seed dos 8 itens do termo (Bota 8m/R$70 · Calça 6m/R$55 · Jaleco 6m/R$65 ·
+  Camisa 4m/R$35 · Luva/Capacete/Óculos/Protetor sem prazo).
+- **Telas** (sub-abas em `UniformesPage`): Estoque (acordeão CRUD), Retirada (colaborador +
+  itens + 2 assinaturas via `SignaturePad`, gera termo, reautenticação opcional se colaborador
+  tem login), Entradas (manual + **importar XML de NF-e** → mapear/confirmar → dar entrada),
+  Colaboradores (CRUD + vínculo a login), Alertas (mínimo + desgaste ≤30d).
+- **NF-e:** parser próprio `parseNFe` em `server.js` (sem dependência nova — evita mexer no
+  lock/deps do Railway). Lê `<det>/<prod>` + `<emit>` + chave/nNF; testado ok. Só XML da nota
+  (não PDF/DANFE). Dedup por chave.
+- **Alertas** vão aos 3 perfis: badge na aba + toast no polling de `/notificacoes` + painel.
+- **Termo** `gerarTermoUniformeHTML` reusa os estilos dos termos existentes (declaração do
+  colaborador, prazos, custos, 2 assinaturas, Lei 14.063/2020, São Gonçalo/data).
+- **Validação local feita:** `node --check` ok; Babel compilou o front inteiro no navegador
+  (login renderiza); `parseNFe` passou em teste unitário. Falta: `railway up` + teste logado
+  do Maxwel (backend completo não roda nesta máquina Windows — better-sqlite3).
+- SW bumpado para `markat-cautela-v4`.
+
+### Atualização 2026-07-30 (tarde) — estoque por tamanho + termo antes de assinar + assinatura salva
+> ✅ **EM PRODUÇÃO** (deploy concluído após o incidente do Railway liberar; `/health` 200, marcadores
+> "Minha assinatura"/"Revisar termo"/"Tamanhos disponíveis" no HTML, endpoints novos 401, startup "SERVIDOR OK").
+> Falta o teste logado do Maxwel (configurar grades/mínimos por tamanho, entrada por tamanho, retirada
+> com bloqueio + prévia do termo + assinatura salva).
+- **Estoque por TAMANHO:** `uniforme_itens` ganhou `tamanhos` (grade, ex.: `P,M,G`) e `min_por_tamanho`
+  (JSON de mínimos por tamanho); `uniforme_entradas` ganhou `tamanho`. Saldo agora é por `(item, tamanho)`
+  — helpers `uniformeDisp(item_id, tamanho)`, `saldoPorTamanho`, `estoquePorTamanho`, `alertasMinimo`.
+  Seed com grades; migração `addCol` + backfill das grades dos 8 itens (idempotente). Item sem grade =
+  tamanho único (balde `—`).
+- **Retirada bloqueia sem estoque:** linha vira Item → Tamanho (mostra "42 — 3 disp.", esgotado desabilitado)
+  → Qtd (limitada ao saldo do tamanho). Botão "Remover indisponíveis" + "Revisar termo" travado se houver linha inviável.
+- **Termo antes de assinar:** novo passo `form → termo → assinar`. Prévia via `POST /uniformes/entregas/previa-termo`
+  (reusa `montarTermoHTML`, sem gravar), renderizada em **iframe** (isola o `<style>` global do termo).
+- **Assinatura salva ("lastreada"):** coluna `usuarios.assinatura`; endpoints `GET/PUT /api/perfil/assinatura`;
+  sub-aba **"Minha assinatura"** em Uniformes. Na retirada, a assinatura do responsável vem automática da salva
+  (com "Assinar diferente"); colaborador continua assinando ao vivo. Backend faz fallback à assinatura salva se não vier no payload.
+- **Alerta por TAMANHO:** `/uniformes/alertas`, `/notificacoes` e `/dashboard` usam `alertasMinimo()` (avalia cada
+  tamanho contra seu mínimo; override por tamanho ou o mínimo-padrão do item). Tabela de alertas mostra a coluna Tamanho.
+- SW bumpado para `markat-cautela-v5`.
+
 ## Estoque × solicitações (modelo de disponibilidade)
 - Disponibilidade é **calculada**, nunca armazenada:
   `disponivel = quantidade_total − reservado(solicitação 'solicitada'/'separando')
@@ -56,7 +112,7 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
   e permitem remover itens sem estoque (bolsa expande em lista editável + "Remover indisponíveis").
 
 ## Roadmap "simbiose" (do doc estratégico, ainda não implementado)
-1. Resolver plano Railway (decisão Maxwel) — mais urgente.
+1. ~~Resolver plano Railway~~ ✅ feito (plano pago desde 2026-07-30).
 2. Formalizar `DESIGN.md` (paleta + componentes reutilizáveis).
 3. Criar subagente `.claude/agents/guardiao-design.md` (Guardião do Design System).
 4. Traduzir os outros agentes do Maxwel (requisitos/oferta/pricing/onboarding) para

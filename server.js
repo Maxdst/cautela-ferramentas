@@ -90,7 +90,7 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     senha_hash TEXT NOT NULL,
     cargo TEXT,
-    role TEXT NOT NULL CHECK(role IN ('almoxarifado','lider','operario')),
+    role TEXT NOT NULL CHECK(role IN ('almoxarifado','lider','operario','administracao','compras')),
     ativo INTEGER DEFAULT 1,
     criado_em TEXT DEFAULT (datetime('now','localtime'))
   );
@@ -210,6 +210,83 @@ db.exec(`
     detalhe TEXT,
     criado_em TEXT DEFAULT (datetime('now','localtime'))
   );
+
+  -- ─── MÓDULO UNIFORMES / EPI ─────────────────────────────────────────────────
+  -- Catálogo de itens (uniformes + EPIs). Estoque é CALCULADO (entradas − entregas),
+  -- nunca armazenado — mesmo princípio da disponibilidade de ferramentas.
+  CREATE TABLE IF NOT EXISTS uniforme_itens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    categoria TEXT DEFAULT 'Uniforme',          -- 'EPI' | 'Uniforme'
+    unidade TEXT DEFAULT 'un',
+    estoque_minimo INTEGER NOT NULL DEFAULT 0,  -- mínimo POR TAMANHO (padrão); 0 = sem alerta
+    vida_util_meses INTEGER,                    -- NULL = sem prazo de desgaste
+    custo_reposicao REAL DEFAULT 0,
+    tamanhos TEXT,                              -- grade de tamanhos, ex.: 'P,M,G,GG' (vazio = tamanho único)
+    min_por_tamanho TEXT,                       -- JSON opcional de mínimos por tamanho, ex.: {"40":3,"42":4}
+    ativo INTEGER DEFAULT 1,
+    criado_em TEXT DEFAULT (datetime('now','localtime'))
+  );
+
+  -- Entradas de estoque (manual ou importadas de NF-e). Somam ao disponível.
+  CREATE TABLE IF NOT EXISTS uniforme_entradas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL REFERENCES uniforme_itens(id),
+    quantidade INTEGER NOT NULL,
+    tamanho TEXT,                               -- tamanho da grade (NULL = item de tamanho único)
+    custo_unitario REAL DEFAULT 0,
+    origem TEXT DEFAULT 'manual',               -- 'manual' | 'nfe'
+    nfe_chave TEXT,
+    nfe_numero TEXT,
+    fornecedor TEXT,
+    obs TEXT,
+    criado_por INTEGER REFERENCES usuarios(id),
+    criado_em TEXT DEFAULT (datetime('now','localtime'))
+  );
+
+  -- Colaboradores que recebem uniforme/EPI. usuario_id opcional (liga a um login
+  -- existente, permitindo reautenticação por e-mail/senha na assinatura).
+  CREATE TABLE IF NOT EXISTS colaboradores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    setor TEXT,
+    cpf TEXT,
+    data_admissao TEXT,
+    usuario_id INTEGER REFERENCES usuarios(id),
+    ativo INTEGER DEFAULT 1,
+    criado_em TEXT DEFAULT (datetime('now','localtime'))
+  );
+
+  -- Retiradas/entregas (cada uma gera o termo assinado). Subtraem do disponível.
+  CREATE TABLE IF NOT EXISTS uniforme_entregas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero TEXT UNIQUE,
+    colaborador_id INTEGER REFERENCES colaboradores(id),
+    colaborador_nome TEXT,                      -- snapshot
+    setor TEXT,                                 -- snapshot
+    data_retirada TEXT,
+    status TEXT NOT NULL DEFAULT 'ativa',
+    assinatura_colaborador TEXT,
+    assinatura_almoxarife TEXT,
+    almoxarife_id INTEGER REFERENCES usuarios(id),
+    almoxarife_nome TEXT,                       -- snapshot
+    reautenticado INTEGER DEFAULT 0,            -- 1 = colaborador reautenticou por login
+    ip TEXT,
+    criado_em TEXT DEFAULT (datetime('now','localtime'))
+  );
+
+  CREATE TABLE IF NOT EXISTS uniforme_entrega_itens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entrega_id INTEGER NOT NULL REFERENCES uniforme_entregas(id) ON DELETE CASCADE,
+    item_id INTEGER NOT NULL REFERENCES uniforme_itens(id),
+    item_nome TEXT,                             -- snapshot
+    quantidade INTEGER NOT NULL DEFAULT 1,
+    tamanho TEXT,
+    observacao TEXT,
+    vida_util_meses INTEGER,                    -- snapshot na entrega
+    custo_reposicao REAL,                       -- snapshot na entrega
+    vence_em TEXT                               -- data_retirada + vida_util_meses (se houver)
+  );
 `)
 
 // ─── MIGRAÇÕES ────────────────────────────────────────────────────────────────
@@ -323,6 +400,63 @@ db.exec(`
   addCol('solicitacoes', 'assinatura_solicitante', 'TEXT')
   addCol('solicitacoes', 'ip_solicitante', 'TEXT')
   addCol('emprestimos', 'assinatura_tomador_legado', 'TEXT')
+
+  // Expande o CHECK de role para os papéis do módulo Uniformes (administracao, compras).
+  // SQLite não altera CHECK via ALTER — reconstrói a tabela uma única vez, preservando TODAS
+  // as colunas (inclusive as dos addCol acima), o UNIQUE de email e os ids (as FKs filhas
+  // apontam para usuarios(id) por nome). Guardado: só roda se o CHECK ainda não tem os papéis.
+  // FK desligada durante a troca (exigência do SQLite: pragma fora de transação).
+  const usuariosSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='usuarios'").get()
+  if (usuariosSql && !/'compras'/.test(usuariosSql.sql)) {
+    const cols = 'id,nome,email,senha_hash,cargo,role,ativo,criado_em,cpf_cnpj,empresa,endereco,telefone,primeiro_acesso,is_master'
+    db.pragma('foreign_keys = OFF')
+    try {
+      db.exec('BEGIN')
+      db.exec(`CREATE TABLE usuarios_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        senha_hash TEXT NOT NULL,
+        cargo TEXT,
+        role TEXT NOT NULL CHECK(role IN ('almoxarifado','lider','operario','administracao','compras')),
+        ativo INTEGER DEFAULT 1,
+        criado_em TEXT DEFAULT (datetime('now','localtime')),
+        cpf_cnpj TEXT, empresa TEXT, endereco TEXT, telefone TEXT,
+        primeiro_acesso INTEGER DEFAULT 0,
+        is_master INTEGER DEFAULT 0
+      )`)
+      db.exec(`INSERT INTO usuarios_new (${cols}) SELECT ${cols} FROM usuarios`)
+      db.exec('DROP TABLE usuarios')
+      db.exec('ALTER TABLE usuarios_new RENAME TO usuarios')
+      db.exec('COMMIT')
+      const viol = db.prepare('PRAGMA foreign_key_check').all()
+      if (viol.length) console.error('  ⚠️ foreign_key_check após migração de usuarios:', viol)
+      else console.log('  Migração usuarios: CHECK de role expandido (administracao, compras)')
+    } catch (e) {
+      try { db.exec('ROLLBACK') } catch {}
+      console.error('  ⚠️ Falha ao expandir CHECK de role (usuarios inalterada):', e.message)
+    } finally {
+      db.pragma('foreign_keys = ON')
+    }
+  }
+
+  // Módulo Uniformes — estoque por tamanho + assinatura salva do responsável.
+  // (após o rebuild de usuarios acima, para a coluna assinatura não se perder na troca)
+  addCol('uniforme_itens', 'tamanhos', 'TEXT')
+  addCol('uniforme_itens', 'min_por_tamanho', 'TEXT')
+  addCol('uniforme_entradas', 'tamanho', 'TEXT')
+  addCol('usuarios', 'assinatura', 'TEXT')
+
+  // Backfill das grades dos itens do seed (bancos que já tinham o módulo sem tamanho).
+  // Só preenche quem ainda está sem grade — idempotente e não sobrescreve edição do cliente.
+  const gradesSeed = {
+    'Camisa': 'PP,P,M,G,GG,XG', 'Calça': '36,38,40,42,44,46,48,50', 'Jaleco': 'PP,P,M,G,GG,XG',
+    'Bota': '35,36,37,38,39,40,41,42,43,44', 'Luva': 'P,M,G',
+  }
+  try {
+    const upG = db.prepare("UPDATE uniforme_itens SET tamanhos=? WHERE nome=? AND (tamanhos IS NULL OR tamanhos='')")
+    for (const [nome, grade] of Object.entries(gradesSeed)) upG.run(grade, nome)
+  } catch (e) { console.error('  ⚠️ backfill de grades de uniforme:', e.message) }
 })()
 
 // Usuário admin padrão de uma instalação nova (genérico — cada cliente completa os próprios dados
@@ -400,6 +534,28 @@ const ADMIN_MASTER = {
     if (r.changes) criados++
   }
   if (criados > 0) console.log(`  ✅ ${criados} líder(es) Markat criados. Senha padrão: ${SENHA_PADRAO}`)
+})()
+
+// ─── SEED DE ITENS DE UNIFORME / EPI ──────────────────────────────────────────
+// Itens do Termo de Retirada. Prazos de desgaste e custos de reposição vêm do termo
+// (Bota 8m/R$70 · Calça 6m/R$55 · Jaleco 6m/R$65 · Camisa 4m/R$35). Os demais EPIs
+// não têm prazo definido no termo (vida_util NULL). estoque_minimo começa em 0 —
+// o responsável configura o ponto de reposição de cada item.
+;(() => {
+  if (db.prepare('SELECT id FROM uniforme_itens LIMIT 1').get()) return
+  const itens = [
+    { nome: 'Camisa',            categoria: 'Uniforme', vida: 4,    custo: 35, tam: 'PP,P,M,G,GG,XG' },
+    { nome: 'Calça',             categoria: 'Uniforme', vida: 6,    custo: 55, tam: '36,38,40,42,44,46,48,50' },
+    { nome: 'Jaleco',            categoria: 'Uniforme', vida: 6,    custo: 65, tam: 'PP,P,M,G,GG,XG' },
+    { nome: 'Bota',              categoria: 'EPI',      vida: 8,    custo: 70, tam: '35,36,37,38,39,40,41,42,43,44' },
+    { nome: 'Luva',              categoria: 'EPI',      vida: null, custo: 0,  tam: 'P,M,G' },
+    { nome: 'Capacete',          categoria: 'EPI',      vida: null, custo: 0,  tam: '' },
+    { nome: 'Óculos',            categoria: 'EPI',      vida: null, custo: 0,  tam: '' },
+    { nome: 'Protetor Auricular',categoria: 'EPI',      vida: null, custo: 0,  tam: '' },
+  ]
+  const stmt = db.prepare('INSERT INTO uniforme_itens (nome,categoria,vida_util_meses,custo_reposicao,tamanhos) VALUES (?,?,?,?,?)')
+  for (const i of itens) stmt.run(i.nome, i.categoria, i.vida, i.custo, i.tam || null)
+  console.log(`  ✅ ${itens.length} itens de uniforme/EPI cadastrados (seed do termo)`)
 })()
 
 // Nada de sobrescrever os dados do admin em toda inicialização — antes isso apagava qualquer edição
@@ -743,8 +899,26 @@ app.get('/api/admin/backup', auth(['almoxarifado']), requireMaster, (req, res) =
 })
 
 app.get('/api/auth/me', auth(), (req, res) => {
-  const u = db.prepare('SELECT id,nome,email,cargo,role,primeiro_acesso,is_master FROM usuarios WHERE id=?').get(req.user.id)
+  const u = db.prepare('SELECT id,nome,email,cargo,role,primeiro_acesso,is_master,assinatura FROM usuarios WHERE id=?').get(req.user.id)
+  if (u) { u.tem_assinatura = !!u.assinatura; delete u.assinatura } // não trafega a imagem no /me (leve)
   res.json(u)
+})
+
+// ── Minha assinatura (assinatura salva do responsável, "lastreada" nos termos) ──
+app.get('/api/perfil/assinatura', auth(), (req, res) => {
+  const u = db.prepare('SELECT assinatura FROM usuarios WHERE id=?').get(req.user.id)
+  res.json({ assinatura: (u && u.assinatura) || null })
+})
+
+app.put('/api/perfil/assinatura', auth(), (req, res) => {
+  const { assinatura } = req.body
+  if (assinatura != null && !(typeof assinatura === 'string' && assinatura.startsWith('data:image/')))
+    return res.status(400).json({ error: 'Assinatura inválida.' })
+  if (typeof assinatura === 'string' && assinatura.length > 500000)
+    return res.status(400).json({ error: 'Assinatura muito grande.' })
+  db.prepare('UPDATE usuarios SET assinatura=? WHERE id=?').run(assinatura || null, req.user.id)
+  audit(req.user.id, assinatura ? 'SALVAR_ASSINATURA' : 'REMOVER_ASSINATURA', 'usuarios', req.user.id, null)
+  res.json({ ok: true, tem_assinatura: !!assinatura })
 })
 
 app.post('/api/auth/trocar-senha', auth(), (req, res) => {
@@ -798,7 +972,7 @@ app.get('/api/usuarios/lideres', auth(), (req, res) => {
 
 app.post('/api/usuarios', auth(['almoxarifado']), (req, res) => {
   const { nome, email, senha, cargo, role, cpf_cnpj, empresa, endereco, telefone } = req.body
-  if (!['lider', 'operario'].includes(role)) return res.status(400).json({ error: 'Role inválido' })
+  if (!['lider', 'operario', 'administracao', 'compras'].includes(role)) return res.status(400).json({ error: 'Role inválido' })
   try {
     const r = db.prepare('INSERT INTO usuarios (nome,email,senha_hash,cargo,role,cpf_cnpj,empresa,endereco,telefone,primeiro_acesso) VALUES (?,?,?,?,?,?,?,?,?,1)')
       .run(nome, email, bcrypt.hashSync(senha, 10), cargo || '', role, cpf_cnpj || null, empresa || null, endereco || null, telefone || null)
@@ -1389,6 +1563,525 @@ app.post('/api/emprestimos/:id/devolver', auth(['operario', 'lider', 'almoxarifa
   res.json({ ok: true })
 })
 
+// ─── MÓDULO UNIFORMES / EPI ───────────────────────────────────────────────────
+// Acesso total e igual para os 3 perfis; líder/operário não enxergam. Só o master
+// tem acesso ilimitado ao restante do sistema (esses papéis ficam escopados aqui).
+const UNIF_ROLES = ['almoxarifado', 'administracao', 'compras']
+
+function gerarNumeroUniforme() {
+  const n = db.prepare('SELECT COUNT(*) n FROM uniforme_entregas').get().n + 1
+  return `UNI-${String(n).padStart(4, '0')}`
+}
+
+// ── Estoque por tamanho ───────────────────────────────────────────────────────
+// Estoque = tudo que entrou − tudo que foi entregue (calculado, nunca armazenado).
+// Agora com dimensão de TAMANHO: itens têm uma grade (ex.: 'P,M,G') e o saldo é por
+// (item, tamanho). Itens sem grade têm um único balde (tamanho "único" = SEM_TAM).
+const SEM_TAM = '—'
+const normTam = t => { const v = (t == null ? '' : String(t).trim()); return v || SEM_TAM }
+const tamGrade = item => (item && item.tamanhos || '').split(',').map(s => s.trim()).filter(Boolean)
+
+// Saldo total do item (todos os tamanhos) — ou de um tamanho específico, se informado.
+function uniformeDisp(item_id, tamanho) {
+  if (tamanho === undefined) {
+    const e = db.prepare('SELECT COALESCE(SUM(quantidade),0) q FROM uniforme_entradas WHERE item_id=?').get(item_id).q
+    const s = db.prepare('SELECT COALESCE(SUM(quantidade),0) q FROM uniforme_entrega_itens WHERE item_id=?').get(item_id).q
+    return e - s
+  }
+  const key = normTam(tamanho)
+  const e = db.prepare("SELECT COALESCE(SUM(quantidade),0) q FROM uniforme_entradas WHERE item_id=? AND COALESCE(NULLIF(TRIM(tamanho),''),?)=?").get(item_id, SEM_TAM, key).q
+  const s = db.prepare("SELECT COALESCE(SUM(quantidade),0) q FROM uniforme_entrega_itens WHERE item_id=? AND COALESCE(NULLIF(TRIM(tamanho),''),?)=?").get(item_id, SEM_TAM, key).q
+  return e - s
+}
+
+// Mapa tamanho→saldo com TODOS os baldes que têm movimento (entradas ou entregas).
+function saldoPorTamanho(item_id) {
+  const map = new Map()
+  const add = (rows, sinal) => rows.forEach(r => map.set(r.t, (map.get(r.t) || 0) + sinal * r.q))
+  add(db.prepare("SELECT COALESCE(NULLIF(TRIM(tamanho),''),?) t, SUM(quantidade) q FROM uniforme_entradas WHERE item_id=? GROUP BY t").all(SEM_TAM, item_id), 1)
+  add(db.prepare("SELECT COALESCE(NULLIF(TRIM(tamanho),''),?) t, SUM(quantidade) q FROM uniforme_entrega_itens WHERE item_id=? GROUP BY t").all(SEM_TAM, item_id), -1)
+  return map
+}
+
+// Mínimo aplicável a um tamanho: override em min_por_tamanho (JSON) ou o mínimo-padrão do item.
+function minimoDoTamanho(item, tamanho) {
+  let over = null
+  try { over = item.min_por_tamanho ? JSON.parse(item.min_por_tamanho) : null } catch {}
+  const v = over && over[tamanho] != null ? parseInt(over[tamanho]) : item.estoque_minimo
+  return parseInt(v) || 0
+}
+
+// Detalhamento de estoque por tamanho para exibição (grade + baldes legados com movimento).
+function estoquePorTamanho(item) {
+  const map = saldoPorTamanho(item.id)
+  const grade = tamGrade(item)
+  const chaves = grade.length ? [...grade] : [SEM_TAM]
+  for (const k of map.keys()) if (!chaves.includes(k)) chaves.push(k) // baldes fora da grade (legado/typo)
+  return chaves.map(t => {
+    const disponivel = map.get(t) || 0
+    const minimo = minimoDoTamanho(item, t === SEM_TAM ? '' : t)
+    return { tamanho: t, disponivel, minimo, baixo: minimo > 0 && disponivel <= minimo }
+  })
+}
+
+// Fonte única dos alertas de mínimo (usada por /alertas, /notificacoes e /dashboard).
+// Avalia POR TAMANHO: cada tamanho da grade (ou o balde único) contra seu mínimo.
+function alertasMinimo() {
+  const itens = db.prepare('SELECT * FROM uniforme_itens WHERE ativo=1').all()
+  const out = []
+  for (const it of itens) {
+    for (const linha of estoquePorTamanho(it)) {
+      if (linha.minimo > 0 && linha.disponivel <= linha.minimo)
+        out.push({ id: it.id, nome: it.nome, categoria: it.categoria, unidade: it.unidade,
+          tamanho: linha.tamanho, estoque_atual: linha.disponivel, minimo: linha.minimo })
+    }
+  }
+  return out.sort((a, b) => (a.estoque_atual - a.minimo) - (b.estoque_atual - b.minimo))
+}
+
+// Parser de NF-e (modelo 55). Sem dependências: NF-e é XML de schema rígido do governo,
+// e a importação é revisada/confirmada por um humano antes de dar entrada — então extração
+// focada nos nós <det>/<prod> + <emit> + chave/nNF é suficiente e não adiciona risco de deploy.
+function parseNFe(xml) {
+  if (!xml || typeof xml !== 'string') return null
+  const unesc = s => (s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&').trim()
+  const tag = (src, name) => {
+    const m = src.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'))
+    return m ? unesc(m[1]) : ''
+  }
+  const num = v => parseFloat(String(v || '0').replace(',', '.')) || 0
+  const chaveM = xml.match(/<infNFe[^>]*\bId="([^"]+)"/i)
+  const chave = chaveM ? chaveM[1].replace(/^NFe/i, '') : ''
+  const nNF = tag(xml, 'nNF')
+  const emit = (xml.match(/<emit>[\s\S]*?<\/emit>/i) || [''])[0]
+  const fornecedor = tag(emit, 'xNome') || tag(emit, 'xFant') || ''
+  const itens = []
+  const detRe = /<det[^>]*>([\s\S]*?)<\/det>/gi
+  let m
+  while ((m = detRe.exec(xml))) {
+    const prod = (m[1].match(/<prod>([\s\S]*?)<\/prod>/i) || ['', ''])[1]
+    const descricao = tag(prod, 'xProd')
+    if (!descricao) continue
+    itens.push({
+      descricao,
+      quantidade: num(tag(prod, 'qCom')),
+      custo_unitario: num(tag(prod, 'vUnCom')),
+      unidade: tag(prod, 'uCom') || 'un',
+      codigo: tag(prod, 'cProd'),
+    })
+  }
+  return { chave, nNF, fornecedor, itens }
+}
+
+// Termo de retirada de uniforme/EPI — reusa a linguagem visual dos termos existentes.
+// Renderiza tanto o termo salvo (a partir do id) quanto a PRÉVIA (a partir de um payload
+// ainda não gravado), para o responsável/colaborador conferir ANTES de assinar.
+function gerarTermoUniformeHTML(entrega_id) {
+  const e = db.prepare('SELECT * FROM uniforme_entregas WHERE id=?').get(entrega_id)
+  if (!e) return null
+  const itens = db.prepare('SELECT * FROM uniforme_entrega_itens WHERE entrega_id=? ORDER BY id').all(entrega_id)
+  return montarTermoHTML({
+    numero: e.numero, colaborador_nome: e.colaborador_nome, setor: e.setor,
+    data_ref: e.data_retirada || e.criado_em, itens,
+    assinatura_almoxarife: e.assinatura_almoxarife, almoxarife_nome: e.almoxarife_nome,
+    assinatura_colaborador: e.assinatura_colaborador, ip: e.ip, reautenticado: e.reautenticado,
+  })
+}
+
+function montarTermoHTML(e) {
+  const itens = e.itens || []
+  const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  const styles = `<style>
+    @page{margin:2cm}*{box-sizing:border-box}
+    body{font-family:'Times New Roman',Times,serif;font-size:12pt;color:#000;line-height:1.6}
+    h1{font-size:14pt;text-align:center;text-transform:uppercase;margin-bottom:4px}
+    h2{font-size:11pt;text-align:center;margin-bottom:20px;color:#444}
+    .hdr{text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:20px}
+    .hdr .co{font-size:15pt;font-weight:bold}
+    .partes{margin:20px 0;padding:12px;border:1px solid #ccc;background:#f9f9f9;border-radius:4px}
+    .cl{margin:16px 0}.cl h4{font-size:12pt;font-weight:bold;margin-bottom:6px}
+    .cl ul{padding-left:24px}.cl li{margin-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin:12px 0;font-size:11pt}
+    th{background:#1B2D45;color:#fff;padding:6px 8px;text-align:left}
+    td{padding:5px 8px;border-bottom:1px solid #ddd}
+    tr:nth-child(even) td{background:#f5f5f5}
+    .assinaturas{margin-top:40px;display:flex;justify-content:space-around;gap:40px}
+    .asb{flex:1;text-align:center}
+    .asb img{max-width:200px;max-height:80px;display:block;margin:0 auto 4px}
+    .audit{margin-top:30px;padding:10px;border:1px solid #ccc;background:#f0f0f0;font-size:9pt;font-family:monospace}
+    .no-print{text-align:center;margin-top:20px}
+    @media print{.no-print{display:none}}
+  </style>`
+
+  const linhasItens = itens.map((i, n) => `<tr><td>${n + 1}</td><td>${i.item_nome}</td>
+    <td style="text-align:center">${i.quantidade}</td>
+    <td>${i.tamanho || '—'}${i.observacao ? ' — ' + i.observacao : ''}</td></tr>`).join('')
+
+  const vistos = {}, prazos = [], custos = []
+  for (const i of itens) {
+    if (vistos[i.item_nome]) continue
+    vistos[i.item_nome] = true
+    if (i.vida_util_meses) prazos.push(`<li>${i.item_nome}: ${String(i.vida_util_meses).padStart(2, '0')} meses</li>`)
+    if (i.custo_reposicao > 0) custos.push(`<li>${i.item_nome}: ${fmtBRL(i.custo_reposicao)}</li>`)
+  }
+
+  const printBtn = e.previa ? '' : `<div class="no-print"><button onclick="window.print()"
+    style="padding:10px 30px;background:#1B2D45;color:#fff;border:none;cursor:pointer;font-size:14px;border-radius:6px">
+    Imprimir / Salvar PDF</button></div>`
+  const banner = e.previa ? `<div style="background:#FEF3C7;border:1px solid #B8860B;color:#7a5b00;padding:8px 12px;border-radius:4px;text-align:center;font-size:10pt;margin-bottom:16px"><strong>PRÉVIA PARA CONFERÊNCIA</strong> — confira os itens, tamanhos e quantidades abaixo antes de assinar. As assinaturas serão coletadas na próxima etapa.</div>` : ''
+
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Termo de Retirada de Uniforme/EPI — ${e.numero}</title>${styles}</head><body>
+${banner}<div class="hdr"><div class="co">${EMPRESA.razaoSocial}</div><div>Controle de Uniformes e EPIs</div></div>
+<h1>Termo de Retirada de Uniforme e Equipamentos de Proteção Individual (EPIs)</h1>
+<h2>Nº ${e.numero} — Retirada em ${fmtData(e.data_ref)}</h2>
+<p style="text-align:justify">Este termo registra a retirada individual de uniformes e equipamentos de proteção individual (EPIs), garantindo o controle da quantidade e da data da entrega.</p>
+<div class="partes">
+  <p><strong>Nome Completo:</strong> ${e.colaborador_nome || '—'}</p>
+  <p><strong>Setor/Departamento:</strong> ${e.setor || '—'}</p>
+  <p><strong>Data da Retirada:</strong> ${fmtData(e.data_ref)}</p>
+</div>
+<div class="cl"><h4>Itens Retirados</h4>
+<table><thead><tr><th>#</th><th>Item</th><th>Qtd.</th><th>Observações (Tamanho, modelo, etc.)</th></tr></thead>
+<tbody>${linhasItens}</tbody></table></div>
+<div class="cl"><h4>Declaração do Colaborador</h4>
+<p style="text-align:justify">Declaro, para os devidos fins, que recebi os itens listados acima em perfeito estado de conservação e conforme as quantidades especificadas. Estou ciente da responsabilidade pela guarda e conservação dos materiais que me foram entregues. Caso eu não os mantenha adequadamente e precise solicitar a reposição antes do prazo determinado, será da minha responsabilidade exclusiva. Tendo ciência que não poderei exercer minhas funções sem o equipamento ou uniforme necessário. Declaro ainda que estou ciente de que qualquer ação dolosa de minha parte que resulte em dano ou perda dos itens entregues, seja por uso indevido, negligência intencional ou qualquer outra forma de dolo, poderá ser considerada justa causa para efeitos de responsabilização.</p></div>
+${prazos.length ? `<div class="cl"><h4>Prazo de Desgaste Esperado</h4><ul>${prazos.join('')}</ul></div>` : ''}
+${custos.length ? `<div class="cl"><h4>Custo dos Itens de Reposição (em caso de negligência)</h4><ul>${custos.join('')}</ul></div>` : ''}
+<div class="cl"><h4>Assinatura Eletrônica</h4>
+<p style="font-size:10pt">Documento assinado eletronicamente, com validade jurídica nos termos da <strong>Lei nº 14.063/2020</strong> e da <strong>MP nº 2.200-2/2001</strong>.</p></div>
+<p style="text-align:center;margin-top:20px">${EMPRESA.cidade}, ${hoje}</p>
+<div class="assinaturas">
+  <div class="asb">
+    ${e.assinatura_almoxarife ? `<img src="${e.assinatura_almoxarife}" alt="Assinatura">` : '<div style="height:70px;border-bottom:1px solid #000"></div>'}
+    <div><strong>Nome do almoxarife/responsável</strong></div><div>${e.almoxarife_nome || '—'}</div>
+  </div>
+  <div class="asb">
+    ${e.assinatura_colaborador ? `<img src="${e.assinatura_colaborador}" alt="Assinatura">` : '<div style="height:70px;border-bottom:1px solid #000"></div>'}
+    <div><strong>Colaborador</strong></div><div>${e.colaborador_nome || '—'}</div>
+  </div>
+</div>
+${e.previa ? '' : `<div class="audit"><strong>REGISTRO DE AUTENTICIDADE</strong><br>
+Documento: ${e.numero}<br>
+Data/hora da retirada: ${e.data_ref}<br>
+IP de origem: ${e.ip || '—'}<br>
+Colaborador reautenticado por login: ${e.reautenticado ? 'Sim' : 'Não (assinatura presencial no dispositivo do responsável)'}<br>
+</div>`}
+${printBtn}
+</body></html>`
+}
+
+// ── Catálogo de itens ─────────────────────────────────────────────────────────
+// Normaliza a grade de tamanhos: string/array → lista limpa, sem duplicatas, ordem preservada.
+function normGrade(tamanhos) {
+  if (Array.isArray(tamanhos)) tamanhos = tamanhos.join(',')
+  const seen = new Set(), out = []
+  for (const t of String(tamanhos || '').split(',').map(s => s.trim()).filter(Boolean))
+    if (!seen.has(t)) { seen.add(t); out.push(t) }
+  return out.join(',')
+}
+// Normaliza os mínimos por tamanho: mantém só tamanhos da grade com inteiro > 0; JSON ou null.
+function normMinPorTam(obj, gradeStr) {
+  if (!obj || typeof obj !== 'object') return null
+  const grade = gradeStr ? gradeStr.split(',').map(s => s.trim()).filter(Boolean) : []
+  const out = {}
+  for (const t of grade) { const v = parseInt(obj[t]); if (Number.isFinite(v) && v > 0) out[t] = v }
+  return Object.keys(out).length ? JSON.stringify(out) : null
+}
+
+app.get('/api/uniformes/itens', auth(UNIF_ROLES), (req, res) => {
+  const itens = db.prepare(`
+    SELECT i.*,
+      COALESCE((SELECT SUM(quantidade) FROM uniforme_entradas e WHERE e.item_id=i.id),0)
+      - COALESCE((SELECT SUM(quantidade) FROM uniforme_entrega_itens ei WHERE ei.item_id=i.id),0) AS estoque_atual
+    FROM uniforme_itens i WHERE i.ativo=1
+    ORDER BY i.categoria, i.nome`).all()
+  for (const it of itens) it.estoque_por_tamanho = estoquePorTamanho(it)
+  res.json(itens)
+})
+
+app.post('/api/uniformes/itens', auth(UNIF_ROLES), (req, res) => {
+  const { nome, categoria, unidade, estoque_minimo, vida_util_meses, custo_reposicao, tamanhos, min_por_tamanho } = req.body
+  if (!nome || !nome.trim()) return res.status(400).json({ error: 'Nome do item é obrigatório' })
+  const grade = normGrade(tamanhos)
+  const r = db.prepare('INSERT INTO uniforme_itens (nome,categoria,unidade,estoque_minimo,vida_util_meses,custo_reposicao,tamanhos,min_por_tamanho) VALUES (?,?,?,?,?,?,?,?)')
+    .run(nome.trim(), categoria || 'Uniforme', unidade || 'un', parseInt(estoque_minimo) || 0,
+      vida_util_meses ? parseInt(vida_util_meses) : null, parseFloat(custo_reposicao) || 0,
+      grade || null, normMinPorTam(min_por_tamanho, grade))
+  audit(req.user.id, 'CRIAR_ITEM_UNIFORME', 'uniforme_itens', r.lastInsertRowid, { nome })
+  res.json({ id: r.lastInsertRowid })
+})
+
+app.put('/api/uniformes/itens/:id', auth(UNIF_ROLES), (req, res) => {
+  const item = db.prepare('SELECT * FROM uniforme_itens WHERE id=?').get(req.params.id)
+  if (!item) return res.status(404).json({ error: 'Item não encontrado' })
+  const { nome, categoria, unidade, estoque_minimo, vida_util_meses, custo_reposicao, ativo, tamanhos, min_por_tamanho } = req.body
+  const grade = tamanhos !== undefined ? normGrade(tamanhos) : (item.tamanhos || '')
+  const minJson = min_por_tamanho !== undefined ? normMinPorTam(min_por_tamanho, grade) : item.min_por_tamanho
+  db.prepare('UPDATE uniforme_itens SET nome=?,categoria=?,unidade=?,estoque_minimo=?,vida_util_meses=?,custo_reposicao=?,tamanhos=?,min_por_tamanho=?,ativo=? WHERE id=?')
+    .run(nome ?? item.nome, categoria ?? item.categoria, unidade ?? item.unidade,
+      estoque_minimo != null ? parseInt(estoque_minimo) : item.estoque_minimo,
+      vida_util_meses === '' || vida_util_meses === null ? null : (vida_util_meses != null ? parseInt(vida_util_meses) : item.vida_util_meses),
+      custo_reposicao != null ? parseFloat(custo_reposicao) : item.custo_reposicao,
+      grade || null, minJson,
+      ativo != null ? (ativo ? 1 : 0) : item.ativo, req.params.id)
+  audit(req.user.id, 'EDITAR_ITEM_UNIFORME', 'uniforme_itens', req.params.id, { nome: nome ?? item.nome })
+  res.json({ ok: true })
+})
+
+// Exclusão definitiva só para o master, e só se o item nunca teve movimento (senão desativar).
+app.delete('/api/uniformes/itens/:id', auth(UNIF_ROLES), requireMaster, (req, res) => {
+  const mov = db.prepare('SELECT (SELECT COUNT(*) FROM uniforme_entradas WHERE item_id=?) + (SELECT COUNT(*) FROM uniforme_entrega_itens WHERE item_id=?) t')
+    .get(req.params.id, req.params.id).t
+  if (mov > 0) return res.status(400).json({ error: 'Item já tem movimento. Desative em vez de excluir.' })
+  db.prepare('DELETE FROM uniforme_itens WHERE id=?').run(req.params.id)
+  audit(req.user.id, 'EXCLUIR_ITEM_UNIFORME', 'uniforme_itens', req.params.id, null)
+  res.json({ ok: true })
+})
+
+// ── Entradas de estoque ───────────────────────────────────────────────────────
+// Resolve o tamanho de uma entrada/entrega contra a grade do item.
+// Item com grade: tamanho obrigatório e válido. Item de tamanho único: força null.
+function resolveTamanho(item, tamanho) {
+  const grade = tamGrade(item)
+  if (grade.length) {
+    const t = (tamanho == null ? '' : String(tamanho).trim())
+    if (!t) return { error: `Selecione o tamanho de ${item.nome}` }
+    if (!grade.includes(t)) return { error: `Tamanho "${t}" não faz parte da grade de ${item.nome}` }
+    return { tamanho: t }
+  }
+  return { tamanho: null }
+}
+
+app.get('/api/uniformes/entradas', auth(UNIF_ROLES), (req, res) => {
+  res.json(db.prepare(`
+    SELECT en.*, i.nome item_nome, u.nome criado_por_nome
+    FROM uniforme_entradas en
+    JOIN uniforme_itens i ON i.id=en.item_id
+    LEFT JOIN usuarios u ON u.id=en.criado_por
+    ORDER BY en.criado_em DESC LIMIT 200`).all())
+})
+
+app.post('/api/uniformes/entradas', auth(UNIF_ROLES), (req, res) => {
+  const { item_id, quantidade, custo_unitario, fornecedor, obs, tamanho } = req.body
+  const item = db.prepare('SELECT * FROM uniforme_itens WHERE id=?').get(item_id)
+  if (!item) return res.status(404).json({ error: 'Item não encontrado' })
+  const qtd = parseInt(quantidade)
+  if (!qtd || qtd <= 0) return res.status(400).json({ error: 'Quantidade inválida' })
+  const rt = resolveTamanho(item, tamanho)
+  if (rt.error) return res.status(400).json({ error: rt.error })
+  const r = db.prepare('INSERT INTO uniforme_entradas (item_id,quantidade,tamanho,custo_unitario,origem,fornecedor,obs,criado_por) VALUES (?,?,?,?,?,?,?,?)')
+    .run(item_id, qtd, rt.tamanho, parseFloat(custo_unitario) || 0, 'manual', fornecedor || null, obs || null, req.user.id)
+  audit(req.user.id, 'ENTRADA_UNIFORME', 'uniforme_entradas', r.lastInsertRowid, { item: item.nome, qtd, tamanho: rt.tamanho })
+  res.json({ id: r.lastInsertRowid })
+})
+
+// ── Importação de NF-e (XML) ──────────────────────────────────────────────────
+// Passo 1: lê o XML e devolve os itens + sugestão de mapeamento (não grava nada).
+app.post('/api/uniformes/nfe/parse', auth(UNIF_ROLES), (req, res) => {
+  const parsed = parseNFe(req.body && req.body.xml)
+  if (!parsed || !parsed.itens.length)
+    return res.status(400).json({ error: 'Não foi possível ler itens desta NF-e. Envie o arquivo XML da nota (não o PDF/DANFE).' })
+  const catalogo = db.prepare('SELECT id,nome,tamanhos FROM uniforme_itens WHERE ativo=1').all()
+  const sugerir = desc => {
+    const d = (desc || '').toLowerCase()
+    const hit = catalogo.find(it => d.includes(it.nome.toLowerCase()))
+    return hit ? hit.id : null
+  }
+  parsed.itens = parsed.itens.map(l => ({ ...l, item_id_sugerido: sugerir(l.descricao) }))
+  const ja = parsed.chave ? db.prepare('SELECT COUNT(*) c FROM uniforme_entradas WHERE nfe_chave=?').get(parsed.chave).c > 0 : false
+  res.json({ ...parsed, catalogo, ja_importada: ja })
+})
+
+// Passo 2: confirma o mapeamento (linhas com item_id) e dá entrada.
+app.post('/api/uniformes/nfe/confirmar', auth(UNIF_ROLES), (req, res) => {
+  const { chave, nfe_numero, fornecedor, linhas } = req.body
+  if (!linhas || !linhas.length) return res.status(400).json({ error: 'Nenhuma linha para importar' })
+  if (chave && db.prepare('SELECT COUNT(*) c FROM uniforme_entradas WHERE nfe_chave=?').get(chave).c > 0)
+    return res.status(400).json({ error: 'Esta NF-e já foi importada anteriormente (chave já registrada).' })
+  const validas = linhas.filter(l => l.item_id && parseInt(l.quantidade) > 0)
+  if (!validas.length) return res.status(400).json({ error: 'Mapeie ao menos uma linha a um item do catálogo.' })
+  // Resolve o tamanho de cada linha contra a grade do item mapeado (antes de gravar).
+  const preparadas = []
+  for (const l of validas) {
+    const item = db.prepare('SELECT * FROM uniforme_itens WHERE id=?').get(l.item_id)
+    if (!item) return res.status(400).json({ error: 'Item inválido no mapeamento' })
+    const rt = resolveTamanho(item, l.tamanho)
+    if (rt.error) return res.status(400).json({ error: rt.error })
+    preparadas.push({ item_id: l.item_id, quantidade: parseInt(l.quantidade), custo_unitario: parseFloat(l.custo_unitario) || 0, tamanho: rt.tamanho })
+  }
+  const ins = db.prepare('INSERT INTO uniforme_entradas (item_id,quantidade,tamanho,custo_unitario,origem,nfe_chave,nfe_numero,fornecedor,criado_por) VALUES (?,?,?,?,?,?,?,?,?)')
+  const n = db.transaction(() => {
+    let c = 0
+    for (const l of preparadas) {
+      ins.run(l.item_id, l.quantidade, l.tamanho, l.custo_unitario, 'nfe', chave || null, nfe_numero || null, fornecedor || null, req.user.id)
+      c++
+    }
+    return c
+  })()
+  audit(req.user.id, 'IMPORTAR_NFE_UNIFORME', 'uniforme_entradas', null, { chave, fornecedor, linhas: n })
+  res.json({ ok: true, importadas: n })
+})
+
+// ── Colaboradores ─────────────────────────────────────────────────────────────
+app.get('/api/uniformes/colaboradores', auth(UNIF_ROLES), (req, res) => {
+  res.json(db.prepare(`
+    SELECT c.*, u.email usuario_email, u.role usuario_role
+    FROM colaboradores c LEFT JOIN usuarios u ON u.id=c.usuario_id
+    WHERE c.ativo=1 ORDER BY c.nome`).all())
+})
+
+app.post('/api/uniformes/colaboradores', auth(UNIF_ROLES), (req, res) => {
+  const { nome, setor, cpf, data_admissao, usuario_id } = req.body
+  if (!nome || !nome.trim()) return res.status(400).json({ error: 'Nome do colaborador é obrigatório' })
+  const r = db.prepare('INSERT INTO colaboradores (nome,setor,cpf,data_admissao,usuario_id) VALUES (?,?,?,?,?)')
+    .run(nome.trim(), setor || null, cpf || null, data_admissao || null, usuario_id || null)
+  audit(req.user.id, 'CRIAR_COLABORADOR', 'colaboradores', r.lastInsertRowid, { nome })
+  res.json({ id: r.lastInsertRowid })
+})
+
+app.put('/api/uniformes/colaboradores/:id', auth(UNIF_ROLES), (req, res) => {
+  const c = db.prepare('SELECT * FROM colaboradores WHERE id=?').get(req.params.id)
+  if (!c) return res.status(404).json({ error: 'Colaborador não encontrado' })
+  const { nome, setor, cpf, data_admissao, usuario_id, ativo } = req.body
+  db.prepare('UPDATE colaboradores SET nome=?,setor=?,cpf=?,data_admissao=?,usuario_id=?,ativo=? WHERE id=?')
+    .run(nome ?? c.nome, setor ?? c.setor, cpf ?? c.cpf, data_admissao ?? c.data_admissao,
+      usuario_id === '' ? null : (usuario_id !== undefined ? usuario_id : c.usuario_id),
+      ativo != null ? (ativo ? 1 : 0) : c.ativo, req.params.id)
+  audit(req.user.id, 'EDITAR_COLABORADOR', 'colaboradores', req.params.id, { nome: nome ?? c.nome })
+  res.json({ ok: true })
+})
+
+// Usuários que podem ser vinculados a um colaborador (para reautenticação por login).
+app.get('/api/uniformes/usuarios-vinculaveis', auth(UNIF_ROLES), (req, res) => {
+  res.json(db.prepare("SELECT id,nome,email,role FROM usuarios WHERE ativo=1 AND is_master=0 ORDER BY nome").all())
+})
+
+// ── Retirada / entrega (gera o termo assinado) ────────────────────────────────
+app.get('/api/uniformes/entregas', auth(UNIF_ROLES), (req, res) => {
+  const lista = db.prepare(`
+    SELECT e.*, c.cpf colaborador_cpf
+    FROM uniforme_entregas e LEFT JOIN colaboradores c ON c.id=e.colaborador_id
+    ORDER BY e.criado_em DESC LIMIT 200`).all()
+  const itensStmt = db.prepare('SELECT * FROM uniforme_entrega_itens WHERE entrega_id=? ORDER BY id')
+  for (const e of lista) e.itens = itensStmt.all(e.id)
+  res.json(lista)
+})
+
+// Monta e valida a lista de itens de uma retirada (tamanho + disponibilidade por tamanho).
+// Compartilhado entre a prévia do termo e a gravação da entrega.
+function prepararItensEntrega(itens) {
+  const preparados = []
+  for (const it of itens || []) {
+    const item = db.prepare('SELECT * FROM uniforme_itens WHERE id=?').get(it.item_id)
+    if (!item) return { error: 'Item inválido na lista' }
+    const qtd = parseInt(it.quantidade) || 0
+    if (qtd <= 0) return { error: `Quantidade inválida para ${item.nome}` }
+    const rt = resolveTamanho(item, it.tamanho)
+    if (rt.error) return { error: rt.error }
+    const disp = uniformeDisp(item.id, rt.tamanho === null ? SEM_TAM : rt.tamanho)
+    const rot = rt.tamanho ? ` tam. ${rt.tamanho}` : ''
+    if (disp < qtd) return { error: `Estoque insuficiente de ${item.nome}${rot} (disponível: ${disp})` }
+    preparados.push({ item, qtd, tamanho: rt.tamanho, observacao: it.observacao || null })
+  }
+  if (!preparados.length) return { error: 'Selecione ao menos um item' }
+  return { preparados }
+}
+
+app.post('/api/uniformes/entregas', auth(UNIF_ROLES), (req, res) => {
+  const { colaborador_id, itens, assinatura_colaborador, assinatura_almoxarife, email, senha } = req.body
+  const col = db.prepare('SELECT * FROM colaboradores WHERE id=?').get(colaborador_id)
+  if (!col) return res.status(404).json({ error: 'Colaborador não encontrado' })
+  if (!itens || !itens.length) return res.status(400).json({ error: 'Selecione ao menos um item' })
+  if (!assinatura_colaborador) return res.status(400).json({ error: 'Assinatura do colaborador é obrigatória' })
+  // Assinatura do responsável: a enviada agora ou a assinatura salva no login dele ("lastreada").
+  const meAssin = db.prepare('SELECT assinatura FROM usuarios WHERE id=?').get(req.user.id)
+  const assinResp = assinatura_almoxarife || (meAssin && meAssin.assinatura) || null
+  if (!assinResp) return res.status(400).json({ error: 'Assinatura do responsável é obrigatória (registre a sua em "Minha assinatura" ou assine agora)' })
+
+  // Reautenticação opcional: só quando o colaborador tem login e credenciais foram enviadas.
+  let reautenticado = 0
+  if (col.usuario_id && (email || senha)) {
+    const u = db.prepare('SELECT * FROM usuarios WHERE id=?').get(col.usuario_id)
+    if (!u || u.email.toLowerCase() !== (email || '').toLowerCase())
+      return res.status(401).json({ error: 'E-mail não corresponde ao login do colaborador' })
+    if (!bcrypt.compareSync(senha || '', u.senha_hash))
+      return res.status(401).json({ error: 'Senha do colaborador incorreta' })
+    reautenticado = 1
+  }
+
+  // Valida tamanho + estoque POR TAMANHO de cada item antes de gravar.
+  const prep = prepararItensEntrega(itens)
+  if (prep.error) return res.status(400).json({ error: prep.error })
+
+  const ip = getIP(req)
+  const numero = gerarNumeroUniforme()
+  const dataRetirada = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  const id = db.transaction(() => {
+    const r = db.prepare(`INSERT INTO uniforme_entregas
+      (numero,colaborador_id,colaborador_nome,setor,data_retirada,assinatura_colaborador,assinatura_almoxarife,almoxarife_id,almoxarife_nome,reautenticado,ip)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(numero, col.id, col.nome, col.setor || null, dataRetirada, assinatura_colaborador, assinResp, req.user.id, req.user.nome, reautenticado, ip)
+    const eid = r.lastInsertRowid
+    const insI = db.prepare(`INSERT INTO uniforme_entrega_itens
+      (entrega_id,item_id,item_nome,quantidade,tamanho,observacao,vida_util_meses,custo_reposicao,vence_em)
+      VALUES (?,?,?,?,?,?,?,?,?)`)
+    for (const p of prep.preparados) {
+      const vence = p.item.vida_util_meses
+        ? db.prepare("SELECT date(?, '+' || ? || ' months') d").get(dataRetirada.slice(0, 10), p.item.vida_util_meses).d
+        : null
+      insI.run(eid, p.item.id, p.item.nome, p.qtd, p.tamanho, p.observacao, p.item.vida_util_meses, p.item.custo_reposicao, vence)
+    }
+    return eid
+  })()
+  audit(req.user.id, 'RETIRADA_UNIFORME', 'uniforme_entregas', id, `${col.nome} — ${numero} — IP: ${ip}`)
+  res.json({ ok: true, id, numero })
+})
+
+// Prévia do termo (para conferência ANTES de assinar) — não grava nada.
+app.post('/api/uniformes/entregas/previa-termo', auth(UNIF_ROLES), (req, res) => {
+  const { colaborador_id, itens } = req.body
+  const col = db.prepare('SELECT * FROM colaboradores WHERE id=?').get(colaborador_id)
+  if (!col) return res.status(404).json({ error: 'Colaborador não encontrado' })
+  const prep = prepararItensEntrega(itens)
+  if (prep.error) return res.status(400).json({ error: prep.error })
+  const meAssin = db.prepare('SELECT assinatura FROM usuarios WHERE id=?').get(req.user.id)
+  const hojeData = new Date().toISOString().slice(0, 10)
+  const linhas = prep.preparados.map(p => ({
+    item_nome: p.item.nome, quantidade: p.qtd, tamanho: p.tamanho, observacao: p.observacao,
+    vida_util_meses: p.item.vida_util_meses, custo_reposicao: p.item.custo_reposicao,
+  }))
+  const html = montarTermoHTML({
+    previa: true, numero: 'PRÉVIA', colaborador_nome: col.nome, setor: col.setor,
+    data_ref: hojeData, itens: linhas,
+    assinatura_almoxarife: (meAssin && meAssin.assinatura) || null, almoxarife_nome: req.user.nome,
+    assinatura_colaborador: null,
+  })
+  res.json({ html })
+})
+
+app.get('/api/uniformes/entregas/:id/termo', auth(UNIF_ROLES), (req, res) => {
+  const html = gerarTermoUniformeHTML(req.params.id)
+  if (!html) return res.status(404).json({ error: 'Entrega não encontrada' })
+  audit(req.user.id, 'VER_TERMO_UNIFORME', 'uniforme_entregas', req.params.id, null)
+  res.json({ html })
+})
+
+// ── Alertas (mínimo + desgaste) ───────────────────────────────────────────────
+app.get('/api/uniformes/alertas', auth(UNIF_ROLES), (req, res) => {
+  const minimo = alertasMinimo()
+  const desgaste = db.prepare(`
+    SELECT ei.item_nome, ei.tamanho, ei.vence_em, e.colaborador_nome, e.setor, e.numero,
+      CAST(julianday(ei.vence_em) - julianday('now','localtime') AS INTEGER) dias_restantes
+    FROM uniforme_entrega_itens ei JOIN uniforme_entregas e ON e.id=ei.entrega_id
+    WHERE ei.vence_em IS NOT NULL AND e.status='ativa'
+      AND julianday(ei.vence_em) - julianday('now','localtime') <= 30
+    ORDER BY ei.vence_em`).all()
+  res.json({ minimo, desgaste })
+})
+
 // ─── NOTIFICAÇÕES ─────────────────────────────────────────────────────────────
 app.get('/api/notificacoes', auth(), (req, res) => {
   const n = {}
@@ -1409,6 +2102,15 @@ app.get('/api/notificacoes', auth(), (req, res) => {
 
   if (u.role === 'operario') {
     n.emprestimos_aguardando_confirmacao = db.prepare("SELECT COUNT(*) c FROM emprestimos WHERE tomador_id=? AND status='aguardando_tomador'").get(u.id).c
+  }
+
+  // Alertas do módulo Uniformes — vão para os 3 perfis com acesso ao módulo.
+  if (UNIF_ROLES.includes(u.role)) {
+    n.uniforme_estoque_minimo = alertasMinimo().length
+    n.uniforme_desgaste = db.prepare(`
+      SELECT COUNT(*) c FROM uniforme_entrega_itens ei JOIN uniforme_entregas e ON e.id=ei.entrega_id
+      WHERE ei.vence_em IS NOT NULL AND e.status='ativa'
+        AND julianday(ei.vence_em) - julianday('now','localtime') <= 30`).get().c
   }
 
   res.json(n)
@@ -1470,6 +2172,19 @@ app.get('/api/dashboard', auth(), (req, res) => {
       JOIN cautelas c ON c.id=ce.cautela_id
       JOIN usuarios l ON l.id=c.lider_id
       WHERE ce.operario_id=? AND ce.status='ativa'`).all(u.id)
+  }
+
+  // Resumo do módulo Uniformes — para os 3 perfis com acesso (é o painel principal
+  // de administracao/compras, e um bloco a mais no painel do almoxarifado).
+  if (UNIF_ROLES.includes(u.role)) {
+    s.uniforme_total_itens = db.prepare('SELECT COUNT(*) n FROM uniforme_itens WHERE ativo=1').get().n
+    s.uniforme_abaixo_minimo = alertasMinimo().length
+    s.uniforme_desgaste_30d = db.prepare(`
+      SELECT COUNT(*) c FROM uniforme_entrega_itens ei JOIN uniforme_entregas e ON e.id=ei.entrega_id
+      WHERE ei.vence_em IS NOT NULL AND e.status='ativa'
+        AND julianday(ei.vence_em) - julianday('now','localtime') <= 30`).get().c
+    s.uniforme_entregas_mes = db.prepare("SELECT COUNT(*) n FROM uniforme_entregas WHERE date(criado_em) >= date('now','localtime','start of month')").get().n
+    s.uniforme_colaboradores = db.prepare('SELECT COUNT(*) n FROM colaboradores WHERE ativo=1').get().n
   }
 
   res.json(s)

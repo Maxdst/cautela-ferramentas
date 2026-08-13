@@ -100,6 +100,25 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
   tamanho contra seu mínimo; override por tamanho ou o mínimo-padrão do item). Tabela de alertas mostra a coluna Tamanho.
 - SW bumpado para `markat-cautela-v5`.
 
+## Módulo Obras / Multi-obra (⏳ EM BRANCH `claude/multi-obra` — aguardando deploy)
+> Habilita o tier **Enterprise** do Cautelix (painel consolidado multi-obra). Validado localmente
+> (migração idempotente + fluxo ponta a ponta + JSX compila); falta `railway up` do Maxwel.
+- **Modelo:** obra é dimensão **opcional** de solicitação/cautela. Almoxarifado é central — a obra é o
+  **destino** da retirada; **não** altera o cálculo de disponibilidade (risco baixo). `obra_id` NULL em
+  tudo = deploy de obra única segue igual (retrocompatível).
+- **Schema:** nova tabela `obras` (nome, codigo, endereco, responsavel, ativo). `addCol` de `obra_id` em
+  `solicitacoes`, `cautelas` e `usuarios` (obra padrão do usuário) — migração aditiva idempotente.
+- **Fluxo:** solicitação carrega obra (informada ou herdada da **obra padrão** do usuário) → ao ficar
+  `pronta`, a cautela **herda** a obra → dashboard soma **cautelas ativas e valor em campo por obra**.
+- **Endpoints:** `GET/POST/PUT/DELETE /api/obras` (DELETE = desativa, preserva histórico); `obra_id`
+  aceito em `/solicitacoes`, `/solicitacoes/por-operario`, `/cautelas/direta` e no CRUD de usuários;
+  `GET /api/dashboard` ganhou `por_obra[]`. Helper `resolverObra(obraId, usuarioId)`.
+- **Frontend:** nova aba **Obras** (CRUD, só almoxarifado), campo **Obra padrão** no cadastro de
+  líder/operário, seletor de obra na Nova Solicitação, e seção **Consolidado por obra** no Painel
+  (valor em campo só p/ master). Ícone `building`.
+- **Deploy:** `railway up --detach --service cautela-ferramentas` após revisar o PR/branch. Nada muda
+  para quem não cadastrar obras (a seção só aparece quando há obras ativas).
+
 ## Estoque × solicitações (modelo de disponibilidade)
 - Disponibilidade é **calculada**, nunca armazenada:
   `disponivel = quantidade_total − reservado(solicitação 'solicitada'/'separando')

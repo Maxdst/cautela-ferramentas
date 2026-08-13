@@ -612,6 +612,25 @@ function Dashboard({ user, navigate, addToast }) {
           </div>
         </div>
       )}
+      {(stats.por_obra||[]).length > 0 && (
+        <div className="stat-section">
+          <div className="stat-section-title"><span className="st-ic"><Icon name="building" size={14}/></span>Consolidado por obra</div>
+          <div className="card">
+            <div className="table-wrap"><table className="cards-mobile">
+              <thead><tr><th>Obra</th><th style={{textAlign:'center'}}>Cautelas ativas</th>{user.is_master && <th style={{textAlign:'right'}}>Valor em campo</th>}</tr></thead>
+              <tbody>
+                {(stats.por_obra||[]).map(o=>(
+                  <tr key={o.obra_id}>
+                    <td className="fw-bold" data-label="Obra">{o.obra_nome}</td>
+                    <td data-label="Cautelas ativas" style={{textAlign:'center'}}>{o.cautelas_ativas||0}</td>
+                    {user.is_master && <td data-label="Valor em campo" style={{textAlign:'right'}} className="money">{fmtBRL(o.valor_em_campo||0)}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          </div>
+        </div>
+      )}
       {(stats.sol_solicitadas > 0 || stats.sol_prontas > 0) && (
         <div className="pending-banner">
           <span className="msg" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> {stats.sol_solicitadas||0} nova(s) solicitação(ões) · {stats.sol_prontas||0} pronta(s) para retirada</span>
@@ -1373,11 +1392,12 @@ function SolicitacoesPage({ user, navigate, addToast }) {
 function NovaSolicitacaoPage({ user, navigate, addToast }) {
   const [bolsas, setBolsas] = useState([])
   const [ferramentas, setFerramentas] = useState([])
+  const [obras, setObras] = useState([])
   const [form, setForm] = useState({ tipo: 'bolsa' })
   const [itens, setItens] = useState([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => { GET('/bolsas').then(setBolsas); GET('/ferramentas').then(setFerramentas) }, [])
+  useEffect(() => { GET('/bolsas').then(setBolsas); GET('/ferramentas').then(setFerramentas); GET('/obras').then(setObras).catch(()=>{}) }, [])
 
   const selecionarBolsa = id => {
     setForm({...form, bolsa_id: id})
@@ -1390,7 +1410,7 @@ function NovaSolicitacaoPage({ user, navigate, addToast }) {
     if (!itens.length) { addToast('Adicione ao menos um item.', 'error'); return }
     setLoading(true)
     try {
-      await POST('/solicitacoes', { bolsa_id: form.bolsa_id || null, itens, obs: form.obs || '' })
+      await POST('/solicitacoes', { bolsa_id: form.bolsa_id || null, itens, obs: form.obs || '', obra_id: form.obra_id || null })
       addToast('Solicitação enviada ao almoxarifado!', 'success')
       navigate('solicitacoes')
     } catch(e) { addToast(e.message, 'error') }
@@ -1420,6 +1440,15 @@ function NovaSolicitacaoPage({ user, navigate, addToast }) {
               <select value={form.bolsa_id||''} onChange={e=>selecionarBolsa(e.target.value)}>
                 <option value="">Selecione uma bolsa...</option>
                 {bolsas.map(b=><option key={b.id} value={b.id}>{b.nome} — {fmtBRL(b.valor_total)}</option>)}
+              </select>
+            </div>
+          )}
+          {obras.length > 0 && (
+            <div className="form-group" style={{marginBottom:16}}>
+              <label>Obra {obras.length ? '' : '(opcional)'}</label>
+              <select value={form.obra_id||''} onChange={e=>setForm({...form,obra_id:e.target.value})}>
+                <option value="">Minha obra padrão</option>
+                {obras.map(o=><option key={o.id} value={o.id}>{o.nome}{o.codigo?` (${o.codigo})`:''}</option>)}
               </select>
             </div>
           )}
@@ -2730,14 +2759,86 @@ function BolsasPage({ addToast }) {
 }
 
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
+// ─── OBRAS / CANTEIROS ────────────────────────────────────────────────────────
+function ObrasPage({ addToast }) {
+  const [lista, setLista] = useState([])
+  const [openId, setOpenId] = useState(null)
+  const [form, setForm] = useState({})
+  const [confirmDel, setConfirmDel] = useState(false)
+  const load = () => GET('/obras?all=1').then(setLista).catch(()=>{})
+  useEffect(() => { load() }, [])
+  const abrirNovo = () => { setForm({ativo:true}); setConfirmDel(false); setOpenId('new') }
+  const toggle = o => { if (openId === o.id) { fechar(); return } setForm({...o}); setConfirmDel(false); setOpenId(o.id) }
+  const fechar = () => { setOpenId(null); setConfirmDel(false) }
+  const save = async () => {
+    if (!form.nome || !form.nome.trim()) { addToast('Nome da obra é obrigatório.','error'); return }
+    try {
+      if (form.id) await PUT(`/obras/${form.id}`, form)
+      else await POST('/obras', form)
+      addToast(form.id?'Obra atualizada!':'Obra criada!','success'); fechar(); load()
+    } catch(e) { addToast(e.message,'error') }
+  }
+  const desativar = async () => {
+    try { await DEL(`/obras/${form.id}`); addToast('Obra desativada.','success'); fechar(); load() }
+    catch(e) { addToast(e.message,'error') }
+  }
+  const painel = () => {
+    const footer = confirmDel ? (
+      <div style={{display:'flex',alignItems:'center',gap:10,width:'100%',justifyContent:'space-between',flexWrap:'wrap'}}>
+        <span style={{fontSize:'.85rem',color:'var(--danger)',fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> Desativar esta obra? O histórico de cautelas é preservado.</span>
+        <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={()=>setConfirmDel(false)}>Não</button><button className="btn btn-danger btn-sm" onClick={desativar}>Sim, desativar</button></div>
+      </div>
+    ) : (<>
+      <div>{form.id && !!form.ativo && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Desativar</button>}</div>
+      <div className="gap-8">
+        <button className="btn btn-ghost btn-sm" onClick={fechar}>Cancelar</button>
+        <button className="btn btn-primary btn-sm" onClick={save}><Icon name="check" size={14}/> Salvar</button>
+      </div>
+    </>)
+    return (
+      <PainelEdicao titulo={form.id ? `Editar ${form.nome}` : 'Nova obra'} onFechar={fechar} footer={footer}>
+        <div className="form-grid">
+          <div className="form-group"><label>Nome da obra *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex.: Residencial Vista Mar" /></div>
+          <div className="form-group"><label>Código / Contrato</label><input value={form.codigo||''} onChange={e=>setForm({...form,codigo:e.target.value})} placeholder="OBR-01" /></div>
+          <div className="form-group"><label>Responsável</label><input value={form.responsavel||''} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Eng. responsável" /></div>
+          <div className="form-group"><label>Endereço</label><input value={form.endereco||''} onChange={e=>setForm({...form,endereco:e.target.value})} /></div>
+          {form.id && <div className="form-group"><label>Status</label>
+            <select value={form.ativo?'1':'0'} onChange={e=>setForm({...form,ativo:e.target.value==='1'})}>
+              <option value="1">Ativa</option><option value="0">Inativa</option>
+            </select>
+          </div>}
+        </div>
+      </PainelEdicao>
+    )
+  }
+  const vazio = <div className="empty"><div className="empty-icon"><Icon name="building" size={32}/></div><p>Nenhuma obra cadastrada.</p><button className="btn btn-accent empty-cta" onClick={abrirNovo}><Icon name="plus" size={14}/> Nova obra</button></div>
+  return (
+    <div style={{maxWidth:680,margin:'0 auto'}}>
+      <div className="topbar"><h2>Obras</h2><button className="btn btn-accent" onClick={abrirNovo}><Icon name="plus" size={14}/> Nova</button></div>
+      <div className="card">
+        <ListaAcordeao
+          itens={lista} keyOf={o=>o.id} abertoId={openId} onToggle={toggle}
+          novoAberto={openId==='new'} painelNovo={painel()} painel={()=>painel()} vazio={vazio}
+          resumo={o=>({
+            titulo: <><span className="nm">{o.nome}</span>{!o.ativo && <span className="badge badge-devolvida" style={{fontSize:'.62rem',padding:'1px 7px'}}>Inativa</span>}</>,
+            direita: o.codigo ? <span className="text-muted" style={{fontSize:'.8rem'}}>{o.codigo}</span> : null
+          })}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
 function UsuariosPage({ addToast }) {
   const [lista, setLista] = useState([])
+  const [obras, setObras] = useState([])
   const [openId, setOpenId] = useState(null)
   const [form, setForm] = useState({})
   const [filtroRole, setFiltroRole] = useState('')
   const [confirmDel, setConfirmDel] = useState(false)
   const load = () => GET('/usuarios').then(setLista)
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); GET('/obras').then(setObras).catch(()=>{}) }, [])
   const abrirNovo = () => { setForm({role:'operario',ativo:true}); setConfirmDel(false); setOpenId('new') }
   const toggle = u => {
     if (openId === u.id) { fechar(); return }
@@ -2783,6 +2884,14 @@ function UsuariosPage({ addToast }) {
               <option value="administracao">Administração</option><option value="compras">Compras</option>
             </select>
           </div>
+          {obras.length > 0 && (form.role==='lider'||form.role==='operario') && (
+            <div className="form-group"><label>Obra padrão</label>
+              <select value={form.obra_id||''} onChange={e=>setForm({...form,obra_id:e.target.value})}>
+                <option value="">Sem obra fixa</option>
+                {obras.map(o=><option key={o.id} value={o.id}>{o.nome}{o.codigo?` (${o.codigo})`:''}</option>)}
+              </select>
+            </div>
+          )}
           <div className="form-group"><label>{form.id?'Nova senha (em branco = não altera)':'Senha *'}</label><input type="password" value={form.senha||''} onChange={e=>setForm({...form,senha:e.target.value})} placeholder="••••••••" /></div>
           {form.id && <div className="form-group"><label>Status</label>
             <select value={form.ativo?'1':'0'} onChange={e=>setForm({...form,ativo:e.target.value==='1'})}>
@@ -2992,6 +3101,7 @@ const ICON_PATHS = {
   eyeOff: <><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a18.5 18.5 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>,
   key: <><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></>,
   shirt: <path d="M20 6l-4-2-1.2 1.6a3.5 3.5 0 01-5.6 0L8 4 4 6l2 4 2-1v9a1 1 0 001 1h6a1 1 0 001-1v-9l2 1 2-4z"/>,
+  building: <><path d="M3 21h18"/><path d="M5 21V5a2 2 0 012-2h6a2 2 0 012 2v16"/><path d="M15 21V9h4a1 1 0 011 1v11"/><line x1="9" y1="7" x2="9" y2="7.01"/><line x1="9" y1="11" x2="9" y2="11.01"/><line x1="9" y1="15" x2="9" y2="15.01"/></>,
 }
 function Icon({ name, size=20 }) {
   const path = ICON_PATHS[name]
@@ -3017,6 +3127,7 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm || lider || op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes / EPI', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
     { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
+    { id: 'obras', icon: 'building', label: 'Obras', show: alm },
     { id: 'bolsas', icon: 'backpack', label: 'Bolsas / Kits', show: alm },
     { id: 'usuarios', icon: 'users', label: 'Usuários', show: alm },
     { id: 'auditoria', icon: 'history', label: 'Auditoria', show: alm },
@@ -3145,6 +3256,7 @@ function App() {
     if (page === 'emprestimos') return <EmprestimosPage {...props} />
     if (page === 'uniformes') return <UniformesPage {...props} />
     if (page === 'ferramentas') return <FerramentasPage {...props} />
+    if (page === 'obras') return <ObrasPage {...props} />
     if (page === 'bolsas') return <BolsasPage {...props} />
     if (page === 'usuarios') return <UsuariosPage {...props} />
     if (page === 'auditoria') return <AuditoriaPage {...props} />

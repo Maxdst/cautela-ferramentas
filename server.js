@@ -120,6 +120,20 @@ db.exec(`
     quantidade INTEGER NOT NULL DEFAULT 1
   );
 
+  -- ─── OBRAS / CANTEIROS (multi-obra) ─────────────────────────────────────────
+  -- Dimensão opcional: agrupa solicitações e cautelas por obra/canteiro. NULL = sem obra
+  -- (deploy de obra única segue funcionando sem mexer em nada). Não afeta o cálculo de
+  -- disponibilidade — o almoxarifado é central; a obra é o destino da retirada.
+  CREATE TABLE IF NOT EXISTS obras (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    codigo TEXT,
+    endereco TEXT,
+    responsavel TEXT,
+    ativo INTEGER DEFAULT 1,
+    criado_em TEXT DEFAULT (datetime('now','localtime'))
+  );
+
   CREATE TABLE IF NOT EXISTS solicitacoes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numero TEXT UNIQUE,
@@ -446,6 +460,11 @@ db.exec(`
   addCol('uniforme_itens', 'min_por_tamanho', 'TEXT')
   addCol('uniforme_entradas', 'tamanho', 'TEXT')
   addCol('usuarios', 'assinatura', 'TEXT')
+
+  // Multi-obra: vínculo opcional (NULL-safe, retrocompatível com deploy de obra única).
+  addCol('solicitacoes', 'obra_id', 'INTEGER REFERENCES obras(id)')
+  addCol('cautelas', 'obra_id', 'INTEGER REFERENCES obras(id)')
+  addCol('usuarios', 'obra_id', 'INTEGER REFERENCES obras(id)')  // obra padrão do usuário
 
   // Backfill das grades dos itens do seed (bancos que já tinham o módulo sem tamanho).
   // Só preenche quem ainda está sem grade — idempotente e não sobrescreve edição do cliente.
@@ -948,7 +967,7 @@ app.post('/api/auth/validar', auth(), (req, res) => {
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
 app.get('/api/usuarios', auth(['almoxarifado', 'lider']), (req, res) => {
   const { role } = req.query
-  let q = 'SELECT id,nome,email,cargo,role,ativo,cpf_cnpj,empresa,endereco,telefone FROM usuarios WHERE 1=1'
+  let q = 'SELECT id,nome,email,cargo,role,ativo,cpf_cnpj,empresa,endereco,telefone,obra_id FROM usuarios WHERE 1=1'
   const p = []
   // A conta do administrador master só aparece para outro master (invisível ao almoxarifado do cliente)
   if (!req.user.is_master) q += ' AND is_master=0'
@@ -971,11 +990,11 @@ app.get('/api/usuarios/lideres', auth(), (req, res) => {
 })
 
 app.post('/api/usuarios', auth(['almoxarifado']), (req, res) => {
-  const { nome, email, senha, cargo, role, cpf_cnpj, empresa, endereco, telefone } = req.body
+  const { nome, email, senha, cargo, role, cpf_cnpj, empresa, endereco, telefone, obra_id } = req.body
   if (!['lider', 'operario', 'administracao', 'compras'].includes(role)) return res.status(400).json({ error: 'Role inválido' })
   try {
-    const r = db.prepare('INSERT INTO usuarios (nome,email,senha_hash,cargo,role,cpf_cnpj,empresa,endereco,telefone,primeiro_acesso) VALUES (?,?,?,?,?,?,?,?,?,1)')
-      .run(nome, email, bcrypt.hashSync(senha, 10), cargo || '', role, cpf_cnpj || null, empresa || null, endereco || null, telefone || null)
+    const r = db.prepare('INSERT INTO usuarios (nome,email,senha_hash,cargo,role,cpf_cnpj,empresa,endereco,telefone,obra_id,primeiro_acesso) VALUES (?,?,?,?,?,?,?,?,?,?,1)')
+      .run(nome, email, bcrypt.hashSync(senha, 10), cargo || '', role, cpf_cnpj || null, empresa || null, endereco || null, telefone || null, obra_id || null)
     audit(req.user.id, 'CRIAR_USUARIO', 'usuarios', r.lastInsertRowid, { nome, role })
     res.json({ id: r.lastInsertRowid })
   } catch (e) {
@@ -985,17 +1004,20 @@ app.post('/api/usuarios', auth(['almoxarifado']), (req, res) => {
 })
 
 app.put('/api/usuarios/:id', auth(['almoxarifado']), (req, res) => {
-  const { nome, cargo, ativo, senha, cpf_cnpj, empresa, endereco, telefone } = req.body
+  const { nome, cargo, ativo, senha, cpf_cnpj, empresa, endereco, telefone, obra_id } = req.body
   const alvo = db.prepare('SELECT is_master FROM usuarios WHERE id=?').get(req.params.id)
   if (alvo && alvo.is_master && !req.user.is_master)
     return res.status(403).json({ error: 'Apenas o administrador master pode editar esta conta.' })
-  const base = 'UPDATE usuarios SET nome=?,cargo=?,ativo=?,cpf_cnpj=?,empresa=?,endereco=?,telefone=?'
+  // obra_id: se vier no payload (inclusive vazio p/ remover), aplica; se ausente, mantém.
+  const setObra = obra_id !== undefined
+  const sql = setObra ? 'UPDATE usuarios SET nome=?,cargo=?,ativo=?,cpf_cnpj=?,empresa=?,endereco=?,telefone=?,obra_id=?'
+                      : 'UPDATE usuarios SET nome=?,cargo=?,ativo=?,cpf_cnpj=?,empresa=?,endereco=?,telefone=?'
+  const tail = [nome, cargo, ativo ? 1 : 0, cpf_cnpj || null, empresa || null, endereco || null, telefone || null]
+  if (setObra) tail.push(obra_id || null)
   if (senha) {
-    db.prepare(base + ',senha_hash=? WHERE id=?')
-      .run(nome, cargo, ativo ? 1 : 0, cpf_cnpj || null, empresa || null, endereco || null, telefone || null, bcrypt.hashSync(senha, 10), req.params.id)
+    db.prepare(sql + ',senha_hash=? WHERE id=?').run(...tail, bcrypt.hashSync(senha, 10), req.params.id)
   } else {
-    db.prepare(base + ' WHERE id=?')
-      .run(nome, cargo, ativo ? 1 : 0, cpf_cnpj || null, empresa || null, endereco || null, telefone || null, req.params.id)
+    db.prepare(sql + ' WHERE id=?').run(...tail, req.params.id)
   }
   audit(req.user.id, 'EDITAR_USUARIO', 'usuarios', req.params.id, { nome, ativo })
   res.json({ ok: true })
@@ -1140,12 +1162,60 @@ app.put('/api/bolsas/:id', auth(['almoxarifado']), (req, res) => {
 })
 
 // ─── SOLICITAÇÕES ─────────────────────────────────────────────────────────────
+// ─── OBRAS / CANTEIROS ────────────────────────────────────────────────────────
+// Listagem: qualquer usuário logado (usada nos seletores). ?all=1 inclui inativas.
+app.get('/api/obras', auth(), (req, res) => {
+  const incluiInativas = req.query.all === '1' && req.user.role === 'almoxarifado'
+  const q = 'SELECT * FROM obras' + (incluiInativas ? '' : ' WHERE ativo=1') + ' ORDER BY ativo DESC, nome'
+  res.json(db.prepare(q).all())
+})
+
+app.post('/api/obras', auth(['almoxarifado']), (req, res) => {
+  const { nome, codigo, endereco, responsavel } = req.body
+  if (!nome || !nome.trim()) return res.status(400).json({ error: 'Nome da obra é obrigatório' })
+  const r = db.prepare('INSERT INTO obras (nome,codigo,endereco,responsavel) VALUES (?,?,?,?)')
+    .run(nome.trim(), (codigo || '').trim() || null, (endereco || '').trim() || null, (responsavel || '').trim() || null)
+  audit(req.user.id, 'CRIAR_OBRA', 'obras', r.lastInsertRowid, { nome })
+  res.json({ id: r.lastInsertRowid })
+})
+
+app.put('/api/obras/:id', auth(['almoxarifado']), (req, res) => {
+  const o = db.prepare('SELECT * FROM obras WHERE id=?').get(req.params.id)
+  if (!o) return res.status(404).json({ error: 'Obra não encontrada' })
+  const { nome, codigo, endereco, responsavel, ativo } = req.body
+  db.prepare('UPDATE obras SET nome=?,codigo=?,endereco=?,responsavel=?,ativo=? WHERE id=?').run(
+    (nome ?? o.nome).trim(), (codigo ?? o.codigo) || null, (endereco ?? o.endereco) || null,
+    (responsavel ?? o.responsavel) || null, ativo === undefined ? o.ativo : (ativo ? 1 : 0), o.id)
+  audit(req.user.id, 'EDITAR_OBRA', 'obras', o.id, null)
+  res.json({ ok: true })
+})
+
+// Desativa (soft delete): preserva o histórico de cautelas já vinculadas à obra.
+app.delete('/api/obras/:id', auth(['almoxarifado']), (req, res) => {
+  const o = db.prepare('SELECT * FROM obras WHERE id=?').get(req.params.id)
+  if (!o) return res.status(404).json({ error: 'Obra não encontrada' })
+  db.prepare('UPDATE obras SET ativo=0 WHERE id=?').run(o.id)
+  audit(req.user.id, 'DESATIVAR_OBRA', 'obras', o.id, { nome: o.nome })
+  res.json({ ok: true })
+})
+
+// Resolve a obra de uma solicitação/cautela: usa a informada ou cai na obra padrão do usuário.
+function resolverObra(obraIdInformada, usuarioId) {
+  if (obraIdInformada) {
+    const ok = db.prepare('SELECT id FROM obras WHERE id=? AND ativo=1').get(obraIdInformada)
+    if (ok) return obraIdInformada
+  }
+  const u = db.prepare('SELECT obra_id FROM usuarios WHERE id=?').get(usuarioId)
+  return u && u.obra_id ? u.obra_id : null
+}
+
 const solQuery = `
   SELECT s.*, l.nome lider_nome, l.cargo lider_cargo, l.email lider_email,
-    b.nome bolsa_nome
+    b.nome bolsa_nome, ob.nome obra_nome
   FROM solicitacoes s
   JOIN usuarios l ON l.id=s.lider_id
-  LEFT JOIN bolsas b ON b.id=s.bolsa_id`
+  LEFT JOIN bolsas b ON b.id=s.bolsa_id
+  LEFT JOIN obras ob ON ob.id=s.obra_id`
 
 const solItensQuery = `
   SELECT si.*, f.nome ferramenta_nome, f.codigo, COALESCE(f.valor_unitario,0) valor_unitario,
@@ -1177,7 +1247,7 @@ app.get('/api/solicitacoes/:id', auth(), (req, res) => {
 
 // Almoxarifado cria solicitação em nome de operário — operário autentica no dispositivo
 app.post('/api/solicitacoes/por-operario', auth(['almoxarifado']), (req, res) => {
-  const { operario_id, bolsa_id, itens, obs, email_operario, senha_operario } = req.body
+  const { operario_id, bolsa_id, itens, obs, email_operario, senha_operario, obra_id } = req.body
   if (!operario_id) return res.status(400).json({ error: 'Operário obrigatório' })
   if (!email_operario || !senha_operario) return res.status(400).json({ error: 'Login do operário obrigatório' })
   const op = db.prepare("SELECT * FROM usuarios WHERE id=? AND role='operario' AND ativo=1").get(operario_id)
@@ -1197,10 +1267,11 @@ app.post('/api/solicitacoes/por-operario', auth(['almoxarifado']), (req, res) =>
   if (semEstoque) return res.status(400).json({ error: 'Estoque insuficiente — ' + semEstoque })
   const ip = getIP(req)
   const marcador = 'AUTH:' + new Date().toISOString()
+  const obra = resolverObra(obra_id, operario_id)
   const id = db.transaction(() => {
     const numero = gerarNumero('SOL')
-    const r = db.prepare('INSERT INTO solicitacoes (numero,lider_id,bolsa_id,obs,assinatura_solicitante,ip_solicitante) VALUES (?,?,?,?,?,?)')
-      .run(numero, operario_id, bolsa_id || null, obs || '', marcador, ip)
+    const r = db.prepare('INSERT INTO solicitacoes (numero,lider_id,bolsa_id,obs,assinatura_solicitante,ip_solicitante,obra_id) VALUES (?,?,?,?,?,?,?)')
+      .run(numero, operario_id, bolsa_id || null, obs || '', marcador, ip, obra)
     const ins = db.prepare('INSERT INTO solicitacao_itens (solicitacao_id,ferramenta_id,quantidade) VALUES (?,?,?)')
     for (const it of itensFinal) ins.run(r.lastInsertRowid, it.ferramenta_id, it.quantidade)
     return r.lastInsertRowid
@@ -1210,14 +1281,15 @@ app.post('/api/solicitacoes/por-operario', auth(['almoxarifado']), (req, res) =>
 })
 
 app.post('/api/solicitacoes', auth(['lider']), (req, res) => {
-  const { bolsa_id, itens, obs } = req.body
+  const { bolsa_id, itens, obs, obra_id } = req.body
   if (!itens || !itens.length) return res.status(400).json({ error: 'Adicione ao menos um item' })
   const semEstoque = erroDisponibilidade(itens)
   if (semEstoque) return res.status(400).json({ error: 'Estoque insuficiente — ' + semEstoque })
+  const obra = resolverObra(obra_id, req.user.id)
   const id = db.transaction(() => {
     const numero = gerarNumero('SOL')
-    const r = db.prepare('INSERT INTO solicitacoes (numero,lider_id,bolsa_id,obs) VALUES (?,?,?,?)')
-      .run(numero, req.user.id, bolsa_id || null, obs || '')
+    const r = db.prepare('INSERT INTO solicitacoes (numero,lider_id,bolsa_id,obs,obra_id) VALUES (?,?,?,?,?)')
+      .run(numero, req.user.id, bolsa_id || null, obs || '', obra)
     const ins = db.prepare('INSERT INTO solicitacao_itens (solicitacao_id,ferramenta_id,quantidade) VALUES (?,?,?)')
     for (const it of itens) ins.run(r.lastInsertRowid, it.ferramenta_id, it.quantidade)
     return r.lastInsertRowid
@@ -1272,8 +1344,8 @@ app.post('/api/solicitacoes/:id/pronta', auth(['almoxarifado']), (req, res) => {
     }
     const numero = gerarNumero('CAU')
     const tipo = s.assinatura_solicitante ? 'direto' : 'lider'
-    const r = db.prepare('INSERT INTO cautelas (numero,solicitacao_id,lider_id,status,valor_total,cautela_tipo) VALUES (?,?,?,?,?,?)')
-      .run(numero, s.id, s.lider_id, 'aguardando_retirada', valor_total, tipo)
+    const r = db.prepare('INSERT INTO cautelas (numero,solicitacao_id,lider_id,status,valor_total,cautela_tipo,obra_id) VALUES (?,?,?,?,?,?,?)')
+      .run(numero, s.id, s.lider_id, 'aguardando_retirada', valor_total, tipo, s.obra_id || null)
     const ins = db.prepare('INSERT INTO cautela_itens (cautela_id,ferramenta_id,quantidade) VALUES (?,?,?)')
     for (const it of itens) ins.run(r.lastInsertRowid, it.ferramenta_id, it.quantidade)
     return r.lastInsertRowid
@@ -1296,8 +1368,9 @@ app.post('/api/solicitacoes/:id/cancelar', auth(['almoxarifado', 'lider']), (req
 // ─── CAUTELAS ─────────────────────────────────────────────────────────────────
 const cautelaQuery = `
   SELECT c.*, l.nome lider_nome, l.cargo lider_cargo, l.email lider_email,
-    l.cpf_cnpj lider_cpf_cnpj, l.empresa lider_empresa
-  FROM cautelas c JOIN usuarios l ON l.id=c.lider_id`
+    l.cpf_cnpj lider_cpf_cnpj, l.empresa lider_empresa, ob.nome obra_nome
+  FROM cautelas c JOIN usuarios l ON l.id=c.lider_id
+  LEFT JOIN obras ob ON ob.id=c.obra_id`
 
 const cautelaItensQuery = `
   SELECT ci.*, f.nome ferramenta_nome, f.codigo, f.categoria,
@@ -1341,13 +1414,14 @@ app.get('/api/cautelas/:id', auth(), (req, res) => {
 
 // ─── CAUTELA DIRETA (almoxarifado cria para operário retirar pessoalmente) ─────
 app.post('/api/cautelas/direta', auth(['almoxarifado']), (req, res) => {
-  const { operario_id, itens, obs } = req.body
+  const { operario_id, itens, obs, obra_id } = req.body
   if (!operario_id) return res.status(400).json({ error: 'Operário obrigatório' })
   if (!itens || !itens.length) return res.status(400).json({ error: 'Adicione ao menos um item' })
   const op = db.prepare("SELECT * FROM usuarios WHERE id=? AND role='operario' AND ativo=1").get(operario_id)
   if (!op) return res.status(404).json({ error: 'Operário não encontrado' })
   const semEstoque = erroDisponibilidade(itens)
   if (semEstoque) return res.status(400).json({ error: 'Estoque insuficiente — ' + semEstoque })
+  const obra = resolverObra(obra_id, operario_id)
   const id = db.transaction(() => {
     let valor_total = 0
     for (const it of itens) {
@@ -1355,8 +1429,8 @@ app.post('/api/cautelas/direta', auth(['almoxarifado']), (req, res) => {
       if (f) valor_total += f.v * it.quantidade
     }
     const numero = gerarNumero('CAU')
-    const r = db.prepare("INSERT INTO cautelas (numero,lider_id,status,valor_total,cautela_tipo,obs_devolucao) VALUES (?,?,'aguardando_retirada',?,'direto',?)")
-      .run(numero, operario_id, valor_total, obs || '')
+    const r = db.prepare("INSERT INTO cautelas (numero,lider_id,status,valor_total,cautela_tipo,obs_devolucao,obra_id) VALUES (?,?,'aguardando_retirada',?,'direto',?,?)")
+      .run(numero, operario_id, valor_total, obs || '', obra)
     const ins = db.prepare('INSERT INTO cautela_itens (cautela_id,ferramenta_id,quantidade) VALUES (?,?,?)')
     for (const it of itens) ins.run(r.lastInsertRowid, it.ferramenta_id, it.quantidade)
     return r.lastInsertRowid
@@ -2133,6 +2207,16 @@ app.get('/api/dashboard', auth(), (req, res) => {
     s.cautelas_aguardando = db.prepare("SELECT COUNT(*) n FROM cautelas WHERE status='aguardando_retirada'").get().n
     s.cautelas_ativas     = db.prepare("SELECT COUNT(*) n FROM cautelas WHERE status='ativa'").get().n
     if (u.is_master) s.valor_em_campo = db.prepare("SELECT COALESCE(SUM(valor_total),0) v FROM cautelas WHERE status='ativa'").get().v
+    // Consolidação multi-obra: cautelas ativas e valor em campo por obra (painel Enterprise).
+    s.por_obra = db.prepare(`
+      SELECT ob.id obra_id, ob.nome obra_nome,
+        COUNT(c.id) cautelas_ativas,
+        COALESCE(SUM(c.valor_total),0) valor_em_campo
+      FROM obras ob
+      LEFT JOIN cautelas c ON c.obra_id=ob.id AND c.status='ativa'
+      WHERE ob.ativo=1
+      GROUP BY ob.id, ob.nome
+      ORDER BY valor_em_campo DESC, ob.nome`).all()
     s.solicitacoes_recentes = db.prepare(`
       SELECT s.id,s.numero,s.status,s.criado_em,l.nome lider_nome
       FROM solicitacoes s JOIN usuarios l ON l.id=s.lider_id

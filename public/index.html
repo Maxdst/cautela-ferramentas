@@ -681,8 +681,8 @@ function Dashboard({ user, navigate, addToast }) {
       <div className="stats-grid">
         <div className="stat-card"><div className="stat-label">Minhas solicitações ativas</div><div className="stat-value">{stats.minhas_sol_ativas||0}</div></div>
         <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
-        <div className="stat-card red"><div className="stat-label">Minha responsabilidade</div><div className="stat-value money">{fmtBRL(stats.valor_responsabilidade||0)}</div></div>
-        <div className="stat-card"><div className="stat-label">Entregue à equipe</div><div className="stat-value money">{fmtBRL(stats.valor_entregue_equipe||0)}</div></div>
+        <div className="stat-card"><div className="stat-label">Em campo — minha equipe</div><div className="stat-value money">{fmtBRL(stats.valor_responsabilidade||0)}</div></div>
+        <div className="stat-card"><div className="stat-label">Em posse dos colaboradores</div><div className="stat-value money">{fmtBRL(stats.valor_entregue_equipe||0)}</div></div>
         <div className="stat-card"><div className="stat-label">Aguard. meu aval (emprést.)</div><div className="stat-value">{stats.emp_aguardando_aval||0}</div></div>
       </div>
       <div className="card">
@@ -2880,6 +2880,7 @@ function EquipePage({ user, addToast }) {
   return (
     <div style={{maxWidth:760,margin:'0 auto'}}>
       <div className="topbar"><h2>Minha equipe</h2></div>
+      <p className="text-muted" style={{margin:'-6px 0 14px',fontSize:'.84rem'}}>Gestão à vista da sua equipe — quem está em cada obra e o que cada colaborador tem em campo. O responsável direto por cada ferramenta é o colaborador que a retirou, até a devolução ao almoxarifado.</p>
 
       <div className="card" style={{display:'flex',gap:28,flexWrap:'wrap',marginBottom:16}}>
         <div><div className="text-muted" style={{fontSize:'.74rem'}}>Colaboradores</div><div style={{fontSize:'1.35rem',fontWeight:700}}>{data.membros.length}</div></div>

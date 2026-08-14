@@ -134,6 +134,22 @@ db.exec(`
     criado_em TEXT DEFAULT (datetime('now','localtime'))
   );
 
+  -- ─── TRANSFERÊNCIAS DE COLABORADOR (equipe volátil) ─────────────────────────
+  -- Handoff com aceite: um líder passa um colaborador para a equipe de outro líder.
+  -- Enquanto 'pendente', o colaborador (e o valor em posse dele) continua na equipe
+  -- de origem — só migra quando o líder que recebe ACEITA. Trilha auditável de quem
+  -- passou, quem recebeu e quando.
+  CREATE TABLE IF NOT EXISTS transferencias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    colaborador_id INTEGER NOT NULL REFERENCES usuarios(id),
+    de_lider_id INTEGER REFERENCES usuarios(id),
+    para_lider_id INTEGER NOT NULL REFERENCES usuarios(id),
+    obra_id INTEGER REFERENCES obras(id),
+    status TEXT NOT NULL DEFAULT 'pendente',
+    criado_em TEXT DEFAULT (datetime('now','localtime')),
+    resolvido_em TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS solicitacoes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numero TEXT UNIQUE,
@@ -465,6 +481,7 @@ db.exec(`
   addCol('solicitacoes', 'obra_id', 'INTEGER REFERENCES obras(id)')
   addCol('cautelas', 'obra_id', 'INTEGER REFERENCES obras(id)')
   addCol('usuarios', 'obra_id', 'INTEGER REFERENCES obras(id)')  // obra padrão do usuário
+  addCol('usuarios', 'lider_id', 'INTEGER REFERENCES usuarios(id)')  // líder responsável atual (equipe volátil)
 
   // Backfill das grades dos itens do seed (bancos que já tinham o módulo sem tamanho).
   // Só preenche quem ainda está sem grade — idempotente e não sobrescreve edição do cliente.
@@ -967,7 +984,7 @@ app.post('/api/auth/validar', auth(), (req, res) => {
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
 app.get('/api/usuarios', auth(['almoxarifado', 'lider']), (req, res) => {
   const { role } = req.query
-  let q = 'SELECT id,nome,email,cargo,role,ativo,cpf_cnpj,empresa,endereco,telefone,obra_id FROM usuarios WHERE 1=1'
+  let q = 'SELECT id,nome,email,cargo,role,ativo,cpf_cnpj,empresa,endereco,telefone,obra_id,lider_id FROM usuarios WHERE 1=1'
   const p = []
   // A conta do administrador master só aparece para outro master (invisível ao almoxarifado do cliente)
   if (!req.user.is_master) q += ' AND is_master=0'
@@ -990,11 +1007,11 @@ app.get('/api/usuarios/lideres', auth(), (req, res) => {
 })
 
 app.post('/api/usuarios', auth(['almoxarifado']), (req, res) => {
-  const { nome, email, senha, cargo, role, cpf_cnpj, empresa, endereco, telefone, obra_id } = req.body
+  const { nome, email, senha, cargo, role, cpf_cnpj, empresa, endereco, telefone, obra_id, lider_id } = req.body
   if (!['lider', 'operario', 'administracao', 'compras'].includes(role)) return res.status(400).json({ error: 'Role inválido' })
   try {
-    const r = db.prepare('INSERT INTO usuarios (nome,email,senha_hash,cargo,role,cpf_cnpj,empresa,endereco,telefone,obra_id,primeiro_acesso) VALUES (?,?,?,?,?,?,?,?,?,?,1)')
-      .run(nome, email, bcrypt.hashSync(senha, 10), cargo || '', role, cpf_cnpj || null, empresa || null, endereco || null, telefone || null, obra_id || null)
+    const r = db.prepare('INSERT INTO usuarios (nome,email,senha_hash,cargo,role,cpf_cnpj,empresa,endereco,telefone,obra_id,lider_id,primeiro_acesso) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)')
+      .run(nome, email, bcrypt.hashSync(senha, 10), cargo || '', role, cpf_cnpj || null, empresa || null, endereco || null, telefone || null, obra_id || null, lider_id || null)
     audit(req.user.id, 'CRIAR_USUARIO', 'usuarios', r.lastInsertRowid, { nome, role })
     res.json({ id: r.lastInsertRowid })
   } catch (e) {
@@ -1004,16 +1021,15 @@ app.post('/api/usuarios', auth(['almoxarifado']), (req, res) => {
 })
 
 app.put('/api/usuarios/:id', auth(['almoxarifado']), (req, res) => {
-  const { nome, cargo, ativo, senha, cpf_cnpj, empresa, endereco, telefone, obra_id } = req.body
+  const { nome, cargo, ativo, senha, cpf_cnpj, empresa, endereco, telefone, obra_id, lider_id } = req.body
   const alvo = db.prepare('SELECT is_master FROM usuarios WHERE id=?').get(req.params.id)
   if (alvo && alvo.is_master && !req.user.is_master)
     return res.status(403).json({ error: 'Apenas o administrador master pode editar esta conta.' })
-  // obra_id: se vier no payload (inclusive vazio p/ remover), aplica; se ausente, mantém.
-  const setObra = obra_id !== undefined
-  const sql = setObra ? 'UPDATE usuarios SET nome=?,cargo=?,ativo=?,cpf_cnpj=?,empresa=?,endereco=?,telefone=?,obra_id=?'
-                      : 'UPDATE usuarios SET nome=?,cargo=?,ativo=?,cpf_cnpj=?,empresa=?,endereco=?,telefone=?'
+  // obra_id/lider_id: se vier no payload (inclusive vazio p/ remover), aplica; se ausente, mantém.
+  let sql = 'UPDATE usuarios SET nome=?,cargo=?,ativo=?,cpf_cnpj=?,empresa=?,endereco=?,telefone=?'
   const tail = [nome, cargo, ativo ? 1 : 0, cpf_cnpj || null, empresa || null, endereco || null, telefone || null]
-  if (setObra) tail.push(obra_id || null)
+  if (obra_id !== undefined)  { sql += ',obra_id=?';  tail.push(obra_id  || null) }
+  if (lider_id !== undefined) { sql += ',lider_id=?'; tail.push(lider_id || null) }
   if (senha) {
     db.prepare(sql + ',senha_hash=? WHERE id=?').run(...tail, bcrypt.hashSync(senha, 10), req.params.id)
   } else {
@@ -1488,6 +1504,8 @@ app.post('/api/cautelas/:id/entregas', auth(['lider']), (req, res) => {
       .run(c.id, op.id, assinatura, ip)
     const ins = db.prepare('INSERT INTO cautela_entrega_itens (entrega_id,ferramenta_id,quantidade) VALUES (?,?,?)')
     for (const it of itens) ins.run(r.lastInsertRowid, it.ferramenta_id, it.quantidade)
+    // Semeia a equipe: se o operário ainda não tem líder responsável, quem entregou vira o líder dele.
+    db.prepare('UPDATE usuarios SET lider_id=? WHERE id=? AND lider_id IS NULL').run(req.user.id, op.id)
     return r.lastInsertRowid
   })()
 
@@ -2172,6 +2190,7 @@ app.get('/api/notificacoes', auth(), (req, res) => {
     n.emprestimos_aguardando_aval = db.prepare("SELECT COUNT(*) c FROM emprestimos WHERE lider_id=? AND status='aguardando_lider'").get(u.id).c
     n.solicitacoes_prontas = db.prepare("SELECT COUNT(*) c FROM solicitacoes WHERE lider_id=? AND status='pronta'").get(u.id).c
     n.cautelas_aguardando_retirada = db.prepare("SELECT COUNT(*) c FROM cautelas WHERE lider_id=? AND status='aguardando_retirada'").get(u.id).c
+    n.transferencias_recebidas = db.prepare("SELECT COUNT(*) c FROM transferencias WHERE para_lider_id=? AND status='pendente'").get(u.id).c
   }
 
   if (u.role === 'operario') {
@@ -2188,6 +2207,149 @@ app.get('/api/notificacoes', auth(), (req, res) => {
   }
 
   res.json(n)
+})
+
+// ─── EQUIPE DO LÍDER / TRANSFERÊNCIAS (colaborador volátil) ────────────────────
+// A cautela está atrelada ao colaborador (quem segura a ferramenta). O líder enxerga
+// a própria equipe — quantas cautelas ativas e em posse de quem — e pode mover um
+// colaborador de obra e/ou passá-lo para outro líder (com aceite obrigatório).
+
+// Valor e nº de cautelas ativas que um colaborador (operário) tem em mãos:
+//   entregas ativas (peça a peça) + cautelas diretas (retirada pessoal do operário).
+function posseColaborador(operarioId) {
+  const ent = db.prepare(`
+    SELECT COALESCE(SUM(cei.quantidade * COALESCE(f.valor_unitario,0)),0) v,
+           COUNT(DISTINCT ce.cautela_id) n
+    FROM cautela_entregas ce
+    JOIN cautela_entrega_itens cei ON cei.entrega_id=ce.id
+    JOIN ferramentas f ON f.id=cei.ferramenta_id
+    WHERE ce.operario_id=? AND ce.status='ativa'`).get(operarioId)
+  const dir = db.prepare(`
+    SELECT COALESCE(SUM(valor_total),0) v, COUNT(*) n
+    FROM cautelas WHERE lider_id=? AND cautela_tipo='direto' AND status='ativa'`).get(operarioId)
+  return { valor: ent.v + dir.v, cautelas: ent.n + dir.n }
+}
+
+// Painel "Minha equipe" do líder: membros (lider_id = eu) + pendências de transferência.
+app.get('/api/equipe', auth(['lider']), (req, res) => {
+  const membros = db.prepare(`
+    SELECT u.id, u.nome, u.cargo, u.obra_id, ob.nome obra_nome
+    FROM usuarios u LEFT JOIN obras ob ON ob.id=u.obra_id
+    WHERE u.lider_id=? AND u.role='operario' AND u.ativo=1
+    ORDER BY u.nome`).all(req.user.id)
+  let total_valor = 0, total_cautelas = 0
+  for (const m of membros) {
+    const p = posseColaborador(m.id)
+    m.valor_em_posse = p.valor
+    m.cautelas_ativas = p.cautelas
+    total_valor += p.valor
+    total_cautelas += p.cautelas
+  }
+  // Recebimentos pendentes: outro líder quer me passar um colaborador → eu aceito/recuso.
+  const pendentes_recebimento = db.prepare(`
+    SELECT t.id, t.colaborador_id, c.nome colaborador_nome, c.cargo colaborador_cargo,
+           t.de_lider_id, dl.nome de_lider_nome, t.obra_id, ob.nome obra_nome, t.criado_em
+    FROM transferencias t
+    JOIN usuarios c ON c.id=t.colaborador_id
+    LEFT JOIN usuarios dl ON dl.id=t.de_lider_id
+    LEFT JOIN obras ob ON ob.id=t.obra_id
+    WHERE t.para_lider_id=? AND t.status='pendente'
+    ORDER BY t.criado_em DESC`).all(req.user.id)
+  for (const t of pendentes_recebimento) t.posse = posseColaborador(t.colaborador_id)
+  // Envios pendentes: eu passei alguém e aguardo o outro líder aceitar.
+  const pendentes_envio = db.prepare(`
+    SELECT t.id, t.colaborador_id, c.nome colaborador_nome,
+           t.para_lider_id, pl.nome para_lider_nome, t.obra_id, ob.nome obra_nome, t.criado_em
+    FROM transferencias t
+    JOIN usuarios c ON c.id=t.colaborador_id
+    LEFT JOIN usuarios pl ON pl.id=t.para_lider_id
+    LEFT JOIN obras ob ON ob.id=t.obra_id
+    WHERE t.de_lider_id=? AND t.status='pendente'
+    ORDER BY t.criado_em DESC`).all(req.user.id)
+  res.json({ membros, total_valor, total_cautelas, pendentes_recebimento, pendentes_envio })
+})
+
+// Detalhe: quais cautelas/ferramentas estão em posse de um colaborador da minha equipe.
+app.get('/api/equipe/:colaboradorId/cautelas', auth(['lider']), (req, res) => {
+  const col = db.prepare("SELECT * FROM usuarios WHERE id=? AND role='operario'").get(req.params.colaboradorId)
+  if (!col) return res.status(404).json({ error: 'Colaborador não encontrado' })
+  if (col.lider_id !== req.user.id) return res.status(403).json({ error: 'Colaborador não é da sua equipe' })
+  const entregas = db.prepare(`
+    SELECT c.numero, c.id cautela_id, 'entrega' origem,
+           COALESCE(SUM(cei.quantidade * COALESCE(f.valor_unitario,0)),0) valor,
+           GROUP_CONCAT(f.nome, ', ') itens
+    FROM cautela_entregas ce
+    JOIN cautela_entrega_itens cei ON cei.entrega_id=ce.id
+    JOIN ferramentas f ON f.id=cei.ferramenta_id
+    JOIN cautelas c ON c.id=ce.cautela_id
+    WHERE ce.operario_id=? AND ce.status='ativa'
+    GROUP BY ce.id ORDER BY c.numero`).all(req.params.colaboradorId)
+  const diretas = db.prepare(`
+    SELECT c.numero, c.id cautela_id, 'direta' origem, c.valor_total valor,
+           (SELECT GROUP_CONCAT(f.nome, ', ') FROM cautela_itens ci JOIN ferramentas f ON f.id=ci.ferramenta_id WHERE ci.cautela_id=c.id) itens
+    FROM cautelas c
+    WHERE c.lider_id=? AND c.cautela_tipo='direto' AND c.status='ativa'
+    ORDER BY c.numero`).all(req.params.colaboradorId)
+  res.json([...entregas, ...diretas])
+})
+
+// Mover colaborador: troca de obra (imediata, na própria equipe) e/ou passa p/ outro líder (pendente).
+app.post('/api/equipe/mover', auth(['lider']), (req, res) => {
+  const { colaborador_id, obra_id, para_lider_id } = req.body
+  const col = db.prepare("SELECT * FROM usuarios WHERE id=? AND role='operario' AND ativo=1").get(colaborador_id)
+  if (!col) return res.status(404).json({ error: 'Colaborador não encontrado' })
+  if (col.lider_id !== req.user.id) return res.status(403).json({ error: 'Só é possível mover colaboradores da sua própria equipe.' })
+
+  const trocaLider = para_lider_id && Number(para_lider_id) !== req.user.id
+  if (!trocaLider) {
+    // Só muda de obra dentro da própria equipe → imediato, sem aceite.
+    db.prepare('UPDATE usuarios SET obra_id=? WHERE id=?').run(obra_id || null, colaborador_id)
+    audit(req.user.id, 'MOVER_COLABORADOR_OBRA', 'usuarios', colaborador_id, { obra_id: obra_id || null })
+    return res.json({ ok: true, imediato: true })
+  }
+  // Passa para outro líder → transferência PENDENTE (colaborador só migra quando o outro aceita).
+  const alvo = db.prepare("SELECT id,nome FROM usuarios WHERE id=? AND role='lider' AND ativo=1").get(para_lider_id)
+  if (!alvo) return res.status(404).json({ error: 'Líder de destino não encontrado' })
+  // Uma pendência por colaborador: cancela pendências anteriores dele antes de abrir a nova.
+  db.prepare("UPDATE transferencias SET status='cancelada', resolvido_em=datetime('now','localtime') WHERE colaborador_id=? AND status='pendente'").run(colaborador_id)
+  const r = db.prepare("INSERT INTO transferencias (colaborador_id,de_lider_id,para_lider_id,obra_id) VALUES (?,?,?,?)")
+    .run(colaborador_id, req.user.id, para_lider_id, obra_id || null)
+  audit(req.user.id, 'TRANSFERIR_COLABORADOR', 'transferencias', r.lastInsertRowid, { colaborador: col.nome, para: alvo.nome })
+  res.json({ ok: true, pendente: true, para_lider_nome: alvo.nome })
+})
+
+// Líder que recebe ACEITA: agora sim o colaborador (e o valor em posse) migra para a equipe dele.
+app.post('/api/equipe/transferencias/:id/aceitar', auth(['lider']), (req, res) => {
+  const t = db.prepare("SELECT * FROM transferencias WHERE id=? AND status='pendente'").get(req.params.id)
+  if (!t) return res.status(404).json({ error: 'Transferência não encontrada ou já resolvida' })
+  if (t.para_lider_id !== req.user.id) return res.status(403).json({ error: 'Só o líder que recebe pode aceitar.' })
+  db.transaction(() => {
+    if (t.obra_id) db.prepare('UPDATE usuarios SET lider_id=?, obra_id=? WHERE id=?').run(req.user.id, t.obra_id, t.colaborador_id)
+    else db.prepare('UPDATE usuarios SET lider_id=? WHERE id=?').run(req.user.id, t.colaborador_id)
+    db.prepare("UPDATE transferencias SET status='aceita', resolvido_em=datetime('now','localtime') WHERE id=?").run(t.id)
+  })()
+  const col = db.prepare('SELECT nome FROM usuarios WHERE id=?').get(t.colaborador_id)
+  audit(req.user.id, 'ACEITAR_TRANSFERENCIA', 'transferencias', t.id, { colaborador: col && col.nome })
+  res.json({ ok: true })
+})
+
+// Líder que recebe RECUSA → colaborador permanece na equipe de origem.
+app.post('/api/equipe/transferencias/:id/recusar', auth(['lider']), (req, res) => {
+  const t = db.prepare("SELECT * FROM transferencias WHERE id=? AND status='pendente'").get(req.params.id)
+  if (!t) return res.status(404).json({ error: 'Transferência não encontrada ou já resolvida' })
+  if (t.para_lider_id !== req.user.id) return res.status(403).json({ error: 'Só o líder que recebe pode recusar.' })
+  db.prepare("UPDATE transferencias SET status='recusada', resolvido_em=datetime('now','localtime') WHERE id=?").run(t.id)
+  audit(req.user.id, 'RECUSAR_TRANSFERENCIA', 'transferencias', t.id, {})
+  res.json({ ok: true })
+})
+
+// Líder que enviou CANCELA a pendência antes do outro responder.
+app.post('/api/equipe/transferencias/:id/cancelar', auth(['lider']), (req, res) => {
+  const t = db.prepare("SELECT * FROM transferencias WHERE id=? AND status='pendente'").get(req.params.id)
+  if (!t) return res.status(404).json({ error: 'Transferência não encontrada ou já resolvida' })
+  if (t.de_lider_id !== req.user.id) return res.status(403).json({ error: 'Só quem enviou pode cancelar.' })
+  db.prepare("UPDATE transferencias SET status='cancelada', resolvido_em=datetime('now','localtime') WHERE id=?").run(t.id)
+  res.json({ ok: true })
 })
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -2207,16 +2369,35 @@ app.get('/api/dashboard', auth(), (req, res) => {
     s.cautelas_aguardando = db.prepare("SELECT COUNT(*) n FROM cautelas WHERE status='aguardando_retirada'").get().n
     s.cautelas_ativas     = db.prepare("SELECT COUNT(*) n FROM cautelas WHERE status='ativa'").get().n
     if (u.is_master) s.valor_em_campo = db.prepare("SELECT COALESCE(SUM(valor_total),0) v FROM cautelas WHERE status='ativa'").get().v
-    // Consolidação multi-obra: cautelas ativas e valor em campo por obra (painel Enterprise).
+    // Consolidação multi-obra DINÂMICA: o valor em campo segue a obra ATUAL do colaborador
+    // que está com a ferramenta (não a obra carimbada na criação). Mover o colaborador de
+    // obra redistribui o valor sozinho. Fonte: entregas ativas + cautelas diretas do operário.
+    const posseSQL = `
+      SELECT ce.cautela_id, u.obra_id, cei.quantidade * COALESCE(f.valor_unitario,0) valor
+      FROM cautela_entregas ce
+      JOIN cautela_entrega_itens cei ON cei.entrega_id=ce.id
+      JOIN ferramentas f ON f.id=cei.ferramenta_id
+      JOIN usuarios u ON u.id=ce.operario_id
+      WHERE ce.status='ativa'
+      UNION ALL
+      SELECT c.id cautela_id, u.obra_id, c.valor_total valor
+      FROM cautelas c JOIN usuarios u ON u.id=c.lider_id
+      WHERE c.status='ativa' AND c.cautela_tipo='direto'`
     s.por_obra = db.prepare(`
       SELECT ob.id obra_id, ob.nome obra_nome,
-        COUNT(c.id) cautelas_ativas,
-        COALESCE(SUM(c.valor_total),0) valor_em_campo
+        COUNT(DISTINCT h.cautela_id) cautelas_ativas,
+        COALESCE(SUM(h.valor),0) valor_em_campo
       FROM obras ob
-      LEFT JOIN cautelas c ON c.obra_id=ob.id AND c.status='ativa'
+      LEFT JOIN (${posseSQL}) h ON h.obra_id=ob.id
       WHERE ob.ativo=1
       GROUP BY ob.id, ob.nome
       ORDER BY valor_em_campo DESC, ob.nome`).all()
+    // Bucket "Sem obra": colaboradores sem obra atual que ainda seguram ferramenta.
+    const semObra = db.prepare(`
+      SELECT COUNT(DISTINCT h.cautela_id) cautelas_ativas, COALESCE(SUM(h.valor),0) valor_em_campo
+      FROM (${posseSQL}) h WHERE h.obra_id IS NULL`).get()
+    if (semObra && (semObra.cautelas_ativas > 0 || semObra.valor_em_campo > 0))
+      s.por_obra.push({ obra_id: null, obra_nome: 'Sem obra', cautelas_ativas: semObra.cautelas_ativas, valor_em_campo: semObra.valor_em_campo })
     s.solicitacoes_recentes = db.prepare(`
       SELECT s.id,s.numero,s.status,s.criado_em,l.nome lider_nome
       FROM solicitacoes s JOIN usuarios l ON l.id=s.lider_id

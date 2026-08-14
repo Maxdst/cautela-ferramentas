@@ -119,6 +119,29 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 - **Deploy:** `railway up --detach --service cautela-ferramentas` após revisar o PR/branch. Nada muda
   para quem não cadastrar obras (a seção só aparece quando há obras ativas).
 
+## Módulo Equipe do líder / Colaborador volátil (⏳ EM BRANCH `claude/multi-obra` — aguardando deploy)
+> Evolução do multi-obra: a **obra passa a "morar" no colaborador**, não na cautela. O colaborador é
+> volátil (circula entre obras e líderes carregando as ferramentas). Validado com teste de integração
+> ponta a ponta (20/20 asserts) + JSX compila.
+- **Conceito-chave:** a cautela está atrelada a **quem segura a ferramenta** (operário). O **valor em
+  campo por obra é DINÂMICO** — atribuído pela **obra atual do colaborador** (via entregas ativas +
+  cautelas diretas), não pela obra carimbada na criação. Mover o colaborador redistribui o valor sozinho.
+- **Schema:** `addCol('usuarios','lider_id')` (líder responsável atual). Nova tabela `transferencias`
+  (colaborador, de_lider, para_lider, obra, status pendente/aceita/recusada/cancelada, timestamps).
+  Migração aditiva idempotente (Markat-safe — testado com 2º boot no mesmo DB).
+- **Tela "Minha equipe" (só do líder):** lista os colaboradores dele (`lider_id = eu`) com **nº de
+  cautelas ativas e valor em posse**, detalhe por colaborador (quais ferramentas), e ação **Mover**.
+- **Handoff com aceite (segurança):** mover só de **obra** dentro da própria equipe = **imediato**.
+  Passar para **outro líder** = **transferência PENDENTE** — o colaborador (e o valor) **continua na
+  equipe de origem** até o líder que recebe **ACEITAR**. Só o destinatário pode aceitar/recusar; o
+  remetente pode cancelar. Trilha auditável (`audit` em transferir/aceitar/recusar).
+- **Endpoints:** `GET /api/equipe`, `GET /api/equipe/:id/cautelas`, `POST /api/equipe/mover`,
+  `POST /api/equipe/transferencias/:id/{aceitar,recusar,cancelar}`. `lider_id` no CRUD de usuários;
+  auto-semeadura do `lider_id` na 1ª entrega ao operário. Badge/toast em `/notificacoes`
+  (`transferencias_recebidas`). Dashboard `por_obra` reescrito para atribuição dinâmica + bucket "Sem obra".
+- **Frontend:** aba **Minha equipe** (sidebar + bottom-nav do líder, com badge), campo **Líder
+  responsável** no cadastro de operário, ícone `users`/`handshake`.
+
 ## Estoque × solicitações (modelo de disponibilidade)
 - Disponibilidade é **calculada**, nunca armazenada:
   `disponivel = quantidade_total − reservado(solicitação 'solicitada'/'separando')

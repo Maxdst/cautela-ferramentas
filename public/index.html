@@ -2829,16 +2829,157 @@ function ObrasPage({ addToast }) {
   )
 }
 
+// ─── MINHA EQUIPE (líder) — colaborador volátil + transferência com aceite ─────
+function EquipePage({ user, addToast }) {
+  const [data, setData] = useState({ membros: [], pendentes_recebimento: [], pendentes_envio: [], total_valor: 0, total_cautelas: 0 })
+  const [obras, setObras] = useState([])
+  const [lideres, setLideres] = useState([])
+  const [openId, setOpenId] = useState(null)
+  const [detalhe, setDetalhe] = useState({})
+  const [mov, setMov] = useState({ obra_id: '', para_lider_id: '' })
+  const [busy, setBusy] = useState(false)
+
+  const load = () => GET('/equipe').then(setData).catch(e=>addToast(e.message,'error'))
+  useEffect(() => {
+    load()
+    GET('/obras').then(setObras).catch(()=>{})
+    GET('/usuarios/lideres').then(setLideres).catch(()=>{})
+  }, [])
+
+  const lideresDisp = lideres.filter(l => l.id !== user.id)
+
+  const toggle = (m) => {
+    if (openId === m.id) { setOpenId(null); return }
+    setOpenId(m.id)
+    setMov({ obra_id: m.obra_id || '', para_lider_id: '' })
+    if (!detalhe[m.id]) GET(`/equipe/${m.id}/cautelas`).then(cs => setDetalhe(d => ({...d, [m.id]: cs}))).catch(()=>{})
+  }
+
+  const mover = async (m) => {
+    setBusy(true)
+    try {
+      const r = await POST('/equipe/mover', { colaborador_id: m.id, obra_id: mov.obra_id || null, para_lider_id: mov.para_lider_id || null })
+      if (r.pendente) addToast(`Transferência enviada — aguardando ${r.para_lider_nome} confirmar o recebimento.`, 'warning')
+      else addToast('Colaborador movido de obra.', 'success')
+      setOpenId(null); load()
+    } catch(e) { addToast(e.message,'error') } finally { setBusy(false) }
+  }
+
+  const responder = async (t, acao) => {
+    try {
+      await POST(`/equipe/transferencias/${t.id}/${acao}`)
+      addToast(acao==='aceitar' ? `${t.colaborador_nome} entrou na sua equipe.` : 'Transferência recusada.', acao==='aceitar'?'success':'warning')
+      load()
+    } catch(e) { addToast(e.message,'error') }
+  }
+  const cancelarEnvio = async (t) => {
+    try { await POST(`/equipe/transferencias/${t.id}/cancelar`); addToast('Transferência cancelada.','warning'); load() }
+    catch(e){ addToast(e.message,'error') }
+  }
+
+  return (
+    <div style={{maxWidth:760,margin:'0 auto'}}>
+      <div className="topbar"><h2>Minha equipe</h2></div>
+
+      <div className="card" style={{display:'flex',gap:28,flexWrap:'wrap',marginBottom:16}}>
+        <div><div className="text-muted" style={{fontSize:'.74rem'}}>Colaboradores</div><div style={{fontSize:'1.35rem',fontWeight:700}}>{data.membros.length}</div></div>
+        <div><div className="text-muted" style={{fontSize:'.74rem'}}>Cautelas ativas</div><div style={{fontSize:'1.35rem',fontWeight:700}}>{data.total_cautelas}</div></div>
+        <div><div className="text-muted" style={{fontSize:'.74rem'}}>Valor em campo</div><div style={{fontSize:'1.35rem',fontWeight:700}}>{fmtBRL(data.total_valor)}</div></div>
+      </div>
+
+      {data.pendentes_recebimento.length > 0 && (
+        <div className="card" style={{marginBottom:16,borderLeft:'3px solid #4A90A4'}}>
+          <h3 style={{margin:'0 0 6px',display:'flex',alignItems:'center',gap:8,fontSize:'1rem'}}><Icon name="handshake" size={18}/> Recebimentos pendentes</h3>
+          {data.pendentes_recebimento.map(t => (
+            <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',padding:'10px 0',borderTop:'1px solid var(--border,#eee)'}}>
+              <div>
+                <strong>{t.colaborador_nome}</strong> <span className="text-muted">— de {t.de_lider_nome||'—'}</span>
+                <div className="text-muted" style={{fontSize:'.82rem'}}>
+                  {t.posse.cautelas} cautela(s) · {fmtBRL(t.posse.valor)}{t.obra_nome ? ` · vai p/ ${t.obra_nome}` : ''}
+                </div>
+              </div>
+              <div className="gap-8">
+                <button className="btn btn-ghost btn-sm" onClick={()=>responder(t,'recusar')}>Recusar</button>
+                <button className="btn btn-primary btn-sm" onClick={()=>responder(t,'aceitar')}><Icon name="check" size={14}/> Aceitar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data.pendentes_envio.length > 0 && (
+        <div className="card" style={{marginBottom:16}}>
+          <h4 style={{margin:'0 0 6px',fontSize:'.9rem'}}>Aguardando aceite do outro líder</h4>
+          {data.pendentes_envio.map(t => (
+            <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,fontSize:'.85rem',padding:'5px 0'}}>
+              <span>{t.colaborador_nome} → <strong>{t.para_lider_nome}</strong>{t.obra_nome?` (${t.obra_nome})`:''}</span>
+              <button className="btn btn-ghost btn-sm" onClick={()=>cancelarEnvio(t)}>Cancelar</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="card">
+        {data.membros.length === 0 ? (
+          <div className="empty"><div className="empty-icon"><Icon name="users" size={32}/></div><p>Nenhum colaborador na sua equipe ainda.</p><p className="text-muted" style={{fontSize:'.82rem'}}>Ao entregar uma cautela a um operário, ele entra automaticamente na sua equipe.</p></div>
+        ) : data.membros.map(m => (
+          <div key={m.id} style={{borderBottom:'1px solid var(--border,#eee)'}}>
+            <button onClick={()=>toggle(m)} style={{width:'100%',background:'none',border:'none',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'12px 4px',textAlign:'left',color:'inherit'}}>
+              <div>
+                <div style={{fontWeight:600}}>{m.nome}</div>
+                <div className="text-muted" style={{fontSize:'.8rem'}}>{m.obra_nome || 'Sem obra'}{m.cargo?` · ${m.cargo}`:''}</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontWeight:600}}>{fmtBRL(m.valor_em_posse)}</div>
+                <div className="text-muted" style={{fontSize:'.78rem'}}>{m.cautelas_ativas} cautela(s)</div>
+              </div>
+            </button>
+            {openId === m.id && (
+              <div style={{padding:'2px 8px 16px'}}>
+                {(detalhe[m.id]||[]).length > 0 ? (
+                  <ul style={{margin:'0 0 12px',paddingLeft:18,fontSize:'.84rem'}}>
+                    {detalhe[m.id].map((c,i)=>(<li key={i} style={{marginBottom:3}}><strong>{c.numero}</strong> — {c.itens||'—'} <span className="text-muted">({fmtBRL(c.valor)})</span></li>))}
+                  </ul>
+                ) : <p className="text-muted" style={{fontSize:'.82rem',margin:'2px 0 12px'}}>Sem ferramentas em posse no momento.</p>}
+                <div className="form-grid">
+                  <div className="form-group"><label>Mover para obra</label>
+                    <select value={mov.obra_id} onChange={e=>setMov({...mov, obra_id:e.target.value})}>
+                      <option value="">Sem obra</option>
+                      {obras.map(o=><option key={o.id} value={o.id}>{o.nome}{o.codigo?` (${o.codigo})`:''}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group"><label>Passar para outro líder (opcional)</label>
+                    <select value={mov.para_lider_id} onChange={e=>setMov({...mov, para_lider_id:e.target.value})}>
+                      <option value="">Manter na minha equipe</option>
+                      {lideresDisp.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {mov.para_lider_id && <p className="text-muted" style={{fontSize:'.8rem',margin:'6px 0 0',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={13}/> O colaborador só migra quando o líder que recebe confirmar o recebimento.</p>}
+                <div style={{marginTop:12,justifyContent:'flex-end',display:'flex',gap:8}}>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>setOpenId(null)}>Cancelar</button>
+                  <button className="btn btn-primary btn-sm" disabled={busy} onClick={()=>mover(m)}><Icon name={mov.para_lider_id?'handshake':'check'} size={14}/> {mov.para_lider_id?'Enviar transferência':'Salvar obra'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
 function UsuariosPage({ addToast }) {
   const [lista, setLista] = useState([])
   const [obras, setObras] = useState([])
+  const [lideres, setLideres] = useState([])
   const [openId, setOpenId] = useState(null)
   const [form, setForm] = useState({})
   const [filtroRole, setFiltroRole] = useState('')
   const [confirmDel, setConfirmDel] = useState(false)
   const load = () => GET('/usuarios').then(setLista)
-  useEffect(() => { load(); GET('/obras').then(setObras).catch(()=>{}) }, [])
+  useEffect(() => { load(); GET('/obras').then(setObras).catch(()=>{}); GET('/usuarios/lideres').then(setLideres).catch(()=>{}) }, [])
   const abrirNovo = () => { setForm({role:'operario',ativo:true}); setConfirmDel(false); setOpenId('new') }
   const toggle = u => {
     if (openId === u.id) { fechar(); return }
@@ -2889,6 +3030,14 @@ function UsuariosPage({ addToast }) {
               <select value={form.obra_id||''} onChange={e=>setForm({...form,obra_id:e.target.value})}>
                 <option value="">Sem obra fixa</option>
                 {obras.map(o=><option key={o.id} value={o.id}>{o.nome}{o.codigo?` (${o.codigo})`:''}</option>)}
+              </select>
+            </div>
+          )}
+          {form.role==='operario' && (
+            <div className="form-group"><label>Líder responsável</label>
+              <select value={form.lider_id||''} onChange={e=>setForm({...form,lider_id:e.target.value})}>
+                <option value="">Sem líder definido</option>
+                {lideres.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
               </select>
             </div>
           )}
@@ -3123,6 +3272,7 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
     { id: 'dashboard', icon: 'dashboard', label: 'Painel', show: true },
     { id: 'solicitacoes', icon: 'clipboard', label: 'Solicitações', show: alm || lider, badge: alm ? ((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)) : (notif.sol_prontas||0) },
     { id: 'nova-solicitacao', icon: 'plus', label: 'Nova Solicitação', show: lider },
+    { id: 'equipe', icon: 'users', label: 'Minha equipe', show: lider, badge: notif.transferencias_recebidas||0 },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || op },
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm || lider || op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes / EPI', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
@@ -3168,6 +3318,7 @@ function BottomNav({ user, page, navigate, notif }) {
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel' },
     { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider },
+    { id: 'equipe', icon: 'users', label: 'Equipe', show: lider, badge: notif.transferencias_recebidas||0 },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||op },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm||lider||op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
@@ -3218,6 +3369,8 @@ function App() {
         const curr = n.sol_prontas || 0
         const ante = prev.sol_prontas || 0
         if (curr > 0 && curr !== ante) addToast(`${curr} solicitação(ões) pronta(s) para retirada!`, 'warning')
+        const tCurr = n.transferencias_recebidas || 0, tAnte = prev.transferencias_recebidas || 0
+        if (tCurr > tAnte) addToast(`Você recebeu ${tCurr} pedido(s) de transferência de colaborador — confirme na aba Minha equipe`, 'warning')
       }
       // Toast para operário quando tem empréstimo aguardando confirmação
       if (user.role === 'operario') {
@@ -3252,6 +3405,7 @@ function App() {
     if (page === 'dashboard') return <Dashboard {...props} />
     if (page === 'solicitacoes') return <SolicitacoesPage {...props} />
     if (page === 'nova-solicitacao') return <NovaSolicitacaoPage {...props} />
+    if (page === 'equipe') return <EquipePage {...props} />
     if (page === 'cautelas') return <CautelasPage {...props} />
     if (page === 'emprestimos') return <EmprestimosPage {...props} />
     if (page === 'uniformes') return <UniformesPage {...props} />

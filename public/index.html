@@ -2970,6 +2970,33 @@ function EquipePage({ user, addToast }) {
   )
 }
 
+// ─── AUDITORIA DA EQUIPE (líder) — histórico só dos colaboradores dele ─────────
+function EquipeAuditoriaPage({ addToast }) {
+  const [ev, setEv] = useState(null)
+  useEffect(()=>{ GET('/equipe/auditoria').then(setEv).catch(e=>{ addToast(e.message,'error'); setEv([]) }) }, [])
+  const icone = t => t==='recebeu' ? 'package' : t==='devolveu' ? 'undo' : t==='transferencia' ? 'handshake' : 'history'
+  const cor   = t => t==='recebeu' ? '#A07C4E' : t==='devolveu' ? '#4A90A4' : '#6b7280'
+  return (
+    <div style={{maxWidth:760,margin:'0 auto'}}>
+      <div className="topbar"><h2>Auditoria da equipe</h2></div>
+      <p className="text-muted" style={{margin:'-6px 0 14px',fontSize:'.84rem'}}>Histórico de retiradas, devoluções e transferências dos colaboradores da sua equipe.</p>
+      <div className="card">
+        {ev===null ? <p className="text-muted" style={{padding:12}}>Carregando…</p> :
+         ev.length===0 ? <div className="empty"><div className="empty-icon"><Icon name="history" size={32}/></div><p>Sem movimentações registradas ainda.</p></div> :
+         ev.map((e,i)=>(
+          <div key={i} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'10px 2px',borderBottom:'1px solid var(--border,#eee)'}}>
+            <span style={{marginTop:2,color:cor(e.tipo),flexShrink:0}}><Icon name={icone(e.tipo)} size={16}/></span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:'.88rem'}}><strong>{e.colaborador_nome}</strong> {e.descricao}{e.ref?` · ${e.ref}`:''}</div>
+              <div className="text-muted" style={{fontSize:'.76rem'}}>{(e.data||'').slice(0,16)}{e.valor?` · ${fmtBRL(e.valor)}`:''}</div>
+            </div>
+          </div>
+         ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
 function UsuariosPage({ addToast }) {
   const [lista, setLista] = useState([])
@@ -3274,6 +3301,7 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
     { id: 'solicitacoes', icon: 'clipboard', label: 'Solicitações', show: alm || lider, badge: alm ? ((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)) : (notif.sol_prontas||0) },
     { id: 'nova-solicitacao', icon: 'plus', label: 'Nova Solicitação', show: lider },
     { id: 'equipe', icon: 'users', label: 'Minha equipe', show: lider, badge: notif.transferencias_recebidas||0 },
+    { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: lider },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || op },
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm || lider || op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes / EPI', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
@@ -3407,6 +3435,7 @@ function App() {
     if (page === 'solicitacoes') return <SolicitacoesPage {...props} />
     if (page === 'nova-solicitacao') return <NovaSolicitacaoPage {...props} />
     if (page === 'equipe') return <EquipePage {...props} />
+    if (page === 'equipe-auditoria') return <EquipeAuditoriaPage {...props} />
     if (page === 'cautelas') return <CautelasPage {...props} />
     if (page === 'emprestimos') return <EmprestimosPage {...props} />
     if (page === 'uniformes') return <UniformesPage {...props} />

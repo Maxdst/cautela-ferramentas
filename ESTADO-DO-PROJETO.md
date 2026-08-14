@@ -135,7 +135,15 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
   Passar para **outro líder** = **transferência PENDENTE** — o colaborador (e o valor) **continua na
   equipe de origem** até o líder que recebe **ACEITAR**. Só o destinatário pode aceitar/recusar; o
   remetente pode cancelar. Trilha auditável (`audit` em transferir/aceitar/recusar).
-- **Endpoints:** `GET /api/equipe`, `GET /api/equipe/:id/cautelas`, `POST /api/equipe/mover`,
+- **Papel do líder = gestão à vista / auditoria (não custódia):** o responsável direto por cada
+  ferramenta é o **colaborador que retira**, até devolver ao almoxarifado. O painel do líder foi
+  reescrito nesse tom (saiu "Minha responsabilidade"; entrou "Em campo — minha equipe"). O painel do
+  **operário** mantém "Valor sob minha responsabilidade" (ali o rótulo é correto).
+- **Auditoria da equipe:** aba **Auditoria** (só do líder) com o histórico — retiradas, devoluções e
+  transferências — **escopado aos colaboradores da equipe dele** (`GET /api/equipe/auditoria`,
+  escopo `usuarios.lider_id = líder`).
+- **Endpoints:** `GET /api/equipe`, `GET /api/equipe/:id/cautelas`, `GET /api/equipe/auditoria`,
+  `POST /api/equipe/mover`,
   `POST /api/equipe/transferencias/:id/{aceitar,recusar,cancelar}`. `lider_id` no CRUD de usuários;
   auto-semeadura do `lider_id` na 1ª entrega ao operário. Badge/toast em `/notificacoes`
   (`transferencias_recebidas`). Dashboard `por_obra` reescrito para atribuição dinâmica + bucket "Sem obra".

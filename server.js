@@ -2293,6 +2293,52 @@ app.get('/api/equipe/:colaboradorId/cautelas', auth(['lider']), (req, res) => {
   res.json([...entregas, ...diretas])
 })
 
+// Auditoria da equipe: histórico de retiradas, devoluções e transferências dos colaboradores
+// que pertencem a este líder (gestão à vista dos processos da equipe dele — não custódia).
+app.get('/api/equipe/auditoria', auth(['lider']), (req, res) => {
+  const ev = []
+  // Entregas (recebimento e devolução) dos operários da minha equipe
+  const entregas = db.prepare(`
+    SELECT ce.data_entrega, ce.data_devolucao, o.nome colaborador_nome, c.numero,
+      (SELECT GROUP_CONCAT(f.nome,', ') FROM cautela_entrega_itens cei JOIN ferramentas f ON f.id=cei.ferramenta_id WHERE cei.entrega_id=ce.id) itens,
+      (SELECT COALESCE(SUM(cei.quantidade*COALESCE(f.valor_unitario,0)),0) FROM cautela_entrega_itens cei JOIN ferramentas f ON f.id=cei.ferramenta_id WHERE cei.entrega_id=ce.id) valor
+    FROM cautela_entregas ce
+    JOIN usuarios o ON o.id=ce.operario_id
+    JOIN cautelas c ON c.id=ce.cautela_id
+    WHERE o.lider_id=?`).all(req.user.id)
+  for (const e of entregas) {
+    if (e.data_entrega)   ev.push({ data: e.data_entrega,   colaborador_nome: e.colaborador_nome, tipo:'recebeu',  descricao:`recebeu ${e.itens||'—'}`,  ref:e.numero, valor:e.valor })
+    if (e.data_devolucao) ev.push({ data: e.data_devolucao, colaborador_nome: e.colaborador_nome, tipo:'devolveu', descricao:`devolveu ${e.itens||'—'}`, ref:e.numero, valor:e.valor })
+  }
+  // Cautelas diretas (operário retira/devolve pessoalmente)
+  const diretas = db.prepare(`
+    SELECT c.numero, c.data_retirada, c.data_devolucao, o.nome colaborador_nome, c.valor_total valor,
+      (SELECT GROUP_CONCAT(f.nome,', ') FROM cautela_itens ci JOIN ferramentas f ON f.id=ci.ferramenta_id WHERE ci.cautela_id=c.id) itens
+    FROM cautelas c JOIN usuarios o ON o.id=c.lider_id
+    WHERE c.cautela_tipo='direto' AND o.lider_id=?`).all(req.user.id)
+  for (const c of diretas) {
+    if (c.data_retirada)  ev.push({ data: c.data_retirada,  colaborador_nome: c.colaborador_nome, tipo:'recebeu',  descricao:`retirou ${c.itens||'—'} (cautela direta)`,  ref:c.numero, valor:c.valor })
+    if (c.data_devolucao) ev.push({ data: c.data_devolucao, colaborador_nome: c.colaborador_nome, tipo:'devolveu', descricao:`devolveu ${c.itens||'—'} (cautela direta)`, ref:c.numero, valor:c.valor })
+  }
+  // Transferências em que este líder participou (enviou ou recebeu)
+  const trs = db.prepare(`
+    SELECT t.status, t.criado_em, t.resolvido_em, col.nome colaborador_nome,
+           dl.nome de_lider_nome, pl.nome para_lider_nome, ob.nome obra_nome
+    FROM transferencias t
+    JOIN usuarios col ON col.id=t.colaborador_id
+    LEFT JOIN usuarios dl ON dl.id=t.de_lider_id
+    LEFT JOIN usuarios pl ON pl.id=t.para_lider_id
+    LEFT JOIN obras ob ON ob.id=t.obra_id
+    WHERE t.de_lider_id=? OR t.para_lider_id=?`).all(req.user.id, req.user.id)
+  const stLabel = { pendente:'aguardando aceite', aceita:'aceita', recusada:'recusada', cancelada:'cancelada' }
+  for (const t of trs) {
+    ev.push({ data: t.resolvido_em || t.criado_em, colaborador_nome: t.colaborador_nome, tipo:'transferencia',
+      descricao:`transferência ${t.de_lider_nome||'—'} → ${t.para_lider_nome||'—'}${t.obra_nome?` (${t.obra_nome})`:''} — ${stLabel[t.status]||t.status}`, ref:null, valor:null })
+  }
+  ev.sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')))
+  res.json(ev.slice(0, 150))
+})
+
 // Mover colaborador: troca de obra (imediata, na própria equipe) e/ou passa p/ outro líder (pendente).
 app.post('/api/equipe/mover', auth(['lider']), (req, res) => {
   const { colaborador_id, obra_id, para_lider_id } = req.body

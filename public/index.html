@@ -103,6 +103,7 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .badge-almoxarifado{background:#fdf4ff;color:#7e22ce}
 .badge-administracao{background:#fef9c3;color:#854d0e}
 .badge-compras{background:#e0f2fe;color:#075985}
+.badge-diretor{background:#f4ecdf;color:#8B6B3D}
 /* Módulo Uniformes / EPI */
 .uni-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
 .uni-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);background:var(--card);border-radius:8px;cursor:pointer;font-size:.85rem;color:var(--text-secondary);font-weight:600}
@@ -264,6 +265,12 @@ function fmtBRL(v) {
   if (!v) return 'R$ 0,00'
   return 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 }
+// Iniciais para avatar (1ª e última palavra do nome).
+function iniciais(nome) {
+  const p = String(nome||'').trim().split(/\s+/).filter(Boolean)
+  if (!p.length) return '?'
+  return (p[0][0] + (p.length>1 ? p[p.length-1][0] : '')).toUpperCase()
+}
 
 const STATUS_LABEL = {
   solicitada: 'Solicitada', separando: 'Separando', pronta: 'Pronto p/ retirada',
@@ -272,7 +279,7 @@ const STATUS_LABEL = {
   aguardando_tomador: 'Aguard. confirmação', aguardando_lider: 'Aguard. líder',
   ativo: 'Ativo', devolvido: 'Devolvido', recusado: 'Recusado'
 }
-const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário', administracao: 'Administração', compras: 'Compras' }
+const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário', administracao: 'Administração', compras: 'Compras', diretor: 'Diretor de Operações' }
 // Perfis com acesso ao módulo Uniformes/EPI (mesmo conjunto do backend UNIF_ROLES).
 const PERFIS_UNIFORME = ['almoxarifado', 'administracao', 'compras']
 
@@ -575,6 +582,30 @@ function Dashboard({ user, navigate, addToast }) {
       )}
       <div className="card"><div className="card-body" style={{textAlign:'center',padding:24}}>
         <button className="btn btn-primary" onClick={()=>navigate('uniformes')}><Icon name="shirt" size={15}/> Ir para Uniformes / EPI</button>
+      </div></div>
+    </div>
+  )
+
+  // Diretor de Operações: painel de gestão à vista das obras (não custódia).
+  if (user.role === 'diretor') return (
+    <div>
+      <div className="topbar"><h2>Painel — Diretor de Operações</h2></div>
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="building" size={14}/></span>Obras</div>
+        <div className="stats-grid">
+          <div className="stat-card blue"><div className="stat-label">Obras ativas</div><div className="stat-value">{stats.obras_ativas||0}</div></div>
+          <div className="stat-card"><div className="stat-label">Com líder definido</div><div className="stat-value">{stats.obras_com_lider||0}</div></div>
+          <div className="stat-card red"><div className="stat-label">Sem líder</div><div className="stat-value">{stats.obras_sem_lider||0}</div></div>
+        </div>
+      </div>
+      {(stats.obras_sem_lider||0) > 0 && (
+        <div className="pending-banner">
+          <span className="msg" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> {stats.obras_sem_lider} obra(s) sem líder responsável — atribua para o líder enxergar a obra.</span>
+          <button className="btn btn-accent btn-sm" onClick={()=>navigate('obras')}>Atribuir agora →</button>
+        </div>
+      )}
+      <div className="card"><div className="card-body" style={{textAlign:'center',padding:24}}>
+        <button className="btn btn-primary" onClick={()=>navigate('obras')}><Icon name="building" size={15}/> Gerir obras e responsáveis</button>
       </div></div>
     </div>
   )
@@ -2762,11 +2793,12 @@ function BolsasPage({ addToast }) {
 // ─── OBRAS / CANTEIROS ────────────────────────────────────────────────────────
 function ObrasPage({ addToast }) {
   const [lista, setLista] = useState([])
+  const [lideres, setLideres] = useState([])
   const [openId, setOpenId] = useState(null)
   const [form, setForm] = useState({})
   const [confirmDel, setConfirmDel] = useState(false)
   const load = () => GET('/obras?all=1').then(setLista).catch(()=>{})
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); GET('/usuarios/lideres').then(setLideres).catch(()=>{}) }, [])
   const abrirNovo = () => { setForm({ativo:true}); setConfirmDel(false); setOpenId('new') }
   const toggle = o => { if (openId === o.id) { fechar(); return } setForm({...o}); setConfirmDel(false); setOpenId(o.id) }
   const fechar = () => { setOpenId(null); setConfirmDel(false) }
@@ -2800,7 +2832,14 @@ function ObrasPage({ addToast }) {
         <div className="form-grid">
           <div className="form-group"><label>Nome da obra *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex.: Residencial Vista Mar" /></div>
           <div className="form-group"><label>Código / Contrato</label><input value={form.codigo||''} onChange={e=>setForm({...form,codigo:e.target.value})} placeholder="OBR-01" /></div>
-          <div className="form-group"><label>Responsável</label><input value={form.responsavel||''} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Eng. responsável" /></div>
+          <div className="form-group"><label>Responsável (engenharia)</label><input value={form.responsavel||''} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Eng. responsável" /></div>
+          <div className="form-group"><label>Líder responsável</label>
+            <select value={form.lider_id||''} onChange={e=>setForm({...form,lider_id:e.target.value})}>
+              <option value="">Sem líder definido</option>
+              {lideres.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
+            </select>
+            <span className="text-muted" style={{fontSize:'.72rem',marginTop:4,display:'block'}}>O líder só enxerga a obra depois de ser definido aqui.</span>
+          </div>
           <div className="form-group"><label>Endereço</label><input value={form.endereco||''} onChange={e=>setForm({...form,endereco:e.target.value})} /></div>
           {form.id && <div className="form-group"><label>Status</label>
             <select value={form.ativo?'1':'0'} onChange={e=>setForm({...form,ativo:e.target.value==='1'})}>
@@ -2820,11 +2859,112 @@ function ObrasPage({ addToast }) {
           itens={lista} keyOf={o=>o.id} abertoId={openId} onToggle={toggle}
           novoAberto={openId==='new'} painelNovo={painel()} painel={()=>painel()} vazio={vazio}
           resumo={o=>({
-            titulo: <><span className="nm">{o.nome}</span>{!o.ativo && <span className="badge badge-devolvida" style={{fontSize:'.62rem',padding:'1px 7px'}}>Inativa</span>}</>,
-            direita: o.codigo ? <span className="text-muted" style={{fontSize:'.8rem'}}>{o.codigo}</span> : null
+            titulo: <><span className="nm">{o.nome}</span>{o.codigo && <span className="text-muted" style={{fontSize:'.72rem',marginLeft:6}}>{o.codigo}</span>}{!o.ativo && <span className="badge badge-devolvida" style={{fontSize:'.62rem',padding:'1px 7px',marginLeft:6}}>Inativa</span>}</>,
+            direita: o.lider_nome
+              ? <span className="badge badge-lider" style={{fontSize:'.68rem'}}>{o.lider_nome}</span>
+              : <span style={{fontSize:'.72rem',color:'var(--warning)',display:'inline-flex',alignItems:'center',gap:4,fontWeight:600}}><Icon name="alertTriangle" size={12}/> Sem líder</span>
           })}
         />
       </div>
+    </div>
+  )
+}
+
+// ─── OBRAS (líder) — Kanban: arrasta colaborador da equipe entre as obras dele ─
+// Colunas = obras atribuídas ao líder (+ "Sem obra"). Mover entre as próprias obras
+// é imediato (POST /equipe/mover). Passar p/ outro líder (com aceite) fica na aba equipe.
+function ObrasLiderPage({ user, addToast }) {
+  const [obras, setObras] = useState([])
+  const [membros, setMembros] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [dragId, setDragId] = useState(null)
+  const [overCol, setOverCol] = useState(undefined)  // obra_id sob o cursor (null = coluna "Sem obra")
+  const [busyId, setBusyId] = useState(null)
+
+  const load = () => {
+    setLoading(true)
+    Promise.all([ GET('/obras'), GET('/equipe') ])
+      .then(([o, eq]) => { setObras(o||[]); setMembros((eq&&eq.membros)||[]) })
+      .catch(e => addToast(e.message,'error'))
+      .finally(()=>setLoading(false))
+  }
+  useEffect(load, [])
+
+  const colObraIds = new Set(obras.map(o=>o.id))
+  // obra "efetiva" do membro: só conta se for uma obra do líder; senão cai em "Sem obra".
+  const obraDe = (m) => (m.obra_id && colObraIds.has(m.obra_id)) ? m.obra_id : null
+  const colunas = [{ id: null, nome: 'Sem obra', semObra: true }, ...obras]
+  const membrosDaColuna = (colId) => membros.filter(m => obraDe(m) === (colId || null))
+
+  const mover = async (colaborador_id, obra_id) => {
+    const atual = membros.find(m=>m.id===colaborador_id)
+    const destino = obra_id || null
+    if (obraDe(atual||{}) === destino) return
+    setBusyId(colaborador_id)
+    try {
+      await POST('/equipe/mover', { colaborador_id, obra_id: destino, para_lider_id: null })
+      const nome = destino ? ((obras.find(o=>o.id===destino)||{}).nome || 'obra') : 'Sem obra'
+      setMembros(ms => ms.map(m => m.id===colaborador_id ? {...m, obra_id: destino} : m))
+      addToast(`${atual?atual.nome:'Colaborador'} movido para ${nome}.`, 'success')
+    } catch(e){ addToast(e.message,'error'); load() }
+    finally { setBusyId(null); setDragId(null); setOverCol(undefined) }
+  }
+
+  if (loading) return <div style={{padding:24,color:'var(--text-secondary)'}}>Carregando obras…</div>
+
+  return (
+    <div>
+      <div className="topbar"><h2>Obras</h2></div>
+      <p className="text-muted" style={{margin:'-6px 0 14px',fontSize:'.84rem'}}>Suas obras e quem está em cada uma. Arraste o colaborador (ou use o seletor no card) para movê-lo de obra na hora — imediato, dentro da sua equipe.</p>
+
+      {obras.length === 0 ? (
+        <div className="card"><div className="empty"><div className="empty-icon"><Icon name="building" size={32}/></div><p>Nenhuma obra atribuída a você ainda.</p><p className="text-muted" style={{fontSize:'.82rem'}}>O Diretor de Operações ou o Almoxarifado define quais obras são suas.</p></div></div>
+      ) : (
+        <div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:10,alignItems:'flex-start'}}>
+          {colunas.map(col => {
+            const ms = membrosDaColuna(col.id)
+            const total = ms.reduce((s,m)=>s+(m.valor_em_posse||0),0)
+            const over = overCol === (col.id||null)
+            return (
+              <div key={col.id||'sem'}
+                onDragOver={e=>{ e.preventDefault(); setOverCol(col.id||null) }}
+                onDragLeave={()=>setOverCol(prev => prev===(col.id||null) ? undefined : prev)}
+                onDrop={()=>{ if(dragId!=null) mover(dragId, col.id) }}
+                style={{minWidth:222,maxWidth:264,flex:'0 0 auto',background:'var(--card)',border:`1.5px ${over?'dashed':'solid'} ${over?'var(--primary-accent)':'var(--border)'}`,borderRadius:12,padding:11,transition:'border-color .15s'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{width:30,height:30,borderRadius:8,background:col.semObra?'var(--silver)':'var(--primary-light)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={col.semObra?'users':'building'} size={16}/></span>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontWeight:600,fontSize:'.9rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{col.nome}{col.codigo?<span className="text-muted" style={{fontWeight:400,fontSize:'.72rem',marginLeft:5}}>{col.codigo}</span>:null}</div>
+                    <div className="text-muted" style={{fontSize:'.72rem'}}>{ms.length} colab.{total>0?` · ${fmtBRL(total)}`:''}</div>
+                  </div>
+                </div>
+                <div style={{marginTop:9,display:'flex',flexDirection:'column',gap:7,minHeight:44}}>
+                  {ms.length===0 && <div className="text-muted" style={{fontSize:'.76rem',textAlign:'center',padding:'14px 4px',border:'1px dashed var(--border)',borderRadius:8}}>{over?'Soltar aqui':'—'}</div>}
+                  {ms.map(m => (
+                    <div key={m.id} draggable onDragStart={()=>setDragId(m.id)} onDragEnd={()=>{ setDragId(null); setOverCol(undefined) }}
+                      style={{background:'#fff',border:'1px solid var(--border)',borderRadius:9,padding:'8px 9px',cursor:'grab',opacity:busyId===m.id?.5:1,boxShadow:dragId===m.id?'0 4px 12px rgba(26,37,53,.18)':'none'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:7}}>
+                        <span style={{width:24,height:24,borderRadius:'50%',background:'var(--primary-accent)',color:'#fff',fontSize:'.64rem',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{iniciais(m.nome)}</span>
+                        <div style={{minWidth:0,flex:1}}>
+                          <div style={{fontWeight:600,fontSize:'.82rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.nome}</div>
+                          <div className="text-muted" style={{fontSize:'.7rem'}}>{m.cautelas_ativas||0} cautela(s) · {fmtBRL(m.valor_em_posse||0)}</div>
+                        </div>
+                      </div>
+                      <select value="" onChange={e=>{ const v=e.target.value; if(v!=='') mover(m.id, v==='__sem'?null:Number(v)) }}
+                        style={{marginTop:7,width:'100%',fontSize:'.74rem',padding:'4px 6px'}} disabled={busyId===m.id}>
+                        <option value="">Mover para…</option>
+                        {obraDe(m)!==null && <option value="__sem">Sem obra</option>}
+                        {obras.filter(o=>o.id!==obraDe(m)).map(o=><option key={o.id} value={o.id}>{o.nome}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      <p className="text-muted" style={{fontSize:'.78rem',marginTop:10,display:'inline-flex',alignItems:'center',gap:6,flexWrap:'wrap'}}><Icon name="handshake" size={13}/> Para passar um colaborador a outro líder (com aceite), use a aba <strong style={{margin:'0 3px'}}>Minha equipe</strong>.</p>
     </div>
   )
 }
@@ -2882,10 +3022,10 @@ function EquipePage({ user, addToast }) {
       <div className="topbar"><h2>Minha equipe</h2></div>
       <p className="text-muted" style={{margin:'-6px 0 14px',fontSize:'.84rem'}}>Gestão à vista da sua equipe — quem está em cada obra e o que cada colaborador tem em campo. O responsável direto por cada ferramenta é o colaborador que a retirou, até a devolução ao almoxarifado.</p>
 
-      <div className="card" style={{display:'flex',gap:28,flexWrap:'wrap',marginBottom:16}}>
-        <div><div className="text-muted" style={{fontSize:'.74rem'}}>Colaboradores</div><div style={{fontSize:'1.35rem',fontWeight:700}}>{data.membros.length}</div></div>
-        <div><div className="text-muted" style={{fontSize:'.74rem'}}>Cautelas ativas</div><div style={{fontSize:'1.35rem',fontWeight:700}}>{data.total_cautelas}</div></div>
-        <div><div className="text-muted" style={{fontSize:'.74rem'}}>Valor em campo</div><div style={{fontSize:'1.35rem',fontWeight:700}}>{fmtBRL(data.total_valor)}</div></div>
+      <div className="stats-grid" style={{marginBottom:16}}>
+        <div className="stat-card blue"><div className="stat-label">Colaboradores</div><div className="stat-value">{data.membros.length}</div></div>
+        <div className="stat-card"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{data.total_cautelas}</div></div>
+        <div className="stat-card green"><div className="stat-label">Valor em campo</div><div className="stat-value money">{fmtBRL(data.total_valor)}</div></div>
       </div>
 
       {data.pendentes_recebimento.length > 0 && (
@@ -2926,9 +3066,12 @@ function EquipePage({ user, addToast }) {
         ) : data.membros.map(m => (
           <div key={m.id} style={{borderBottom:'1px solid var(--border,#eee)'}}>
             <button onClick={()=>toggle(m)} style={{width:'100%',background:'none',border:'none',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'12px 4px',textAlign:'left',color:'inherit'}}>
-              <div>
-                <div style={{fontWeight:600}}>{m.nome}</div>
-                <div className="text-muted" style={{fontSize:'.8rem'}}>{m.obra_nome || 'Sem obra'}{m.cargo?` · ${m.cargo}`:''}</div>
+              <div style={{display:'flex',alignItems:'center',gap:11,minWidth:0}}>
+                <span style={{width:36,height:36,borderRadius:'50%',background:'var(--primary-accent)',color:'#fff',fontSize:'.8rem',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{iniciais(m.nome)}</span>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:600}}>{m.nome}</div>
+                  <div className="text-muted" style={{fontSize:'.8rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.obra_nome || 'Sem obra'}{m.cargo?` · ${m.cargo}`:''}</div>
+                </div>
               </div>
               <div style={{textAlign:'right'}}>
                 <div style={{fontWeight:600}}>{fmtBRL(m.valor_em_posse)}</div>
@@ -3050,6 +3193,7 @@ function UsuariosPage({ addToast }) {
           <div className="form-group"><label>Perfil</label>
             <select value={form.role||'operario'} onChange={e=>setForm({...form,role:e.target.value})} disabled={!!form.id}>
               <option value="lider">Líder</option><option value="operario">Operário</option>
+              <option value="diretor">Diretor de Operações</option>
               <option value="administracao">Administração</option><option value="compras">Compras</option>
             </select>
           </div>
@@ -3090,7 +3234,7 @@ function UsuariosPage({ addToast }) {
       <div className="card">
         <div className="card-body" style={{paddingBottom:12}}>
           <select value={filtroRole} onChange={e=>setFiltroRole(e.target.value)} style={{width:'auto'}}>
-            <option value="">Todos os perfis</option><option value="lider">Líder</option><option value="operario">Operário</option><option value="administracao">Administração</option><option value="compras">Compras</option>
+            <option value="">Todos os perfis</option><option value="lider">Líder</option><option value="operario">Operário</option><option value="diretor">Diretor de Operações</option><option value="administracao">Administração</option><option value="compras">Compras</option>
           </select>
         </div>
         <ListaAcordeao
@@ -3295,6 +3439,7 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
   const alm = user.role === 'almoxarifado'
   const lider = user.role === 'lider'
   const op = user.role === 'operario'
+  const diretor = user.role === 'diretor'
   const unif = PERFIS_UNIFORME.includes(user.role)
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel', show: true },
@@ -3302,11 +3447,11 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
     { id: 'nova-solicitacao', icon: 'plus', label: 'Nova Solicitação', show: lider },
     { id: 'equipe', icon: 'users', label: 'Minha equipe', show: lider, badge: notif.transferencias_recebidas||0 },
     { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: lider },
+    { id: 'obras', icon: 'building', label: 'Obras', show: alm || diretor || lider },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || op },
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm || lider || op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes / EPI', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
     { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
-    { id: 'obras', icon: 'building', label: 'Obras', show: alm },
     { id: 'bolsas', icon: 'backpack', label: 'Bolsas / Kits', show: alm },
     { id: 'usuarios', icon: 'users', label: 'Usuários', show: alm },
     { id: 'auditoria', icon: 'history', label: 'Auditoria', show: alm },
@@ -3343,11 +3488,13 @@ function BottomNav({ user, page, navigate, notif }) {
   const alm = user.role === 'almoxarifado'
   const lider = user.role === 'lider'
   const op = user.role === 'operario'
+  const diretor = user.role === 'diretor'
   const unif = PERFIS_UNIFORME.includes(user.role)
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel' },
     { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider },
     { id: 'equipe', icon: 'users', label: 'Equipe', show: lider, badge: notif.transferencias_recebidas||0 },
+    { id: 'obras', icon: 'building', label: 'Obras', show: diretor||lider },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||op },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm||lider||op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
@@ -3440,7 +3587,7 @@ function App() {
     if (page === 'emprestimos') return <EmprestimosPage {...props} />
     if (page === 'uniformes') return <UniformesPage {...props} />
     if (page === 'ferramentas') return <FerramentasPage {...props} />
-    if (page === 'obras') return <ObrasPage {...props} />
+    if (page === 'obras') return user.role === 'lider' ? <ObrasLiderPage {...props} /> : <ObrasPage {...props} />
     if (page === 'bolsas') return <BolsasPage {...props} />
     if (page === 'usuarios') return <UsuariosPage {...props} />
     if (page === 'auditoria') return <AuditoriaPage {...props} />

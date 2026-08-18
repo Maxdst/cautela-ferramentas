@@ -90,7 +90,7 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     senha_hash TEXT NOT NULL,
     cargo TEXT,
-    role TEXT NOT NULL CHECK(role IN ('almoxarifado','lider','operario','administracao','compras')),
+    role TEXT NOT NULL CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor')),
     ativo INTEGER DEFAULT 1,
     criado_em TEXT DEFAULT (datetime('now','localtime'))
   );
@@ -130,6 +130,7 @@ db.exec(`
     codigo TEXT,
     endereco TEXT,
     responsavel TEXT,
+    lider_id INTEGER REFERENCES usuarios(id),  -- líder responsável pela obra (definido pelo Diretor de Operações)
     ativo INTEGER DEFAULT 1,
     criado_em TEXT DEFAULT (datetime('now','localtime'))
   );
@@ -482,6 +483,7 @@ db.exec(`
   addCol('cautelas', 'obra_id', 'INTEGER REFERENCES obras(id)')
   addCol('usuarios', 'obra_id', 'INTEGER REFERENCES obras(id)')  // obra padrão do usuário
   addCol('usuarios', 'lider_id', 'INTEGER REFERENCES usuarios(id)')  // líder responsável atual (equipe volátil)
+  addCol('obras', 'lider_id', 'INTEGER REFERENCES usuarios(id)')  // líder dono da obra (Diretor de Operações define)
 
   // Backfill das grades dos itens do seed (bancos que já tinham o módulo sem tamanho).
   // Só preenche quem ainda está sem grade — idempotente e não sobrescreve edição do cliente.
@@ -493,6 +495,37 @@ db.exec(`
     const upG = db.prepare("UPDATE uniforme_itens SET tamanhos=? WHERE nome=? AND (tamanhos IS NULL OR tamanhos='')")
     for (const [nome, grade] of Object.entries(gradesSeed)) upG.run(grade, nome)
   } catch (e) { console.error('  ⚠️ backfill de grades de uniforme:', e.message) }
+
+  // Expande o CHECK de role para o papel 'diretor' (Diretor de Operações). SQLite não altera
+  // CHECK via ALTER — reconstrói usuarios reaproveitando o PRÓPRIO CREATE atual (assim TODAS as
+  // colunas já existentes — inclusive obra_id, lider_id, assinatura — são preservadas sem lista
+  // fixa) e só troca a cláusula CHECK. Guardado: só roda se o CHECK ainda não tem 'diretor'.
+  // Roda por último, depois de todos os addCol acima. FK desligada durante a troca.
+  const uSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='usuarios'").get()
+  if (uSql && !/'diretor'/.test(uSql.sql)) {
+    const createNew = uSql.sql
+      .replace(/CREATE TABLE\s+"?usuarios"?/i, 'CREATE TABLE usuarios_new')
+      .replace(/CHECK\s*\(\s*role\s+IN\s*\([^)]*\)\s*\)/i,
+        "CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor'))")
+    const cols = db.prepare('PRAGMA table_info(usuarios)').all().map(c => c.name).join(',')
+    db.pragma('foreign_keys = OFF')
+    try {
+      db.exec('BEGIN')
+      db.exec(createNew)
+      db.exec(`INSERT INTO usuarios_new (${cols}) SELECT ${cols} FROM usuarios`)
+      db.exec('DROP TABLE usuarios')
+      db.exec('ALTER TABLE usuarios_new RENAME TO usuarios')
+      db.exec('COMMIT')
+      const viol = db.prepare('PRAGMA foreign_key_check').all()
+      if (viol.length) console.error('  ⚠️ foreign_key_check após migração p/ diretor:', viol)
+      else console.log("  Migração usuarios: CHECK de role expandido (diretor)")
+    } catch (e) {
+      try { db.exec('ROLLBACK') } catch {}
+      console.error('  ⚠️ Falha ao expandir CHECK p/ diretor (usuarios inalterada):', e.message)
+    } finally {
+      db.pragma('foreign_keys = ON')
+    }
+  }
 })()
 
 // Usuário admin padrão de uma instalação nova (genérico — cada cliente completa os próprios dados
@@ -1008,7 +1041,7 @@ app.get('/api/usuarios/lideres', auth(), (req, res) => {
 
 app.post('/api/usuarios', auth(['almoxarifado']), (req, res) => {
   const { nome, email, senha, cargo, role, cpf_cnpj, empresa, endereco, telefone, obra_id, lider_id } = req.body
-  if (!['lider', 'operario', 'administracao', 'compras'].includes(role)) return res.status(400).json({ error: 'Role inválido' })
+  if (!['lider', 'operario', 'administracao', 'compras', 'diretor'].includes(role)) return res.status(400).json({ error: 'Role inválido' })
   try {
     const r = db.prepare('INSERT INTO usuarios (nome,email,senha_hash,cargo,role,cpf_cnpj,empresa,endereco,telefone,obra_id,lider_id,primeiro_acesso) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)')
       .run(nome, email, bcrypt.hashSync(senha, 10), cargo || '', role, cpf_cnpj || null, empresa || null, endereco || null, telefone || null, obra_id || null, lider_id || null)
@@ -1180,39 +1213,78 @@ app.put('/api/bolsas/:id', auth(['almoxarifado']), (req, res) => {
 // ─── SOLICITAÇÕES ─────────────────────────────────────────────────────────────
 // ─── OBRAS / CANTEIROS ────────────────────────────────────────────────────────
 // Listagem: qualquer usuário logado (usada nos seletores). ?all=1 inclui inativas.
+// Gestores de obra: almoxarifado (inclui o Master) e Diretor de Operações.
+const GESTOR_OBRAS = ['almoxarifado', 'diretor']
+
+// Listagem escopada por papel:
+//  • líder → só as obras ATIVAS atribuídas a ele (lider_id = ele). É "leitura" no modelo dele.
+//  • gestor (almox/diretor) → todas; ?all=1 inclui inativas. Traz o nome do líder responsável.
+//  • demais papéis → obras ativas (dropdowns de destino).
 app.get('/api/obras', auth(), (req, res) => {
-  const incluiInativas = req.query.all === '1' && req.user.role === 'almoxarifado'
-  const q = 'SELECT * FROM obras' + (incluiInativas ? '' : ' WHERE ativo=1') + ' ORDER BY ativo DESC, nome'
-  res.json(db.prepare(q).all())
+  const role = req.user.role
+  const base = 'SELECT o.*, l.nome lider_nome FROM obras o LEFT JOIN usuarios l ON l.id=o.lider_id'
+  if (role === 'lider') {
+    return res.json(db.prepare(base + ' WHERE o.ativo=1 AND o.lider_id=? ORDER BY o.nome').all(req.user.id))
+  }
+  const incluiInativas = req.query.all === '1' && GESTOR_OBRAS.includes(role)
+  res.json(db.prepare(base + (incluiInativas ? '' : ' WHERE o.ativo=1') + ' ORDER BY o.ativo DESC, o.nome').all())
 })
 
-app.post('/api/obras', auth(['almoxarifado']), (req, res) => {
-  const { nome, codigo, endereco, responsavel } = req.body
+// Valida que lider_id (se informado) aponta para um líder ativo. Retorna o id normalizado ou null.
+function normalizarLiderObra(lider_id) {
+  if (!lider_id) return null
+  const l = db.prepare("SELECT id FROM usuarios WHERE id=? AND role='lider' AND ativo=1").get(lider_id)
+  return l ? l.id : null
+}
+
+app.post('/api/obras', auth(GESTOR_OBRAS), (req, res) => {
+  const { nome, codigo, endereco, responsavel, lider_id } = req.body
   if (!nome || !nome.trim()) return res.status(400).json({ error: 'Nome da obra é obrigatório' })
-  const r = db.prepare('INSERT INTO obras (nome,codigo,endereco,responsavel) VALUES (?,?,?,?)')
-    .run(nome.trim(), (codigo || '').trim() || null, (endereco || '').trim() || null, (responsavel || '').trim() || null)
+  const r = db.prepare('INSERT INTO obras (nome,codigo,endereco,responsavel,lider_id) VALUES (?,?,?,?,?)')
+    .run(nome.trim(), (codigo || '').trim() || null, (endereco || '').trim() || null,
+         (responsavel || '').trim() || null, normalizarLiderObra(lider_id))
   audit(req.user.id, 'CRIAR_OBRA', 'obras', r.lastInsertRowid, { nome })
   res.json({ id: r.lastInsertRowid })
 })
 
-app.put('/api/obras/:id', auth(['almoxarifado']), (req, res) => {
+app.put('/api/obras/:id', auth(GESTOR_OBRAS), (req, res) => {
   const o = db.prepare('SELECT * FROM obras WHERE id=?').get(req.params.id)
   if (!o) return res.status(404).json({ error: 'Obra não encontrada' })
-  const { nome, codigo, endereco, responsavel, ativo } = req.body
-  db.prepare('UPDATE obras SET nome=?,codigo=?,endereco=?,responsavel=?,ativo=? WHERE id=?').run(
+  const { nome, codigo, endereco, responsavel, ativo, lider_id } = req.body
+  db.prepare('UPDATE obras SET nome=?,codigo=?,endereco=?,responsavel=?,ativo=?,lider_id=? WHERE id=?').run(
     (nome ?? o.nome).trim(), (codigo ?? o.codigo) || null, (endereco ?? o.endereco) || null,
-    (responsavel ?? o.responsavel) || null, ativo === undefined ? o.ativo : (ativo ? 1 : 0), o.id)
+    (responsavel ?? o.responsavel) || null, ativo === undefined ? o.ativo : (ativo ? 1 : 0),
+    lider_id === undefined ? o.lider_id : normalizarLiderObra(lider_id), o.id)
   audit(req.user.id, 'EDITAR_OBRA', 'obras', o.id, null)
   res.json({ ok: true })
 })
 
 // Desativa (soft delete): preserva o histórico de cautelas já vinculadas à obra.
-app.delete('/api/obras/:id', auth(['almoxarifado']), (req, res) => {
+app.delete('/api/obras/:id', auth(GESTOR_OBRAS), (req, res) => {
   const o = db.prepare('SELECT * FROM obras WHERE id=?').get(req.params.id)
   if (!o) return res.status(404).json({ error: 'Obra não encontrada' })
   db.prepare('UPDATE obras SET ativo=0 WHERE id=?').run(o.id)
   audit(req.user.id, 'DESATIVAR_OBRA', 'obras', o.id, { nome: o.nome })
   res.json({ ok: true })
+})
+
+// Drill-in do líder: os colaboradores da EQUIPE DELE que estão nesta obra (escopo custódia).
+// Só o líder dono da obra acessa. O "mover" reaproveita POST /equipe/mover.
+app.get('/api/obras/:id/equipe', auth(['lider']), (req, res) => {
+  const obra = db.prepare('SELECT o.*, l.nome lider_nome FROM obras o LEFT JOIN usuarios l ON l.id=o.lider_id WHERE o.id=?').get(req.params.id)
+  if (!obra) return res.status(404).json({ error: 'Obra não encontrada' })
+  if (obra.lider_id !== req.user.id) return res.status(403).json({ error: 'Obra não atribuída a você.' })
+  const membros = db.prepare(`
+    SELECT u.id, u.nome, u.cargo FROM usuarios u
+    WHERE u.lider_id=? AND u.obra_id=? AND u.role='operario' AND u.ativo=1
+    ORDER BY u.nome`).all(req.user.id, obra.id)
+  let total_valor = 0, total_cautelas = 0
+  for (const m of membros) {
+    const p = posseColaborador(m.id)
+    m.valor_em_posse = p.valor; m.cautelas_ativas = p.cautelas
+    total_valor += p.valor; total_cautelas += p.cautelas
+  }
+  res.json({ obra, membros, total_valor, total_cautelas })
 })
 
 // Resolve a obra de uma solicitação/cautela: usa a informada ou cai na obra padrão do usuário.
@@ -2402,6 +2474,13 @@ app.post('/api/equipe/transferencias/:id/cancelar', auth(['lider']), (req, res) 
 app.get('/api/dashboard', auth(), (req, res) => {
   const u = req.user
   const s = {}
+
+  if (u.role === 'diretor') {
+    s.obras_ativas    = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1').get().n
+    s.obras_com_lider = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id IS NOT NULL').get().n
+    s.obras_sem_lider = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id IS NULL').get().n
+    return res.json(s)
+  }
 
   if (u.role === 'almoxarifado') {
     s.total_ferramentas   = db.prepare('SELECT COUNT(*) n FROM ferramentas').get().n

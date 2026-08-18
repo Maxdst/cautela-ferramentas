@@ -100,7 +100,7 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
   tamanho contra seu mínimo; override por tamanho ou o mínimo-padrão do item). Tabela de alertas mostra a coluna Tamanho.
 - SW bumpado para `markat-cautela-v5`.
 
-## Módulo Obras / Multi-obra (⏳ EM BRANCH `claude/multi-obra` — aguardando deploy)
+## Módulo Obras / Multi-obra (⏳ JÁ NA `main` — aguardando `railway up`)
 > Habilita o tier **Enterprise** do Cautelix (painel consolidado multi-obra). Validado localmente
 > (migração idempotente + fluxo ponta a ponta + JSX compila); falta `railway up` do Maxwel.
 - **Modelo:** obra é dimensão **opcional** de solicitação/cautela. Almoxarifado é central — a obra é o
@@ -119,7 +119,7 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 - **Deploy:** `railway up --detach --service cautela-ferramentas` após revisar o PR/branch. Nada muda
   para quem não cadastrar obras (a seção só aparece quando há obras ativas).
 
-## Módulo Equipe do líder / Colaborador volátil (⏳ EM BRANCH `claude/multi-obra` — aguardando deploy)
+## Módulo Equipe do líder / Colaborador volátil (⏳ JÁ NA `main` — aguardando `railway up`)
 > Evolução do multi-obra: a **obra passa a "morar" no colaborador**, não na cautela. O colaborador é
 > volátil (circula entre obras e líderes carregando as ferramentas). Validado com teste de integração
 > ponta a ponta (20/20 asserts) + JSX compila.

@@ -9,7 +9,7 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 - **Produção:** https://cautela.grupomarkat.com.br  (rodando, saudável)
 - Stack: Node/Express + `server.js` · SQLite (better-sqlite3) · React 18 SPA em arquivo
   único `public/index.html` (Babel no navegador) · JWT · PWA (`public/sw.js`).
-- Papéis: `almoxarifado`, `lider`, `operario` + flag **`is_master`** (super-admin).
+- Papéis: `almoxarifado`, `lider`, `operario`, `administracao`, `compras`, **`diretor`** (Diretor de Operações) + flag **`is_master`** (super-admin).
 
 ## ⚠️ COMO O DEPLOY FUNCIONA (crítico — não é o padrão)
 - O Railway **NÃO está conectado ao GitHub**. Deploy é manual via **CLI**:
@@ -150,6 +150,39 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 - **Frontend:** aba **Minha equipe** (sidebar + bottom-nav do líder, com badge), campo **Líder
   responsável** no cadastro de operário, ícone `users`/`handshake`.
 
+## Módulo Diretor de Operações + Obras do líder (Kanban) (⏳ NO STAGING, aguardando prod — 2026-08-18)
+> Commit **`59d1010`** na `main` (já **pushado** ao GitHub `Maxdst/cautela-ferramentas`).
+> **Deploy no `cautela-staging` OK** (server subiu limpo, "SERVIDOR OK"). **Falta:** teste logado
+> no staging + `railway up` → **`cautela-ferramentas`** (produção). Validação prévia: `node --check`,
+> migração testada em `node:sqlite` (dados preservados), JSX compila no navegador.
+- **Papel novo `diretor` (Diretor de Operações):** cria obras e **define qual líder responde por cada
+  obra**. Migração segura (reconstrói `usuarios` reaproveitando o próprio `CREATE` — preserva TODAS as
+  colunas/dados, só amplia o `CHECK`; idempotente, guardada por `!/'diretor'/`). Base schema já nasce com
+  `diretor` → em banco novo (ex.: staging efêmero) a migração **nem roda** (por isso não aparece a linha
+  "CHECK expandido" lá; ela só entra em **banco existente**, como produção). Procurar no deploy log de
+  **produção:** `Migração usuarios: CHECK de role expandido (diretor)`.
+- **Modelo obra↔líder = 1 líder por obra** (decisão do Maxwel): `addCol('obras','lider_id')`. O líder só
+  **enxerga** as obras atribuídas a ele (leitura); quem atribui é o Diretor/Almoxarifado/Master.
+- **Escopo do líder na obra = custódia** (decisão do Maxwel): vê só os colaboradores **da equipe dele**
+  (`lider_id = eu`) naquela obra. Passar p/ outro líder segue com **aceite** (aba Minha equipe).
+- **Endpoints:** `GET /api/obras` escopado por papel (líder → só as dele, com `lider_nome`; gestor → todas
+  +`?all=1`). `POST/PUT/DELETE /api/obras` liberados a **almoxarifado+diretor** (`GESTOR_OBRAS`), com
+  `lider_id` validado (`normalizarLiderObra`). Novo `GET /api/obras/:id/equipe` (drill-in do líder).
+  `POST /api/usuarios` aceita `diretor`. Ramo `diretor` no `/api/dashboard` (obras ativas/com líder/sem líder).
+- **Frontend:** aba **Obras** no sidebar/bottom-nav do **líder** e do **diretor**. `ObrasLiderPage` = **Kanban
+  (Opção B escolhida)**: colunas = obras dele (+ "Sem obra"), cards = colaboradores; **arrasta** entre obras
+  (HTML5 DnD) **ou** seletor "Mover para…" no card (mobile) → imediato via `/equipe/mover`. `ObrasPage` (gestor)
+  ganhou campo **"Líder responsável"** + alerta **"Sem líder"** na lista. Painel próprio do Diretor. Aba
+  **Minha equipe** redesenhada (stat-cards + avatares de iniciais). Helper `iniciais()`. Roteamento: `obras`
+  → `ObrasLiderPage` p/ líder, `ObrasPage` p/ o resto.
+- **⚠️ Pós-deploy de produção:** as obras existentes ficam com `lider_id = NULL` → **líderes veem a lista
+  de obras vazia até o Diretor/Almox atribuir** cada obra a um líder. Isso também esvazia o seletor "mover
+  para obra" da aba equipe e o de Nova Solicitação p/ o líder até a atribuição. É o comportamento esperado
+  do modelo novo — fazer a atribuição inicial uma vez.
+- **Staging:** banco **efêmero e separado** da produção (`/app/ferramentas.db`, sem volume) → some a cada
+  deploy; seguro pra testar. Credenciais que o boot semeia: master `adm@mindmax.com.br`/`master123`,
+  líderes Markat senha `Markat@2025`, admin `admin@teste.com`/`teste123` (todas temporárias).
+
 ## Estoque × solicitações (modelo de disponibilidade)
 - Disponibilidade é **calculada**, nunca armazenada:
   `disponivel = quantidade_total − reservado(solicitação 'solicitada'/'separando')
@@ -176,8 +209,8 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 4. Confirmar teor logado é com o Maxwel (sem credenciais).
 
 ## Últimos commits (branch main)
-- `0db77f9` solicitar por operário — bolsa vira lista editável (não trava)
-- `4e7bbef` estoque conectado a solicitações/cautelas (baixa e validação)
-- `32ae93e` modelo de lista reutilizável, cache SW v3, admin master-only
-- `6eab655` ferramentas — edição em acordeão inline
-- `e4af773` administrador master + lista de ferramentas com gaveta
+- `59d1010` **feat: Diretor de Operações + Obras do líder (Kanban) e redesign da equipe** ← NO STAGING
+- `6f1e17d` docs: handoff — Multi-obra/Equipe do líder EM PRODUÇÃO
+- `5b66159` feat: auditoria da equipe (histórico escopado aos colaboradores do líder)
+- `2ed7dc0` ux: painel do líder como gestão à vista/auditoria (não custódia)
+- `f4af41d` feat: equipe do líder + colaborador volátil (transferência com aceite)

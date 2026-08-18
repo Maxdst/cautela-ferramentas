@@ -150,11 +150,29 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 - **Frontend:** aba **Minha equipe** (sidebar + bottom-nav do líder, com badge), campo **Líder
   responsável** no cadastro de operário, ícone `users`/`handshake`.
 
-## Módulo Diretor de Operações + Obras do líder (Kanban) (⏳ NO STAGING, aguardando prod — 2026-08-18)
+## Módulo Diretor de Operações + Obras do líder (Kanban) (⏳ VALIDADO EM SERVIDOR REAL, aguardando prod — 2026-08-18)
 > Commit **`59d1010`** na `main` (já **pushado** ao GitHub `Maxdst/cautela-ferramentas`).
-> **Deploy no `cautela-staging` OK** (server subiu limpo, "SERVIDOR OK"). **Falta:** teste logado
-> no staging + `railway up` → **`cautela-ferramentas`** (produção). Validação prévia: `node --check`,
-> migração testada em `node:sqlite` (dados preservados), JSX compila no navegador.
+> **Deploy no `cautela-staging` OK** (server subiu limpo, "SERVIDOR OK"). **Backend validado ponta a
+> ponta contra o servidor real** (ver seção abaixo) — inclusive a migração destrutiva-por-reconstrução
+> em banco de produção existente. **Falta:** `railway up` → **`cautela-ferramentas`** (produção) + o
+> teste visual do Kanban (drag-and-drop HTML5) que só roda no navegador logado.
+
+### ✅ Validação em servidor real (2026-08-18, ambiente Linux) — 40/40 asserts
+> Descoberta: o `better-sqlite3` **compila neste ambiente Linux** (o bloqueio antigo era só a máquina
+> Windows do Maxwel). Deu pra subir o `server.js` de verdade e testar o que antes só o Maxwel validava
+> logado. Testes ficaram no scratchpad (fora do repo); nenhuma alteração de código.
+- **Teste A — fluxo logado (26/26):** boot limpo (staging-like) + HTTP real. `POST /usuarios` aceita
+  `diretor` (role inválido → 400); dashboard do diretor conta obras ativas/com-líder/sem-líder;
+  `normalizarLiderObra` zera `lider_id` de não-líder; **escopo de `/obras`** confirmado (líder vê só as
+  dele, líder sem obra vê vazio, diretor vê todas); Kanban move colaborador (imediato, sem aceite);
+  drill-in `/obras/:id/equipe` 200 pro dono e **403** pra outro líder; líder não cria obra nem move
+  colaborador de outra equipe (403).
+- **Teste B — migração em banco de produção existente (14/14):** banco gerado pelo `server.js` **anterior
+  ao módulo** (CHECK sem `diretor`, 28 usuários semeados) → boot do server atual sobre ele. Log
+  `Migração usuarios: CHECK de role expandido (diretor)` apareceu; **zero violação de FK**; **28→28
+  usuários**, ids/emails/roles idênticos, **todas as colunas preservadas**; passa a aceitar `diretor`;
+  **idempotente** (2º boot não re-migra). É a prova de que a reconstrução da tabela `usuarios` em
+  produção não perde dado.
 - **Papel novo `diretor` (Diretor de Operações):** cria obras e **define qual líder responde por cada
   obra**. Migração segura (reconstrói `usuarios` reaproveitando o próprio `CREATE` — preserva TODAS as
   colunas/dados, só amplia o `CHECK`; idempotente, guardada por `!/'diretor'/`). Base schema já nasce com
@@ -209,7 +227,7 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 4. Confirmar teor logado é com o Maxwel (sem credenciais).
 
 ## Últimos commits (branch main)
-- `59d1010` **feat: Diretor de Operações + Obras do líder (Kanban) e redesign da equipe** ← NO STAGING
+- `59d1010` **feat: Diretor de Operações + Obras do líder (Kanban) e redesign da equipe** ← VALIDADO EM SERVIDOR REAL (40/40), aguardando `railway up` de prod
 - `6f1e17d` docs: handoff — Multi-obra/Equipe do líder EM PRODUÇÃO
 - `5b66159` feat: auditoria da equipe (histórico escopado aos colaboradores do líder)
 - `2ed7dc0` ux: painel do líder como gestão à vista/auditoria (não custódia)

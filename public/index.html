@@ -2891,7 +2891,7 @@ function ObrasLiderPage({ user, addToast }) {
   const colObraIds = new Set(obras.map(o=>o.id))
   // obra "efetiva" do membro: só conta se for uma obra do líder; senão cai em "Sem obra".
   const obraDe = (m) => (m.obra_id && colObraIds.has(m.obra_id)) ? m.obra_id : null
-  const colunas = [{ id: null, nome: 'Sem obra', semObra: true }, ...obras]
+  const colunas = [{ id: null, nome: 'Volantes', semObra: true }, ...obras]
   const membrosDaColuna = (colId) => membros.filter(m => obraDe(m) === (colId || null))
 
   const mover = async (colaborador_id, obra_id) => {
@@ -2901,7 +2901,7 @@ function ObrasLiderPage({ user, addToast }) {
     setBusyId(colaborador_id)
     try {
       await POST('/equipe/mover', { colaborador_id, obra_id: destino, para_lider_id: null })
-      const nome = destino ? ((obras.find(o=>o.id===destino)||{}).nome || 'obra') : 'Sem obra'
+      const nome = destino ? ((obras.find(o=>o.id===destino)||{}).nome || 'obra') : 'Volantes'
       setMembros(ms => ms.map(m => m.id===colaborador_id ? {...m, obra_id: destino} : m))
       addToast(`${atual?atual.nome:'Colaborador'} movido para ${nome}.`, 'success')
     } catch(e){ addToast(e.message,'error'); load() }
@@ -2951,7 +2951,7 @@ function ObrasLiderPage({ user, addToast }) {
                       <select value="" onChange={e=>{ const v=e.target.value; if(v!=='') mover(m.id, v==='__sem'?null:Number(v)) }}
                         style={{marginTop:7,width:'100%',fontSize:'.74rem',padding:'4px 6px'}} disabled={busyId===m.id}>
                         <option value="">Mover para…</option>
-                        {obraDe(m)!==null && <option value="__sem">Sem obra</option>}
+                        {obraDe(m)!==null && <option value="__sem">Volantes</option>}
                         {obras.filter(o=>o.id!==obraDe(m)).map(o=><option key={o.id} value={o.id}>{o.nome}</option>)}
                       </select>
                     </div>
@@ -3068,7 +3068,7 @@ function EquipePage({ user, addToast }) {
                 <span style={{width:36,height:36,borderRadius:'50%',background:'var(--primary-accent)',color:'#fff',fontSize:'.8rem',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{iniciais(m.nome)}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontWeight:600}}>{m.nome}</div>
-                  <div className="text-muted" style={{fontSize:'.8rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.obra_nome || 'Sem obra'}{m.cargo?` · ${m.cargo}`:''}</div>
+                  <div className="text-muted" style={{fontSize:'.8rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.obra_nome || 'Volante'}{m.cargo?` · ${m.cargo}`:''}</div>
                 </div>
               </div>
               <div style={{textAlign:'right'}}>
@@ -3086,7 +3086,7 @@ function EquipePage({ user, addToast }) {
                 <div className="form-grid">
                   <div className="form-group"><label>Mover para obra</label>
                     <select value={mov.obra_id} onChange={e=>setMov({...mov, obra_id:e.target.value})}>
-                      <option value="">Sem obra</option>
+                      <option value="">Volantes</option>
                       {obras.map(o=><option key={o.id} value={o.id}>{o.nome}{o.codigo?` (${o.codigo})`:''}</option>)}
                     </select>
                   </div>

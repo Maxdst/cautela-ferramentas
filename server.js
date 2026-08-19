@@ -595,6 +595,7 @@ const ADMIN_MASTER = {
     { nome: 'Bryan Matos Belbuche Soares',      email: 'bryan.soares@markat.com',       cargo: 'Apontador',      cnpj: null },
     { nome: 'Claudio Luiz Alves',               email: 'claudio.alves@markat.com',      cargo: 'Engenheiro',     cnpj: null },
     { nome: 'Thiago Bruno Bezerra',             email: 'thiago.bezerra@markat.com',     cargo: 'Encarregado',    cnpj: null },
+    { nome: 'Marlon',                           email: 'marlon@markat.com',             cargo: 'Encarregado',    cnpj: null },
   ]
   const hash = bcrypt.hashSync(SENHA_PADRAO, 10)
   const stmt = db.prepare("INSERT OR IGNORE INTO usuarios (nome,email,senha_hash,cargo,role,cpf_cnpj,primeiro_acesso) VALUES (?,?,?,?,?,?,1)")
@@ -604,6 +605,71 @@ const ADMIN_MASTER = {
     if (r.changes) criados++
   }
   if (criados > 0) console.log(`  ✅ ${criados} líder(es) Markat criados. Senha padrão: ${SENHA_PADRAO}`)
+})()
+
+// ─── SEED DE OBRAS (Contrato FMS Niterói — Zoneamento das Unidades 2026) ───────
+// 27 unidades de saúde da Fundação Municipal de Saúde de Niterói, distribuídas em 4 zonas,
+// cada uma com o líder responsável definido (Anderson, Marlon, Leandro, Christian — já vêm do
+// seed de líderes acima, casados por e-mail). Idempotente: guarda-rápida pela obra "FMS" e
+// checagem por nome antes de inserir. Obras nunca são apagadas (DELETE = desativa), então
+// re-boots não duplicam.
+;(() => {
+  if (db.prepare("SELECT id FROM obras WHERE codigo='FMS'").get()) return  // já semeado
+
+  const emailResp = {
+    ANDERSON:  'anderson.rodrigues@markat.com',
+    MARLON:    'marlon@markat.com',
+    LEANDRO:   'leandro.sa@markat.com',
+    CHRISTIAN: 'christian.freitas@markat.com',
+  }
+  const idResp = {}
+  for (const [k, email] of Object.entries(emailResp)) {
+    const u = db.prepare('SELECT id FROM usuarios WHERE LOWER(email)=LOWER(?)').get(email)
+    idResp[k] = u ? u.id : null
+  }
+
+  // [ nome, codigo, região (endereço), responsável ]
+  const OBRAS = [
+    ['Policlínica Regional Dr. Guilherme Taylor March (Fonseca)', null,     'Zona 01 — Região Norte',         'ANDERSON'],
+    ['Policlínica Regional Dr. Renato Silva (Engenhoca)',         'PRDRS',  'Zona 01 — Região Norte',         'ANDERSON'],
+    ['SAMU Base (Fonseca)',                                       'SBF',    'Zona 01 — Região Norte',         'ANDERSON'],
+    ['Hospital Orêncio de Freitas',                              'HOF',    'Zona 01 — Região Norte',         'ANDERSON'],
+    ['Unidade de Saúde Santa Bárbara',                          'USSB',   'Zona 01 — Região Norte',         'ANDERSON'],
+    ['Unidade Básica de Saúde Engenhoca',                       'UBSE',   'Zona 01 — Região Norte',         'ANDERSON'],
+    ['Policlínica Regional do Barreto Dr. João da Silva Vizella e UBS do Barreto', 'PRBJSV', 'Zona 01 — Região Norte', 'ANDERSON'],
+    ['Policlínica Regional de Piratininga Dom Luiz Orione',      'PRPDLO', 'Zona 02 — Região Oceânica',      'MARLON'],
+    ['Policlínica Regional de Itaipu',                          'PRI',    'Zona 02 — Região Oceânica',      'MARLON'],
+    ['UBS Piratininga',                                          'UBSP',   'Zona 02 — Região Oceânica',      'MARLON'],
+    ['Policlínica Regional Largo da Batalha',                    'PRLB',   'Zona 04 — Região Pendotiba',     'MARLON'],
+    ['Maternidade Alzira Reis',                                  'MAR',    'Zona 03 — Região Praias da Baía','MARLON'],
+    ['Policlínica Comunitária de Jurujuba',                      'PCJ',    'Zona 03 — Região Praias da Baía','MARLON'],
+    ['Hospital Psiquiátrico de Jurujuba',                        'HPJ',    'Zona 03 — Região Praias da Baía','MARLON'],
+    ['Unidade Básica de Saúde Morro do Estado',                 'UBSME',  'Zona 03 — Região Praias da Baía','LEANDRO'],
+    ['Policlínica Almir Madeira',                                'PAM',    'Zona 03 — Região Praias da Baía','LEANDRO'],
+    ['Unidade Básica de Saúde Centro de Niterói',              'UBSCN',  'Zona 03 — Região Praias da Baía','LEANDRO'],
+    ['Policlínica Regional Sergio Arouca',                       'PRSA',   'Zona 03 — Região Praias da Baía','LEANDRO'],
+    ['Laboratório de Saúde Pública de Niterói Miguelote Viana e Almoxarifado de Vacina', 'LSPNMV', 'Zona 03 — Região Praias da Baía', 'LEANDRO'],
+    ['SAMU Região Metropolitana II',                            'SRMII',  'Zona 03 — Região Praias da Baía','LEANDRO'],
+    ['Policlínica de Especialidades em Atenção à Saúde da Mulher Malu Sampaio', 'PEMS', 'Zona 03 — Região Praias da Baía', 'CHRISTIAN'],
+    ['Policlínica Regional Dr. Carlos Antônio da Silva',        'PRCAS',  'Zona 03 — Região Praias da Baía','CHRISTIAN'],
+    ['Vice-Presidência de Atenção Coletiva, Ambulatorial e da Família — N.171 (3º e 4º andares)', 'VIPACAF', 'Zona 03 — Região Praias da Baía', 'CHRISTIAN'],
+    ['Policlínica de Especialidades Sylvio Picanço e CREG',     'PESP',   'Zona 03 — Região Praias da Baía','CHRISTIAN'],
+    ['Centro de Controle de Zoonoses de Niterói',              'CCZ',    'Zona 03 — Região Praias da Baía','CHRISTIAN'],
+    ['Coordenação de Farmácia — COFAR (Ponta d\'Areia)',        'COFAR',  'Zona 03 — Região Praias da Baía','CHRISTIAN'],
+    ['Fundação Municipal de Saúde — FMS',                       'FMS',    'Zona 03 — Região Praias da Baía','CHRISTIAN'],
+  ]
+
+  const ins = db.prepare('INSERT INTO obras (nome,codigo,endereco,responsavel,lider_id,ativo) VALUES (?,?,?,?,?,1)')
+  const existe = db.prepare('SELECT id FROM obras WHERE LOWER(nome)=LOWER(?)')
+  let criadas = 0, semLider = 0
+  for (const [nome, codigo, regiao, resp] of OBRAS) {
+    if (existe.get(nome)) continue
+    const lid = idResp[resp] || null
+    if (!lid) semLider++
+    ins.run(nome, codigo, regiao + ', Niterói/RJ', 'Contrato FMS Niterói', lid)
+    criadas++
+  }
+  if (criadas > 0) console.log(`  ✅ ${criadas} obra(s) do contrato FMS Niterói semeadas${semLider ? ` (${semLider} sem líder — verificar)` : ' com líder definido'}.`)
 })()
 
 // ─── SEED DE ITENS DE UNIFORME / EPI ──────────────────────────────────────────
@@ -2551,7 +2617,7 @@ app.get('/api/dashboard', auth(), (req, res) => {
       SELECT COUNT(DISTINCT h.cautela_id) cautelas_ativas, COALESCE(SUM(h.valor),0) valor_em_campo
       FROM (${posseSQL}) h WHERE h.obra_id IS NULL`).get()
     if (semObra && (semObra.cautelas_ativas > 0 || semObra.valor_em_campo > 0))
-      s.por_obra.push({ obra_id: null, obra_nome: 'Sem obra', cautelas_ativas: semObra.cautelas_ativas, valor_em_campo: semObra.valor_em_campo })
+      s.por_obra.push({ obra_id: null, obra_nome: 'Volantes', cautelas_ativas: semObra.cautelas_ativas, valor_em_campo: semObra.valor_em_campo })
     s.solicitacoes_recentes = db.prepare(`
       SELECT s.id,s.numero,s.status,s.criado_em,l.nome lider_nome
       FROM solicitacoes s JOIN usuarios l ON l.id=s.lider_id

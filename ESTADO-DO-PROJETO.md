@@ -28,6 +28,15 @@ Mudanças commitadas em `claude/ultimo-deploy-producao-bgkr5n`, **ainda não em 
 4. **Sidebar:** aba **Auditoria** movida para o fim (após Empréstimos).
 Validado: `node --check` OK + JSX compila (Babel). Falta: push na `main` + verificar migração e fluxos.
 
+### Lote 2026-08-19 (b): "Volantes" + seed das obras FMS Niterói
+5. **"Sem obra" → "Volantes"** no Kanban do líder (coluna, toast, seletor mover, bucket do dashboard);
+   um membro sem obra fica rotulado **"Volante"**. ("Sem obra fixa" da obra padrão do usuário foi mantido.)
+6. **Seed das 27 obras do contrato FMS Niterói** (`server.js`, após o seed de líderes): 27 unidades de
+   saúde em 4 zonas, cada uma com líder responsável. Líderes casados por e-mail — Anderson Rodrigues,
+   Leandro Nicolau de Sá e Christian Mauricio Freitas **já existiam** no seed; **Marlon** foi adicionado
+   (`marlon@markat.com`, senha padrão `Markat@2025`). Idempotente: guarda-rápida por `codigo='FMS'` +
+   checagem por nome. Log de deploy: `N obra(s) do contrato FMS Niterói semeadas com líder definido`.
+
 ## O que é
 **Cautelix** — SaaS de controle de cautela de ferramentas de obra (construção civil).
 Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.

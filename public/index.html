@@ -104,6 +104,7 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .badge-administracao{background:#fef9c3;color:#854d0e}
 .badge-compras{background:#e0f2fe;color:#075985}
 .badge-diretor{background:#f4ecdf;color:#8B6B3D}
+.badge-gerente{background:#e8eef4;color:#2E3F55}
 /* Módulo Uniformes / EPI */
 .uni-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
 .uni-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);background:var(--card);border-radius:8px;cursor:pointer;font-size:.85rem;color:var(--text-secondary);font-weight:600}
@@ -279,7 +280,7 @@ const STATUS_LABEL = {
   aguardando_tomador: 'Aguard. confirmação', aguardando_lider: 'Aguard. líder',
   ativo: 'Ativo', devolvido: 'Devolvido', recusado: 'Recusado'
 }
-const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário', administracao: 'Administração', compras: 'Compras', diretor: 'Diretor de Operações' }
+const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário', administracao: 'Administração', compras: 'Compras', diretor: 'Diretor de Operações', gerente: 'Gerente de Contrato' }
 // Perfis com acesso ao módulo Uniformes/EPI (mesmo conjunto do backend UNIF_ROLES).
 const PERFIS_UNIFORME = ['almoxarifado', 'administracao', 'compras']
 
@@ -586,10 +587,10 @@ function Dashboard({ user, navigate, addToast }) {
     </div>
   )
 
-  // Diretor de Operações: painel de gestão à vista das obras (não custódia).
-  if (user.role === 'diretor') return (
+  // Diretor de Operações / Gerente de Contrato: painel de gestão à vista das obras (não custódia).
+  if (user.role === 'diretor' || user.role === 'gerente') return (
     <div>
-      <div className="topbar"><h2>Painel — Diretor de Operações</h2></div>
+      <div className="topbar"><h2>Painel — {ROLE_LABEL[user.role]}</h2></div>
       <div className="stat-section">
         <div className="stat-section-title"><span className="st-ic"><Icon name="building" size={14}/></span>Obras</div>
         <div className="stats-grid">
@@ -1637,8 +1638,8 @@ function CautelasPage({ user, navigate, addToast }) {
                   {isLider && c.cautela_tipo!=='direto' && c.status === 'ativa' && c.lider_id === user.id && (
                     <button className="btn btn-accent btn-sm" onClick={()=>abrirEntrega(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="send" size={14}/> Entregar a operário</button>
                   )}
-                  {(isLider || isAlm) && c.status === 'ativa' && (
-                    <button className="btn btn-success btn-sm" onClick={()=>abrirDevolver(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="download" size={14}/> Devolver</button>
+                  {isAlm && c.status === 'ativa' && (
+                    <button className="btn btn-success btn-sm" onClick={()=>abrirDevolver(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="download" size={14}/> Registrar devolução</button>
                   )}
                 </div></td>
               </tr>
@@ -1694,9 +1695,6 @@ function CautelasPage({ user, navigate, addToast }) {
                         </div>
                         <div className="gap-8">
                           {e.ip_operario && <span className="text-muted" style={{fontSize:'.75rem'}}>IP: {e.ip_operario}</span>}
-                          {e.status === 'ativa' && isLider && (
-                            <button className="btn btn-success btn-sm" onClick={()=>devolverEntrega(detalhe.id,e.id)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="download" size={14}/> Devolver</button>
-                          )}
                         </div>
                       </div>
                       {e.itens && e.itens.length > 0 && (
@@ -1721,8 +1719,8 @@ function CautelasPage({ user, navigate, addToast }) {
               {isLider && detalhe.status === 'ativa' && detalhe.lider_id === user.id && (
                 <button className="btn btn-accent" onClick={()=>{setDetalhe(null);abrirEntrega(detalhe)}} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="send" size={14}/> Entregar a operário</button>
               )}
-              {(isLider || isAlm) && detalhe.status === 'ativa' && (
-                <button className="btn btn-success" onClick={()=>{setDetalhe(null);abrirDevolver(detalhe)}} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Devolver cautela</button>
+              {isAlm && detalhe.status === 'ativa' && (
+                <button className="btn btn-success" onClick={()=>{setDetalhe(null);abrirDevolver(detalhe)}} style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Registrar devolução</button>
               )}
               {detalhe.status === 'devolvida' && detalhe.assinatura_devolucao && (
                 <button className="btn btn-outline btn-sm" onClick={()=>verTermoDevolucao(detalhe.id)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="fileText" size={14}/> Recibo Devolução</button>
@@ -1799,7 +1797,7 @@ function CautelasPage({ user, navigate, addToast }) {
         <div className="modal-overlay open">
           <div className="modal modal-md">
             <div className="modal-header">
-              <h3 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="download" size={17}/> Devolver Cautela {devModal.numero}</h3>
+              <h3 style={{display:'flex',alignItems:'center',gap:8}}><Icon name="download" size={17}/> Registrar devolução — Cautela {devModal.numero}</h3>
               <button className="modal-close" onClick={()=>setDevModal(null)}>×</button>
             </div>
             <div className="modal-body">
@@ -3141,7 +3139,7 @@ function EquipeAuditoriaPage({ addToast }) {
 }
 
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
-function UsuariosPage({ addToast }) {
+function UsuariosPage({ user, addToast }) {
   const [lista, setLista] = useState([])
   const [obras, setObras] = useState([])
   const [lideres, setLideres] = useState([])
@@ -3149,6 +3147,11 @@ function UsuariosPage({ addToast }) {
   const [form, setForm] = useState({})
   const [filtroRole, setFiltroRole] = useState('')
   const [confirmDel, setConfirmDel] = useState(false)
+  // Perfis que este usuário pode criar/gerenciar (espelha a hierarquia do backend).
+  // Diretor: só um nível abaixo (Gerente/líder/operário). Almox/master: todos.
+  const perfisDisp = user.role === 'diretor'
+    ? [{ v:'gerente', l:'Gerente de Contrato' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }]
+    : [{ v:'gerente', l:'Gerente de Contrato' }, { v:'diretor', l:'Diretor de Operações' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }, { v:'administracao', l:'Administração' }, { v:'compras', l:'Compras' }]
   const load = () => GET('/usuarios').then(setLista)
   useEffect(() => { load(); GET('/obras').then(setObras).catch(()=>{}); GET('/usuarios/lideres').then(setLideres).catch(()=>{}) }, [])
   const abrirNovo = () => { setForm({role:'operario',ativo:true}); setConfirmDel(false); setOpenId('new') }
@@ -3192,9 +3195,7 @@ function UsuariosPage({ addToast }) {
           <div className="form-group"><label>Cargo</label><input value={form.cargo||''} onChange={e=>setForm({...form,cargo:e.target.value})} placeholder="Pedreiro, Eletricista..." /></div>
           <div className="form-group"><label>Perfil</label>
             <select value={form.role||'operario'} onChange={e=>setForm({...form,role:e.target.value})} disabled={!!form.id}>
-              <option value="lider">Líder</option><option value="operario">Operário</option>
-              <option value="diretor">Diretor de Operações</option>
-              <option value="administracao">Administração</option><option value="compras">Compras</option>
+              {perfisDisp.map(p=><option key={p.v} value={p.v}>{p.l}</option>)}
             </select>
           </div>
           {obras.length > 0 && (form.role==='lider'||form.role==='operario') && (
@@ -3234,7 +3235,8 @@ function UsuariosPage({ addToast }) {
       <div className="card">
         <div className="card-body" style={{paddingBottom:12}}>
           <select value={filtroRole} onChange={e=>setFiltroRole(e.target.value)} style={{width:'auto'}}>
-            <option value="">Todos os perfis</option><option value="lider">Líder</option><option value="operario">Operário</option><option value="diretor">Diretor de Operações</option><option value="administracao">Administração</option><option value="compras">Compras</option>
+            <option value="">Todos os perfis</option>
+            {perfisDisp.map(p=><option key={p.v} value={p.v}>{p.l}</option>)}
           </select>
         </div>
         <ListaAcordeao
@@ -3440,20 +3442,22 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
   const lider = user.role === 'lider'
   const op = user.role === 'operario'
   const diretor = user.role === 'diretor'
+  const gerente = user.role === 'gerente'
   const unif = PERFIS_UNIFORME.includes(user.role)
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel', show: true },
     { id: 'solicitacoes', icon: 'clipboard', label: 'Solicitações', show: alm || lider, badge: alm ? ((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)) : (notif.sol_prontas||0) },
     { id: 'nova-solicitacao', icon: 'plus', label: 'Nova Solicitação', show: lider },
     { id: 'equipe', icon: 'users', label: 'Minha equipe', show: lider, badge: notif.transferencias_recebidas||0 },
-    { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: lider },
-    { id: 'obras', icon: 'building', label: 'Obras', show: alm || diretor || lider },
+    { id: 'obras', icon: 'building', label: 'Obras', show: alm || diretor || gerente || lider },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || op },
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm || lider || op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes / EPI', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
     { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
     { id: 'bolsas', icon: 'backpack', label: 'Bolsas / Kits', show: alm },
-    { id: 'usuarios', icon: 'users', label: 'Usuários', show: alm },
+    { id: 'usuarios', icon: 'users', label: 'Usuários', show: alm || diretor },
+    // Auditoria fica sempre por último, após Empréstimos (regra de layout do sidebar).
+    { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: lider },
     { id: 'auditoria', icon: 'history', label: 'Auditoria', show: alm },
   ].filter(i => i.show)
   return (
@@ -3489,12 +3493,13 @@ function BottomNav({ user, page, navigate, notif }) {
   const lider = user.role === 'lider'
   const op = user.role === 'operario'
   const diretor = user.role === 'diretor'
+  const gerente = user.role === 'gerente'
   const unif = PERFIS_UNIFORME.includes(user.role)
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel' },
     { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider },
     { id: 'equipe', icon: 'users', label: 'Equipe', show: lider, badge: notif.transferencias_recebidas||0 },
-    { id: 'obras', icon: 'building', label: 'Obras', show: diretor||lider },
+    { id: 'obras', icon: 'building', label: 'Obras', show: diretor||gerente||lider },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||op },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm||lider||op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },

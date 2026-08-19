@@ -90,7 +90,7 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     senha_hash TEXT NOT NULL,
     cargo TEXT,
-    role TEXT NOT NULL CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor')),
+    role TEXT NOT NULL CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor','gerente')),
     ativo INTEGER DEFAULT 1,
     criado_em TEXT DEFAULT (datetime('now','localtime'))
   );
@@ -496,17 +496,18 @@ db.exec(`
     for (const [nome, grade] of Object.entries(gradesSeed)) upG.run(grade, nome)
   } catch (e) { console.error('  ⚠️ backfill de grades de uniforme:', e.message) }
 
-  // Expande o CHECK de role para o papel 'diretor' (Diretor de Operações). SQLite não altera
-  // CHECK via ALTER — reconstrói usuarios reaproveitando o PRÓPRIO CREATE atual (assim TODAS as
-  // colunas já existentes — inclusive obra_id, lider_id, assinatura — são preservadas sem lista
-  // fixa) e só troca a cláusula CHECK. Guardado: só roda se o CHECK ainda não tem 'diretor'.
+  // Expande o CHECK de role para os papéis 'diretor' e 'gerente' (Gerente de Contrato). SQLite não
+  // altera CHECK via ALTER — reconstrói usuarios reaproveitando o PRÓPRIO CREATE atual (assim TODAS
+  // as colunas já existentes — inclusive obra_id, lider_id, assinatura — são preservadas sem lista
+  // fixa) e só troca a cláusula CHECK. Guardado: só roda se o CHECK ainda não tem 'gerente' (em
+  // bancos que já têm 'diretor' de um deploy anterior, o guard por 'gerente' garante que rode 1x).
   // Roda por último, depois de todos os addCol acima. FK desligada durante a troca.
   const uSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='usuarios'").get()
-  if (uSql && !/'diretor'/.test(uSql.sql)) {
+  if (uSql && !/'gerente'/.test(uSql.sql)) {
     const createNew = uSql.sql
       .replace(/CREATE TABLE\s+"?usuarios"?/i, 'CREATE TABLE usuarios_new')
       .replace(/CHECK\s*\(\s*role\s+IN\s*\([^)]*\)\s*\)/i,
-        "CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor'))")
+        "CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor','gerente'))")
     const cols = db.prepare('PRAGMA table_info(usuarios)').all().map(c => c.name).join(',')
     db.pragma('foreign_keys = OFF')
     try {
@@ -517,11 +518,11 @@ db.exec(`
       db.exec('ALTER TABLE usuarios_new RENAME TO usuarios')
       db.exec('COMMIT')
       const viol = db.prepare('PRAGMA foreign_key_check').all()
-      if (viol.length) console.error('  ⚠️ foreign_key_check após migração p/ diretor:', viol)
-      else console.log("  Migração usuarios: CHECK de role expandido (diretor)")
+      if (viol.length) console.error('  ⚠️ foreign_key_check após migração p/ gerente:', viol)
+      else console.log("  Migração usuarios: CHECK de role expandido (diretor, gerente)")
     } catch (e) {
       try { db.exec('ROLLBACK') } catch {}
-      console.error('  ⚠️ Falha ao expandir CHECK p/ diretor (usuarios inalterada):', e.message)
+      console.error('  ⚠️ Falha ao expandir CHECK p/ gerente (usuarios inalterada):', e.message)
     } finally {
       db.pragma('foreign_keys = ON')
     }
@@ -650,6 +651,19 @@ function requireMaster(req, res, next) {
   if (!req.user || !req.user.is_master)
     return res.status(403).json({ error: 'Ação restrita ao administrador master.' })
   next()
+}
+
+// Hierarquia de gestão de contas: quais papéis cada usuário pode criar/editar/excluir/resetar senha.
+//  • Almoxarifado e master: todos os papéis operacionais.
+//  • Diretor de Operações: um nível abaixo — Gerente de Contrato, líder e operário (não toca em
+//    diretor, almoxarifado, master, administração ou compras).
+//  • Gerente de Contrato e demais papéis: não gerenciam contas.
+function rolesGerenciaveis(user) {
+  if (user.is_master || user.role === 'almoxarifado')
+    return ['gerente', 'diretor', 'lider', 'operario', 'administracao', 'compras']
+  if (user.role === 'diretor')
+    return ['gerente', 'lider', 'operario']
+  return []
 }
 
 function audit(uid, acao, tabela, id, detalhe) {
@@ -1015,12 +1029,14 @@ app.post('/api/auth/validar', auth(), (req, res) => {
 })
 
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
-app.get('/api/usuarios', auth(['almoxarifado', 'lider']), (req, res) => {
+app.get('/api/usuarios', auth(['almoxarifado', 'lider', 'diretor']), (req, res) => {
   const { role } = req.query
   let q = 'SELECT id,nome,email,cargo,role,ativo,cpf_cnpj,empresa,endereco,telefone,obra_id,lider_id FROM usuarios WHERE 1=1'
   const p = []
   // A conta do administrador master só aparece para outro master (invisível ao almoxarifado do cliente)
   if (!req.user.is_master) q += ' AND is_master=0'
+  // Diretor só enxerga as contas que gerencia (Gerente de Contrato, líder, operário).
+  if (req.user.role === 'diretor') q += " AND role IN ('gerente','lider','operario')"
   if (role) { q += ' AND role=?'; p.push(role) }
   q += ' ORDER BY nome'
   res.json(db.prepare(q).all(...p))
@@ -1039,9 +1055,10 @@ app.get('/api/usuarios/lideres', auth(), (req, res) => {
   res.json(db.prepare("SELECT id,nome,email,cargo FROM usuarios WHERE role='lider' AND ativo=1 ORDER BY nome").all())
 })
 
-app.post('/api/usuarios', auth(['almoxarifado']), (req, res) => {
+app.post('/api/usuarios', auth(['almoxarifado', 'diretor']), (req, res) => {
   const { nome, email, senha, cargo, role, cpf_cnpj, empresa, endereco, telefone, obra_id, lider_id } = req.body
-  if (!['lider', 'operario', 'administracao', 'compras', 'diretor'].includes(role)) return res.status(400).json({ error: 'Role inválido' })
+  if (!rolesGerenciaveis(req.user).includes(role))
+    return res.status(403).json({ error: 'Você não pode criar usuários com este perfil.' })
   try {
     const r = db.prepare('INSERT INTO usuarios (nome,email,senha_hash,cargo,role,cpf_cnpj,empresa,endereco,telefone,obra_id,lider_id,primeiro_acesso) VALUES (?,?,?,?,?,?,?,?,?,?,?,1)')
       .run(nome, email, bcrypt.hashSync(senha, 10), cargo || '', role, cpf_cnpj || null, empresa || null, endereco || null, telefone || null, obra_id || null, lider_id || null)
@@ -1053,11 +1070,14 @@ app.post('/api/usuarios', auth(['almoxarifado']), (req, res) => {
   }
 })
 
-app.put('/api/usuarios/:id', auth(['almoxarifado']), (req, res) => {
+app.put('/api/usuarios/:id', auth(['almoxarifado', 'diretor']), (req, res) => {
   const { nome, cargo, ativo, senha, cpf_cnpj, empresa, endereco, telefone, obra_id, lider_id } = req.body
-  const alvo = db.prepare('SELECT is_master FROM usuarios WHERE id=?').get(req.params.id)
+  const alvo = db.prepare('SELECT is_master, role FROM usuarios WHERE id=?').get(req.params.id)
   if (alvo && alvo.is_master && !req.user.is_master)
     return res.status(403).json({ error: 'Apenas o administrador master pode editar esta conta.' })
+  // Hierarquia: quem não é almox/master só edita os papéis que gerencia (ex.: Diretor → gerente/líder/operário).
+  if (!req.user.is_master && req.user.role !== 'almoxarifado' && alvo && !rolesGerenciaveis(req.user).includes(alvo.role))
+    return res.status(403).json({ error: 'Sem permissão sobre este usuário.' })
   // obra_id/lider_id: se vier no payload (inclusive vazio p/ remover), aplica; se ausente, mantém.
   let sql = 'UPDATE usuarios SET nome=?,cargo=?,ativo=?,cpf_cnpj=?,empresa=?,endereco=?,telefone=?'
   const tail = [nome, cargo, ativo ? 1 : 0, cpf_cnpj || null, empresa || null, endereco || null, telefone || null]
@@ -1072,11 +1092,14 @@ app.put('/api/usuarios/:id', auth(['almoxarifado']), (req, res) => {
   res.json({ ok: true })
 })
 
-app.delete('/api/usuarios/:id', auth(['almoxarifado']), (req, res) => {
+app.delete('/api/usuarios/:id', auth(['almoxarifado', 'diretor']), (req, res) => {
   const u = db.prepare('SELECT * FROM usuarios WHERE id=?').get(req.params.id)
   if (!u) return res.status(404).json({ error: 'Usuário não encontrado' })
   if (u.role === 'almoxarifado') return res.status(400).json({ error: 'Não é possível excluir o administrador do sistema' })
   if (parseInt(req.params.id) === req.user.id) return res.status(400).json({ error: 'Não pode excluir seu próprio usuário' })
+  // Hierarquia: quem não é almox/master só exclui os papéis que gerencia (e nunca a conta master).
+  if (!req.user.is_master && req.user.role !== 'almoxarifado' && (u.is_master || !rolesGerenciaveis(req.user).includes(u.role)))
+    return res.status(403).json({ error: 'Sem permissão sobre este usuário.' })
   const temCautela = db.prepare("SELECT id FROM cautelas WHERE lider_id=? AND status='ativa'").get(req.params.id)
   if (temCautela) return res.status(400).json({ error: 'Usuário possui cautela(s) ativa(s). Encerre-as antes de excluir.' })
   db.prepare('DELETE FROM usuarios WHERE id=?').run(req.params.id)
@@ -1214,7 +1237,7 @@ app.put('/api/bolsas/:id', auth(['almoxarifado']), (req, res) => {
 // ─── OBRAS / CANTEIROS ────────────────────────────────────────────────────────
 // Listagem: qualquer usuário logado (usada nos seletores). ?all=1 inclui inativas.
 // Gestores de obra: almoxarifado (inclui o Master) e Diretor de Operações.
-const GESTOR_OBRAS = ['almoxarifado', 'diretor']
+const GESTOR_OBRAS = ['almoxarifado', 'diretor', 'gerente']
 
 // Listagem escopada por papel:
 //  • líder → só as obras ATIVAS atribuídas a ele (lider_id = ele). É "leitura" no modelo dele.
@@ -1595,11 +1618,13 @@ app.post('/api/cautelas/:id/entregas/:eid/devolver', auth(['lider']), (req, res)
   res.json({ ok: true })
 })
 
-app.post('/api/cautelas/:id/devolver', auth(['almoxarifado', 'lider']), (req, res) => {
+// Devolução da cautela: SEMPRE iniciada pelo login do almoxarifado (quem recebe as ferramentas
+// de volta). A confirmação continua sendo de quem está com a bolsa — o responsável (operário na
+// cautela direta, líder na via-líder) autentica (email+senha) e assina no ato.
+app.post('/api/cautelas/:id/devolver', auth(['almoxarifado']), (req, res) => {
   const c = db.prepare('SELECT * FROM cautelas WHERE id=?').get(req.params.id)
   if (!c) return res.status(404).json({ error: 'Não encontrada' })
   if (c.status !== 'ativa') return res.status(400).json({ error: 'Cautela não está ativa' })
-  if (req.user.role === 'lider' && c.lider_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' })
 
   const { email, senha, assinatura, obs_devolucao } = req.body
 
@@ -1615,7 +1640,11 @@ app.post('/api/cautelas/:id/devolver', auth(['almoxarifado', 'lider']), (req, re
   const agora = new Date().toISOString().slice(0, 19).replace('T', ' ')
   db.prepare("UPDATE cautelas SET status='devolvida',data_devolucao=?,obs_devolucao=?,assinatura_devolucao=?,ip_devolucao=? WHERE id=?")
     .run(agora, obs_devolucao || '', assinatura, ip, req.params.id)
-  audit(req.user.id, 'DEVOLVER_CAUTELA', 'cautelas', req.params.id, { obs_devolucao, lider: lider.nome, ip })
+  // A bolsa volta inteira ao almoxarifado: fecha em cascata as entregas ativas a operários
+  // (na via-líder), para não deixar sub-entregas penduradas depois da devolução ao estoque.
+  db.prepare("UPDATE cautela_entregas SET status='devolvida',data_devolucao=? WHERE cautela_id=? AND status='ativa'")
+    .run(agora, req.params.id)
+  audit(req.user.id, 'DEVOLVER_CAUTELA', 'cautelas', req.params.id, { obs_devolucao, responsavel: lider.nome, ip })
   res.json({ ok: true })
 })
 
@@ -2475,7 +2504,7 @@ app.get('/api/dashboard', auth(), (req, res) => {
   const u = req.user
   const s = {}
 
-  if (u.role === 'diretor') {
+  if (u.role === 'diretor' || u.role === 'gerente') {
     s.obras_ativas    = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1').get().n
     s.obras_com_lider = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id IS NOT NULL').get().n
     s.obras_sem_lider = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id IS NULL').get().n

@@ -12,6 +12,22 @@ Faltam só **passos operacionais no app** (não é deploy):
 Deploy daqui pra frente = **`git push` na `main`** (auto-deploy do Railway). NÃO usar `railway up`
 (trava com "os error 5" no Windows). Detalhes na seção "COMO O DEPLOY FUNCIONA".
 
+### ⏳ Pronto no branch, aguardando deploy (lote 2026-08-19, sessão do deploy)
+Mudanças commitadas em `claude/ultimo-deploy-producao-bgkr5n`, **ainda não em `main`/produção**:
+1. **Papel novo `gerente` (Gerente de Contrato):** mesmo acesso do Diretor (Painel + Obras + define
+   líder da obra), **sem** gerenciar contas. `GESTOR_OBRAS` inclui gerente; badge/label próprios.
+   Migração idempotente estende o CHECK (`... 'diretor','gerente'`), guardada por `!/'gerente'/`
+   (roda 1x no banco de prod que já tem `diretor`). Log de deploy: `CHECK de role expandido (diretor, gerente)`.
+2. **Hierarquia de contas:** o **Diretor** ganhou a aba **Usuários** e gerencia (criar/editar/excluir/resetar
+   senha) **Gerente, líder e operário** — nunca Diretor/Almox/Master. Helper `rolesGerenciaveis(user)` no
+   backend + escopo no GET/POST/PUT/DELETE `/usuarios`. Gerente não gerencia ninguém.
+3. **Devolução de cautela:** removido o botão "Devolver" de líder/operário. Agora **só o Almoxarifado inicia**
+   ("Registrar devolução"); o responsável (operário na direta, líder na via-líder) confirma com **login +
+   assinatura** (mecanismo mantido). Endpoint `POST /cautelas/:id/devolver` = `auth(['almoxarifado'])` e
+   fecha as entregas a operários em cascata. (O "Devolver" do módulo Empréstimos é outro fluxo — intacto.)
+4. **Sidebar:** aba **Auditoria** movida para o fim (após Empréstimos).
+Validado: `node --check` OK + JSX compila (Babel). Falta: push na `main` + verificar migração e fluxos.
+
 ## O que é
 **Cautelix** — SaaS de controle de cautela de ferramentas de obra (construção civil).
 Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.

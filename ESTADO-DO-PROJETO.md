@@ -150,11 +150,19 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 - **Frontend:** aba **Minha equipe** (sidebar + bottom-nav do líder, com badge), campo **Líder
   responsável** no cadastro de operário, ícone `users`/`handshake`.
 
-## Módulo Diretor de Operações + Obras do líder (Kanban) (⏳ NO STAGING, aguardando prod — 2026-08-18)
-> Commit **`59d1010`** na `main` (já **pushado** ao GitHub `Maxdst/cautela-ferramentas`).
-> **Deploy no `cautela-staging` OK** (server subiu limpo, "SERVIDOR OK"). **Falta:** teste logado
-> no staging + `railway up` → **`cautela-ferramentas`** (produção). Validação prévia: `node --check`,
-> migração testada em `node:sqlite` (dados preservados), JSX compila no navegador.
+## Módulo Diretor de Operações + Obras do líder (Kanban) (⏳ PRONTO PARA PROD — aguardando `railway up` — 2026-08-19)
+> Commit **`59d1010`** (feature) + **`c9e1f66`** (handoff staging), branch `claude/ultimo-deploy-producao-bgkr5n`
+> pushada ao GitHub `Maxdst/cautela-ferramentas`. **Deploy no `cautela-staging` OK** (server subiu limpo,
+> "SERVIDOR OK"). Validação prévia refeita nesta sessão: `node --check server.js` **OK**, migração guardada
+> do papel `diretor` presente (`CHECK ... 'diretor'`, guardada por `!/'diretor'/`), frontend do Kanban
+> presente (`ObrasLiderPage`, `iniciais()`), SW **bumpado v5→v6** (purga limpa de cache nos PWAs instalados).
+> **Falta só o passo manual do Maxwel** (o Railway **não** é conectado ao GitHub — push não publica):
+> 1. `railway up --detach --service cautela-ferramentas` (a partir da pasta do projeto)
+> 2. No log de **produção**, procurar: `Migração usuarios: CHECK de role expandido (diretor)` (só roda em
+>    banco existente como o de prod — no staging efêmero não aparece).
+> 3. Poll: `curl -s https://cautela.grupomarkat.com.br/ | grep -o markat-cautela-v6` (espera `markat-cautela-v6`)
+>    e `curl -s -o /dev/null -w '%{http_code}' https://cautela.grupomarkat.com.br/health` (espera `200`).
+> 4. Teste logado do Maxwel + atribuir cada obra a um líder (ver ⚠️ pós-deploy abaixo). Depois marcar EM PRODUÇÃO aqui.
 - **Papel novo `diretor` (Diretor de Operações):** cria obras e **define qual líder responde por cada
   obra**. Migração segura (reconstrói `usuarios` reaproveitando o próprio `CREATE` — preserva TODAS as
   colunas/dados, só amplia o `CHECK`; idempotente, guardada por `!/'diretor'/`). Base schema já nasce com

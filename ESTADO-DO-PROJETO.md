@@ -11,17 +11,24 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
   único `public/index.html` (Babel no navegador) · JWT · PWA (`public/sw.js`).
 - Papéis: `almoxarifado`, `lider`, `operario`, `administracao`, `compras`, **`diretor`** (Diretor de Operações) + flag **`is_master`** (super-admin).
 
-## ⚠️ COMO O DEPLOY FUNCIONA (crítico — não é o padrão)
-- O Railway **NÃO está conectado ao GitHub**. Deploy é manual via **CLI**:
-  `railway up --detach --service cautela-ferramentas` (a partir da pasta do projeto).
-- Fazer merge/push na `main` **não** publica nada sozinho. `main` = fonte, mas quem
-  publica é o `railway up`. Verificar deploy: `curl` no site e procurar marcadores no HTML.
+## ⚠️ COMO O DEPLOY FUNCIONA (corrigido em 2026-08-19)
+- **O Railway ESTÁ conectado ao GitHub.** Serviço de produção `cautela-ferramentas`
+  (projeto `cautela-ferramentas`, env `production`, volume `/app/data`, domínio
+  `cautela.grupomarkat.com.br`) → **Source Repo `Maxdst/cautela-ferramentas`**, branch
+  **`main`**, **auto-deploy LIGADO**. Ou seja: **push na `main` publica em produção sozinho.**
+  (O handoff antigo dizia "não conectado / deploy manual via CLI" — estava **errado**.)
+- **Caminho de deploy oficial = `git push` na `main`.** O Railway builda e sobe. Verificar:
+  aba Deployments → Success + View logs (marcadores de migração/`SERVIDOR OK`), e `curl` no site.
+- **`railway up` (CLI) NÃO funciona na máquina Windows do Maxwel:** trava em
+  `Acesso negado. (os error 5)` logo após "Compressed 100%", mesmo da pasta certa, como admin,
+  e com TEMP redirecionado — é antivírus/proteção de pasta bloqueando o pacote temporário.
+  Não insistir no CLI; usar o push na `main`.
 - Build roda no Linux do Railway (o `better-sqlite3` compila lá; **localmente não compila**
-  nesta máquina Windows — falta Python/build tools). Por isso não dá pra rodar o app
-  completo localmente; validação local = `node --check server.js` + Babel no navegador
-  (servir `public/` e checar console).
+  nesta máquina Windows — falta Python/build tools). Validação local = `node --check server.js`
+  + Babel no navegador (servir `public/` e checar console).
 - Zero-downtime: se o build falha, o Railway mantém a versão atual (healthcheck `/health`).
-- Reverter: aba Implantações do Railway → redeploy da versão anterior; ou `git revert` + `railway up`.
+- Reverter: aba Deployments do Railway → redeploy da versão anterior; ou `git revert` + push na `main`.
+- Existe também o serviço `cautela-staging` (banco efêmero, sem volume) para testes.
 
 ## Railway — incidente de deploy resolvido (2026-07-30 tarde)
 - Houve um **incidente da plataforma Railway** ("Builds and deployments are delayed") que pausou deploys
@@ -150,19 +157,16 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 - **Frontend:** aba **Minha equipe** (sidebar + bottom-nav do líder, com badge), campo **Líder
   responsável** no cadastro de operário, ícone `users`/`handshake`.
 
-## Módulo Diretor de Operações + Obras do líder (Kanban) (⏳ PRONTO PARA PROD — aguardando `railway up` — 2026-08-19)
-> Commit **`59d1010`** (feature) + **`c9e1f66`** (handoff staging), branch `claude/ultimo-deploy-producao-bgkr5n`
-> pushada ao GitHub `Maxdst/cautela-ferramentas`. **Deploy no `cautela-staging` OK** (server subiu limpo,
-> "SERVIDOR OK"). Validação prévia refeita nesta sessão: `node --check server.js` **OK**, migração guardada
-> do papel `diretor` presente (`CHECK ... 'diretor'`, guardada por `!/'diretor'/`), frontend do Kanban
-> presente (`ObrasLiderPage`, `iniciais()`), SW **bumpado v5→v6** (purga limpa de cache nos PWAs instalados).
-> **Falta só o passo manual do Maxwel** (o Railway **não** é conectado ao GitHub — push não publica):
-> 1. `railway up --detach --service cautela-ferramentas` (a partir da pasta do projeto)
-> 2. No log de **produção**, procurar: `Migração usuarios: CHECK de role expandido (diretor)` (só roda em
->    banco existente como o de prod — no staging efêmero não aparece).
-> 3. Poll: `curl -s https://cautela.grupomarkat.com.br/ | grep -o markat-cautela-v6` (espera `markat-cautela-v6`)
->    e `curl -s -o /dev/null -w '%{http_code}' https://cautela.grupomarkat.com.br/health` (espera `200`).
-> 4. Teste logado do Maxwel + atribuir cada obra a um líder (ver ⚠️ pós-deploy abaixo). Depois marcar EM PRODUÇÃO aqui.
+## Módulo Diretor de Operações + Obras do líder (Kanban) (✅ EM PRODUÇÃO desde 2026-08-19)
+> **Deploy verificado hoje:** `main` (commit `c9e1f66`) publicou via **auto-deploy do GitHub** →
+> Deployment **successful**, `/health` **200**, e o marcador `ObrasLiderPage` (Kanban do líder) aparece
+> no HTML servido. O deploy saiu **pelo push na `main`**, não pelo `railway up` (que trava com "Acesso
+> negado" na máquina Windows — ver seção COMO O DEPLOY FUNCIONA). Validação prévia: `node --check` OK,
+> migração guardada do papel `diretor` (`CHECK ... 'diretor'`, guardada por `!/'diretor'/`), JSX compila.
+> **SW bumpado v5→v6** (purga limpa de cache nos PWAs) foi pra `main` num commit seguinte — redeploy automático.
+> **Pendências operacionais do Maxwel (não são deploy):**
+> 1. Atribuir cada obra a um líder (ver ⚠️ pós-deploy abaixo) — obras existentes ficaram sem líder.
+> 2. Teste logado com dados reais (papel `diretor`, Kanban, mover colaborador entre obras).
 - **Papel novo `diretor` (Diretor de Operações):** cria obras e **define qual líder responde por cada
   obra**. Migração segura (reconstrói `usuarios` reaproveitando o próprio `CREATE` — preserva TODAS as
   colunas/dados, só amplia o `CHECK`; idempotente, guardada por `!/'diretor'/`). Base schema já nasce com

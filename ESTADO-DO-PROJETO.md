@@ -53,8 +53,12 @@ Validado: `node --check` OK + JSX compila (Babel). Falta: push na `main` + verif
     (`UPDATE role='engenheiro' WHERE email IN (...) AND role='lider'`) no boot, após o seed de líderes.
 11. **Dropdowns de perfil reordenados** na hierarquia: Administração · Compras · (Almoxarifado) · Diretor ·
     Gerente · Engenheiro · Líder · Operário. Diretor cria/gerencia gerente/**engenheiro**/líder/operário.
-- Pendências de terminologia (a decidir): o rótulo "Líder responsável" na aba Obras (gestor) hoje aponta
-  engenheiros — pode virar "Engenheiro responsável". A aba "Minha equipe" do líder ainda existe.
+12. **Rótulo "Engenheiro responsável"** na aba Obras (gestor) e no Painel do Diretor (antes "Líder
+    responsável"/"Sem líder"). O "Líder responsável" do cadastro de operário e do empréstimo (equipe do
+    operário) ficou **intacto** — lá ainda é líder.
+13. **Líder perdeu "Minha equipe" + a "Auditoria" da equipe** (agora só Engenheiro). Líder mantém: Painel,
+    Solicitações, Nova Solicitação, Cautelas, Empréstimos. (Backend dos endpoints `/equipe` ainda aceita
+    líder além de engenheiro — sem caminho na UI; se quiser travar no backend também, é rápido.)
 
 ## O que é
 **Cautelix** — SaaS de controle de cautela de ferramentas de obra (construção civil).

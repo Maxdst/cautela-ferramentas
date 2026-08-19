@@ -596,13 +596,13 @@ function Dashboard({ user, navigate, addToast }) {
         <div className="stat-section-title"><span className="st-ic"><Icon name="building" size={14}/></span>Obras</div>
         <div className="stats-grid">
           <div className="stat-card blue"><div className="stat-label">Obras ativas</div><div className="stat-value">{stats.obras_ativas||0}</div></div>
-          <div className="stat-card"><div className="stat-label">Com líder definido</div><div className="stat-value">{stats.obras_com_lider||0}</div></div>
-          <div className="stat-card red"><div className="stat-label">Sem líder</div><div className="stat-value">{stats.obras_sem_lider||0}</div></div>
+          <div className="stat-card"><div className="stat-label">Com engenheiro</div><div className="stat-value">{stats.obras_com_lider||0}</div></div>
+          <div className="stat-card red"><div className="stat-label">Sem engenheiro</div><div className="stat-value">{stats.obras_sem_lider||0}</div></div>
         </div>
       </div>
       {(stats.obras_sem_lider||0) > 0 && (
         <div className="pending-banner">
-          <span className="msg" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> {stats.obras_sem_lider} obra(s) sem líder responsável — atribua para o líder enxergar a obra.</span>
+          <span className="msg" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> {stats.obras_sem_lider} obra(s) sem engenheiro responsável — atribua para o engenheiro enxergar a obra.</span>
           <button className="btn btn-accent btn-sm" onClick={()=>navigate('obras')}>Atribuir agora →</button>
         </div>
       )}
@@ -2832,12 +2832,12 @@ function ObrasPage({ addToast }) {
           <div className="form-group"><label>Nome da obra *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex.: Residencial Vista Mar" /></div>
           <div className="form-group"><label>Código / Contrato</label><input value={form.codigo||''} onChange={e=>setForm({...form,codigo:e.target.value})} placeholder="OBR-01" /></div>
           <div className="form-group"><label>Responsável (engenharia)</label><input value={form.responsavel||''} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Eng. responsável" /></div>
-          <div className="form-group"><label>Líder responsável</label>
+          <div className="form-group"><label>Engenheiro responsável</label>
             <select value={form.lider_id||''} onChange={e=>setForm({...form,lider_id:e.target.value})}>
-              <option value="">Sem líder definido</option>
+              <option value="">Sem engenheiro definido</option>
               {lideres.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
             </select>
-            <span className="text-muted" style={{fontSize:'.72rem',marginTop:4,display:'block'}}>O líder só enxerga a obra depois de ser definido aqui.</span>
+            <span className="text-muted" style={{fontSize:'.72rem',marginTop:4,display:'block'}}>O engenheiro só enxerga a obra depois de ser definido aqui.</span>
           </div>
           <div className="form-group"><label>Endereço</label><input value={form.endereco||''} onChange={e=>setForm({...form,endereco:e.target.value})} /></div>
           {form.id && <div className="form-group"><label>Status</label>
@@ -2861,7 +2861,7 @@ function ObrasPage({ addToast }) {
             titulo: <><span className="nm">{o.nome}</span>{o.codigo && <span className="text-muted" style={{fontSize:'.72rem',marginLeft:6}}>{o.codigo}</span>}{!o.ativo && <span className="badge badge-devolvida" style={{fontSize:'.62rem',padding:'1px 7px',marginLeft:6}}>Inativa</span>}</>,
             direita: o.lider_nome
               ? <span className="badge badge-lider" style={{fontSize:'.68rem'}}>{o.lider_nome}</span>
-              : <span style={{fontSize:'.72rem',color:'var(--warning)',display:'inline-flex',alignItems:'center',gap:4,fontWeight:600}}><Icon name="alertTriangle" size={12}/> Sem líder</span>
+              : <span style={{fontSize:'.72rem',color:'var(--warning)',display:'inline-flex',alignItems:'center',gap:4,fontWeight:600}}><Icon name="alertTriangle" size={12}/> Sem engenheiro</span>
           })}
         />
       </div>
@@ -3450,7 +3450,7 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
     { id: 'dashboard', icon: 'dashboard', label: 'Painel', show: true },
     { id: 'solicitacoes', icon: 'clipboard', label: 'Solicitações', show: alm || lider || eng, badge: alm ? ((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)) : (notif.sol_prontas||0) },
     { id: 'nova-solicitacao', icon: 'plus', label: 'Nova Solicitação', show: lider || eng },
-    { id: 'equipe', icon: 'users', label: 'Minha equipe', show: lider || eng, badge: notif.transferencias_recebidas||0 },
+    { id: 'equipe', icon: 'users', label: 'Minha equipe', show: eng, badge: notif.transferencias_recebidas||0 },
     { id: 'obras', icon: 'building', label: 'Obras', show: alm || diretor || gerente || eng },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || eng || op },
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm || lider || eng || op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):((lider||eng)?(notif.emprestimos_aguardando_aval||0):0) },
@@ -3459,7 +3459,7 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
     { id: 'bolsas', icon: 'backpack', label: 'Bolsas / Kits', show: alm },
     { id: 'usuarios', icon: 'users', label: 'Usuários', show: alm || diretor },
     // Auditoria fica sempre por último, após Empréstimos (regra de layout do sidebar).
-    { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: lider || eng },
+    { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: eng },
     { id: 'auditoria', icon: 'history', label: 'Auditoria', show: alm },
   ].filter(i => i.show)
   return (
@@ -3501,7 +3501,7 @@ function BottomNav({ user, page, navigate, notif }) {
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel' },
     { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider||eng },
-    { id: 'equipe', icon: 'users', label: 'Equipe', show: lider||eng, badge: notif.transferencias_recebidas||0 },
+    { id: 'equipe', icon: 'users', label: 'Equipe', show: eng, badge: notif.transferencias_recebidas||0 },
     { id: 'obras', icon: 'building', label: 'Obras', show: diretor||gerente||eng },
     { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||eng||op },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },

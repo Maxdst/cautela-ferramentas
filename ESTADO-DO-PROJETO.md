@@ -3,6 +3,15 @@
 > Leia este arquivo no início de uma conversa nova para retomar o contexto sem
 > arrastar o histórico inteiro. Mantido por Claude + Maxwel. Atualize ao concluir marcos.
 
+## ⏰ PRÓXIMA AÇÃO (retomar por aqui — 2026-08-19)
+Módulo **Diretor/Kanban está EM PRODUÇÃO** (deploy do dia 19/08 pela `main`, SW v6, `/health` 200).
+Faltam só **passos operacionais no app** (não é deploy):
+1. **Atribuir cada obra a um líder:** aba **Obras** → abrir a obra → campo **"Líder responsável"** → Salvar.
+   Enquanto não fizer, os líderes veem a lista de obras vazia (esperado do modelo novo).
+2. **Teste logado com dados reais:** papel `diretor`, Kanban de obras, mover colaborador entre obras.
+Deploy daqui pra frente = **`git push` na `main`** (auto-deploy do Railway). NÃO usar `railway up`
+(trava com "os error 5" no Windows). Detalhes na seção "COMO O DEPLOY FUNCIONA".
+
 ## O que é
 **Cautelix** — SaaS de controle de cautela de ferramentas de obra (construção civil).
 Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.

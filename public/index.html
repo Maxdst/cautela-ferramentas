@@ -105,6 +105,7 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .badge-compras{background:#e0f2fe;color:#075985}
 .badge-diretor{background:#f4ecdf;color:#8B6B3D}
 .badge-gerente{background:#e8eef4;color:#2E3F55}
+.badge-engenheiro{background:#e0eef0;color:#356b78}
 /* Módulo Uniformes / EPI */
 .uni-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
 .uni-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);background:var(--card);border-radius:8px;cursor:pointer;font-size:.85rem;color:var(--text-secondary);font-weight:600}
@@ -280,7 +281,7 @@ const STATUS_LABEL = {
   aguardando_tomador: 'Aguard. confirmação', aguardando_lider: 'Aguard. líder',
   ativo: 'Ativo', devolvido: 'Devolvido', recusado: 'Recusado'
 }
-const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário', administracao: 'Administração', compras: 'Compras', diretor: 'Diretor de Operações', gerente: 'Gerente de Contrato' }
+const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário', administracao: 'Administração', compras: 'Compras', diretor: 'Diretor de Operações', gerente: 'Gerente de Contrato', engenheiro: 'Engenheiro' }
 // Perfis com acesso ao módulo Uniformes/EPI (mesmo conjunto do backend UNIF_ROLES).
 const PERFIS_UNIFORME = ['almoxarifado', 'administracao', 'compras']
 
@@ -689,7 +690,7 @@ function Dashboard({ user, navigate, addToast }) {
     </div>
   )
 
-  if (user.role === 'lider') return (
+  if (user.role === 'lider' || user.role === 'engenheiro') return (
     <div>
       <div className="topbar">
         <h2>Painel do Líder</h2>
@@ -1613,7 +1614,7 @@ function CautelasPage({ user, navigate, addToast }) {
     } catch(e) { addToast('Recibo indisponível (cautela ainda não devolvida ou sem assinatura).', 'warning') }
   }
 
-  const isLider = user.role === 'lider'
+  const isLider = user.role === 'lider' || user.role === 'engenheiro'
   const isAlm   = user.role === 'almoxarifado'
 
   return (
@@ -3150,8 +3151,8 @@ function UsuariosPage({ user, addToast }) {
   // Perfis que este usuário pode criar/gerenciar (espelha a hierarquia do backend).
   // Diretor: só um nível abaixo (Gerente/líder/operário). Almox/master: todos.
   const perfisDisp = user.role === 'diretor'
-    ? [{ v:'gerente', l:'Gerente de Contrato' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }]
-    : [{ v:'gerente', l:'Gerente de Contrato' }, { v:'diretor', l:'Diretor de Operações' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }, { v:'administracao', l:'Administração' }, { v:'compras', l:'Compras' }]
+    ? [{ v:'gerente', l:'Gerente de Contrato' }, { v:'engenheiro', l:'Engenheiro' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }]
+    : [{ v:'administracao', l:'Administração' }, { v:'compras', l:'Compras' }, { v:'diretor', l:'Diretor de Operações' }, { v:'gerente', l:'Gerente de Contrato' }, { v:'engenheiro', l:'Engenheiro' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }]
   const load = () => GET('/usuarios').then(setLista)
   useEffect(() => { load(); GET('/obras').then(setObras).catch(()=>{}); GET('/usuarios/lideres').then(setLideres).catch(()=>{}) }, [])
   const abrirNovo = () => { setForm({role:'operario',ativo:true}); setConfirmDel(false); setOpenId('new') }
@@ -3198,7 +3199,7 @@ function UsuariosPage({ user, addToast }) {
               {perfisDisp.map(p=><option key={p.v} value={p.v}>{p.l}</option>)}
             </select>
           </div>
-          {obras.length > 0 && (form.role==='lider'||form.role==='operario') && (
+          {obras.length > 0 && (form.role==='lider'||form.role==='operario'||form.role==='engenheiro') && (
             <div className="form-group"><label>Obra padrão</label>
               <select value={form.obra_id||''} onChange={e=>setForm({...form,obra_id:e.target.value})}>
                 <option value="">Sem obra fixa</option>
@@ -3440,24 +3441,25 @@ function Icon({ name, size=20 }) {
 function Sidebar({ user, page, navigate, onLogout, notif }) {
   const alm = user.role === 'almoxarifado'
   const lider = user.role === 'lider'
+  const eng = user.role === 'engenheiro'
   const op = user.role === 'operario'
   const diretor = user.role === 'diretor'
   const gerente = user.role === 'gerente'
   const unif = PERFIS_UNIFORME.includes(user.role)
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel', show: true },
-    { id: 'solicitacoes', icon: 'clipboard', label: 'Solicitações', show: alm || lider, badge: alm ? ((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)) : (notif.sol_prontas||0) },
-    { id: 'nova-solicitacao', icon: 'plus', label: 'Nova Solicitação', show: lider },
-    { id: 'equipe', icon: 'users', label: 'Minha equipe', show: lider, badge: notif.transferencias_recebidas||0 },
-    { id: 'obras', icon: 'building', label: 'Obras', show: alm || diretor || gerente || lider },
-    { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || op },
-    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm || lider || op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
+    { id: 'solicitacoes', icon: 'clipboard', label: 'Solicitações', show: alm || lider || eng, badge: alm ? ((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)) : (notif.sol_prontas||0) },
+    { id: 'nova-solicitacao', icon: 'plus', label: 'Nova Solicitação', show: lider || eng },
+    { id: 'equipe', icon: 'users', label: 'Minha equipe', show: lider || eng, badge: notif.transferencias_recebidas||0 },
+    { id: 'obras', icon: 'building', label: 'Obras', show: alm || diretor || gerente || eng },
+    { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm || lider || eng || op },
+    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm || lider || eng || op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):((lider||eng)?(notif.emprestimos_aguardando_aval||0):0) },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes / EPI', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
     { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
     { id: 'bolsas', icon: 'backpack', label: 'Bolsas / Kits', show: alm },
     { id: 'usuarios', icon: 'users', label: 'Usuários', show: alm || diretor },
     // Auditoria fica sempre por último, após Empréstimos (regra de layout do sidebar).
-    { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: lider },
+    { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: lider || eng },
     { id: 'auditoria', icon: 'history', label: 'Auditoria', show: alm },
   ].filter(i => i.show)
   return (
@@ -3491,18 +3493,19 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
 function BottomNav({ user, page, navigate, notif }) {
   const alm = user.role === 'almoxarifado'
   const lider = user.role === 'lider'
+  const eng = user.role === 'engenheiro'
   const op = user.role === 'operario'
   const diretor = user.role === 'diretor'
   const gerente = user.role === 'gerente'
   const unif = PERFIS_UNIFORME.includes(user.role)
   const items = [
     { id: 'dashboard', icon: 'dashboard', label: 'Painel' },
-    { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider },
-    { id: 'equipe', icon: 'users', label: 'Equipe', show: lider, badge: notif.transferencias_recebidas||0 },
-    { id: 'obras', icon: 'building', label: 'Obras', show: diretor||gerente||lider },
-    { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||op },
+    { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider||eng },
+    { id: 'equipe', icon: 'users', label: 'Equipe', show: lider||eng, badge: notif.transferencias_recebidas||0 },
+    { id: 'obras', icon: 'building', label: 'Obras', show: diretor||gerente||eng },
+    { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||eng||op },
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
-    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm||lider||op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):(lider?(notif.emprestimos_aguardando_aval||0):0) },
+    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm||lider||eng||op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):((lider||eng)?(notif.emprestimos_aguardando_aval||0):0) },
     { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
   ].filter(i => i.show !== false).slice(0,5)
   return (
@@ -3546,7 +3549,7 @@ function App() {
     let prev = {}
     const load = () => GET('/notificacoes').then(n => {
       // Toast para líder quando solicitação fica pronta
-      if (user.role === 'lider') {
+      if (user.role === 'lider' || user.role === 'engenheiro') {
         const curr = n.sol_prontas || 0
         const ante = prev.sol_prontas || 0
         if (curr > 0 && curr !== ante) addToast(`${curr} solicitação(ões) pronta(s) para retirada!`, 'warning')
@@ -3592,7 +3595,7 @@ function App() {
     if (page === 'emprestimos') return <EmprestimosPage {...props} />
     if (page === 'uniformes') return <UniformesPage {...props} />
     if (page === 'ferramentas') return <FerramentasPage {...props} />
-    if (page === 'obras') return user.role === 'lider' ? <ObrasLiderPage {...props} /> : <ObrasPage {...props} />
+    if (page === 'obras') return user.role === 'engenheiro' ? <ObrasLiderPage {...props} /> : <ObrasPage {...props} />
     if (page === 'bolsas') return <BolsasPage {...props} />
     if (page === 'usuarios') return <UsuariosPage {...props} />
     if (page === 'auditoria') return <AuditoriaPage {...props} />

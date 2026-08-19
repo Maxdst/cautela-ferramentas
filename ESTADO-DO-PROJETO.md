@@ -37,6 +37,25 @@ Validado: `node --check` OK + JSX compila (Babel). Falta: push na `main` + verif
    (`marlon@markat.com`, senha padrão `Markat@2025`). Idempotente: guarda-rápida por `codigo='FMS'` +
    checagem por nome. Log de deploy: `N obra(s) do contrato FMS Niterói semeadas com líder definido`.
 
+### Lote 2026-08-19 (c): papel Engenheiro + hierarquia de comando
+7. **Papel novo `engenheiro`** = todas as funcionalidades do **Líder atual**, um nível **acima do Líder** e
+   **abaixo do Gerente de Contrato**. Migração idempotente estende o CHECK (`... 'gerente','engenheiro'`,
+   guardada por `!/'engenheiro'/`). Log: `CHECK de role expandido (diretor, gerente, engenheiro)`.
+8. **O Líder PERDE a aba Obras** (gerir obras + alocar colaboradores nas obras) — isso é do **Engenheiro
+   para cima**. Kanban `ObrasLiderPage` agora é do `engenheiro`; sidebar/bottom-nav de Obras = alm/diretor/
+   gerente/**engenheiro** (líder saiu). Como as obras têm `lider_id` = engenheiro, a lista de obras do líder
+   fica vazia (ele não aloca obras). Líder mantém Solicitações, Minha equipe, Cautelas, Empréstimos.
+9. **Engenheiro tratado como líder** em todo o backend (auth de solicitações/cautelas/entregas/equipe/
+   empréstimos; escopos `role IN ('lider','engenheiro')`; `/auth/validar` trata os dois como equivalentes)
+   e frontend (Painel, isLider, abas, roteamento). `GET /usuarios/lideres` e validações de responsável/
+   para_lider passam a aceitar engenheiro (obras podem ter engenheiro como responsável).
+10. **Os 4 responsáveis viram Engenheiro** (Anderson, Marlon, Leandro, Christian) — promoção idempotente
+    (`UPDATE role='engenheiro' WHERE email IN (...) AND role='lider'`) no boot, após o seed de líderes.
+11. **Dropdowns de perfil reordenados** na hierarquia: Administração · Compras · (Almoxarifado) · Diretor ·
+    Gerente · Engenheiro · Líder · Operário. Diretor cria/gerencia gerente/**engenheiro**/líder/operário.
+- Pendências de terminologia (a decidir): o rótulo "Líder responsável" na aba Obras (gestor) hoje aponta
+  engenheiros — pode virar "Engenheiro responsável". A aba "Minha equipe" do líder ainda existe.
+
 ## O que é
 **Cautelix** — SaaS de controle de cautela de ferramentas de obra (construção civil).
 Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.

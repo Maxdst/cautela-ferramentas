@@ -90,7 +90,7 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     senha_hash TEXT NOT NULL,
     cargo TEXT,
-    role TEXT NOT NULL CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor','gerente')),
+    role TEXT NOT NULL CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor','gerente','engenheiro')),
     ativo INTEGER DEFAULT 1,
     criado_em TEXT DEFAULT (datetime('now','localtime'))
   );
@@ -500,14 +500,14 @@ db.exec(`
   // altera CHECK via ALTER — reconstrói usuarios reaproveitando o PRÓPRIO CREATE atual (assim TODAS
   // as colunas já existentes — inclusive obra_id, lider_id, assinatura — são preservadas sem lista
   // fixa) e só troca a cláusula CHECK. Guardado: só roda se o CHECK ainda não tem 'gerente' (em
-  // bancos que já têm 'diretor' de um deploy anterior, o guard por 'gerente' garante que rode 1x).
+  // bancos que já têm 'diretor' de um deploy anterior, o guard por 'engenheiro' garante que rode 1x).
   // Roda por último, depois de todos os addCol acima. FK desligada durante a troca.
   const uSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='usuarios'").get()
-  if (uSql && !/'gerente'/.test(uSql.sql)) {
+  if (uSql && !/'engenheiro'/.test(uSql.sql)) {
     const createNew = uSql.sql
       .replace(/CREATE TABLE\s+"?usuarios"?/i, 'CREATE TABLE usuarios_new')
       .replace(/CHECK\s*\(\s*role\s+IN\s*\([^)]*\)\s*\)/i,
-        "CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor','gerente'))")
+        "CHECK(role IN ('almoxarifado','lider','operario','administracao','compras','diretor','gerente','engenheiro'))")
     const cols = db.prepare('PRAGMA table_info(usuarios)').all().map(c => c.name).join(',')
     db.pragma('foreign_keys = OFF')
     try {
@@ -518,11 +518,11 @@ db.exec(`
       db.exec('ALTER TABLE usuarios_new RENAME TO usuarios')
       db.exec('COMMIT')
       const viol = db.prepare('PRAGMA foreign_key_check').all()
-      if (viol.length) console.error('  ⚠️ foreign_key_check após migração p/ gerente:', viol)
-      else console.log("  Migração usuarios: CHECK de role expandido (diretor, gerente)")
+      if (viol.length) console.error('  ⚠️ foreign_key_check após migração p/ engenheiro:', viol)
+      else console.log("  Migração usuarios: CHECK de role expandido (diretor, gerente, engenheiro)")
     } catch (e) {
       try { db.exec('ROLLBACK') } catch {}
-      console.error('  ⚠️ Falha ao expandir CHECK p/ gerente (usuarios inalterada):', e.message)
+      console.error('  ⚠️ Falha ao expandir CHECK p/ engenheiro (usuarios inalterada):', e.message)
     } finally {
       db.pragma('foreign_keys = ON')
     }
@@ -605,6 +605,23 @@ const ADMIN_MASTER = {
     if (r.changes) criados++
   }
   if (criados > 0) console.log(`  ✅ ${criados} líder(es) Markat criados. Senha padrão: ${SENHA_PADRAO}`)
+})()
+
+// ─── PROMOÇÃO A ENGENHEIRO (responsáveis das obras FMS) ────────────────────────
+// Anderson, Marlon, Leandro e Christian são Engenheiros (um nível acima do Líder:
+// gerem obras e a alocação de colaboradores nas obras). Vinham do seed como 'lider';
+// esta promoção é idempotente (só age em quem ainda está 'lider').
+;(() => {
+  const engenheiros = [
+    'anderson.rodrigues@markat.com',
+    'marlon@markat.com',
+    'leandro.sa@markat.com',
+    'christian.freitas@markat.com',
+  ]
+  const up = db.prepare("UPDATE usuarios SET role='engenheiro' WHERE LOWER(email)=LOWER(?) AND role='lider'")
+  let n = 0
+  for (const e of engenheiros) n += up.run(e).changes
+  if (n > 0) console.log(`  ✅ ${n} usuário(s) promovidos a Engenheiro (responsáveis das obras FMS).`)
 })()
 
 // ─── SEED DE OBRAS (Contrato FMS Niterói — Zoneamento das Unidades 2026) ───────
@@ -726,9 +743,9 @@ function requireMaster(req, res, next) {
 //  • Gerente de Contrato e demais papéis: não gerenciam contas.
 function rolesGerenciaveis(user) {
   if (user.is_master || user.role === 'almoxarifado')
-    return ['gerente', 'diretor', 'lider', 'operario', 'administracao', 'compras']
+    return ['gerente', 'diretor', 'engenheiro', 'lider', 'operario', 'administracao', 'compras']
   if (user.role === 'diretor')
-    return ['gerente', 'lider', 'operario']
+    return ['gerente', 'engenheiro', 'lider', 'operario']
   return []
 }
 
@@ -1089,20 +1106,21 @@ app.post('/api/auth/validar', auth(), (req, res) => {
   const u = db.prepare('SELECT * FROM usuarios WHERE LOWER(email)=LOWER(?) AND ativo=1').get(email)
   if (!u || !bcrypt.compareSync(senha, u.senha_hash))
     return res.status(401).json({ error: 'Email ou senha incorretos' })
-  if (role_esperado && u.role !== role_esperado)
+  const _grp = r => (r === 'engenheiro' ? 'lider' : r)
+  if (role_esperado && _grp(u.role) !== _grp(role_esperado))
     return res.status(403).json({ error: `Esperado perfil ${role_esperado}, encontrado ${u.role}` })
   res.json({ id: u.id, nome: u.nome, email: u.email, role: u.role, cargo: u.cargo, cpf_cnpj: u.cpf_cnpj, empresa: u.empresa })
 })
 
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
-app.get('/api/usuarios', auth(['almoxarifado', 'lider', 'diretor']), (req, res) => {
+app.get('/api/usuarios', auth(['almoxarifado', 'lider', 'engenheiro', 'diretor']), (req, res) => {
   const { role } = req.query
   let q = 'SELECT id,nome,email,cargo,role,ativo,cpf_cnpj,empresa,endereco,telefone,obra_id,lider_id FROM usuarios WHERE 1=1'
   const p = []
   // A conta do administrador master só aparece para outro master (invisível ao almoxarifado do cliente)
   if (!req.user.is_master) q += ' AND is_master=0'
   // Diretor só enxerga as contas que gerencia (Gerente de Contrato, líder, operário).
-  if (req.user.role === 'diretor') q += " AND role IN ('gerente','lider','operario')"
+  if (req.user.role === 'diretor') q += " AND role IN ('gerente','engenheiro','lider','operario')"
   if (role) { q += ' AND role=?'; p.push(role) }
   q += ' ORDER BY nome'
   res.json(db.prepare(q).all(...p))
@@ -1118,7 +1136,7 @@ app.get('/api/usuarios/buscar', auth(), (req, res) => {
 
 // Líderes (para operário selecionar no empréstimo)
 app.get('/api/usuarios/lideres', auth(), (req, res) => {
-  res.json(db.prepare("SELECT id,nome,email,cargo FROM usuarios WHERE role='lider' AND ativo=1 ORDER BY nome").all())
+  res.json(db.prepare("SELECT id,nome,email,cargo FROM usuarios WHERE role IN ('lider','engenheiro') AND ativo=1 ORDER BY nome").all())
 })
 
 app.post('/api/usuarios', auth(['almoxarifado', 'diretor']), (req, res) => {
@@ -1312,7 +1330,7 @@ const GESTOR_OBRAS = ['almoxarifado', 'diretor', 'gerente']
 app.get('/api/obras', auth(), (req, res) => {
   const role = req.user.role
   const base = 'SELECT o.*, l.nome lider_nome FROM obras o LEFT JOIN usuarios l ON l.id=o.lider_id'
-  if (role === 'lider') {
+  if (role === 'lider' || role === 'engenheiro') {
     return res.json(db.prepare(base + ' WHERE o.ativo=1 AND o.lider_id=? ORDER BY o.nome').all(req.user.id))
   }
   const incluiInativas = req.query.all === '1' && GESTOR_OBRAS.includes(role)
@@ -1322,7 +1340,7 @@ app.get('/api/obras', auth(), (req, res) => {
 // Valida que lider_id (se informado) aponta para um líder ativo. Retorna o id normalizado ou null.
 function normalizarLiderObra(lider_id) {
   if (!lider_id) return null
-  const l = db.prepare("SELECT id FROM usuarios WHERE id=? AND role='lider' AND ativo=1").get(lider_id)
+  const l = db.prepare("SELECT id FROM usuarios WHERE id=? AND role IN ('lider','engenheiro') AND ativo=1").get(lider_id)
   return l ? l.id : null
 }
 
@@ -1359,7 +1377,7 @@ app.delete('/api/obras/:id', auth(GESTOR_OBRAS), (req, res) => {
 
 // Drill-in do líder: os colaboradores da EQUIPE DELE que estão nesta obra (escopo custódia).
 // Só o líder dono da obra acessa. O "mover" reaproveita POST /equipe/mover.
-app.get('/api/obras/:id/equipe', auth(['lider']), (req, res) => {
+app.get('/api/obras/:id/equipe', auth(['lider', 'engenheiro']), (req, res) => {
   const obra = db.prepare('SELECT o.*, l.nome lider_nome FROM obras o LEFT JOIN usuarios l ON l.id=o.lider_id WHERE o.id=?').get(req.params.id)
   if (!obra) return res.status(404).json({ error: 'Obra não encontrada' })
   if (obra.lider_id !== req.user.id) return res.status(403).json({ error: 'Obra não atribuída a você.' })
@@ -1403,7 +1421,7 @@ const solItensQuery = `
 app.get('/api/solicitacoes', auth(), (req, res) => {
   let q = solQuery + ' WHERE 1=1'
   const p = []
-  if (req.user.role === 'lider') { q += ' AND s.lider_id=?'; p.push(req.user.id) }
+  if (req.user.role === 'lider' || req.user.role === 'engenheiro') { q += ' AND s.lider_id=?'; p.push(req.user.id) }
   q += ' ORDER BY s.criado_em DESC'
   const lista = db.prepare(q).all(...p)
   const itensStmt = db.prepare(solItensQuery)
@@ -1457,7 +1475,7 @@ app.post('/api/solicitacoes/por-operario', auth(['almoxarifado']), (req, res) =>
   res.json({ id })
 })
 
-app.post('/api/solicitacoes', auth(['lider']), (req, res) => {
+app.post('/api/solicitacoes', auth(['lider', 'engenheiro']), (req, res) => {
   const { bolsa_id, itens, obs, obra_id } = req.body
   if (!itens || !itens.length) return res.status(400).json({ error: 'Adicione ao menos um item' })
   const semEstoque = erroDisponibilidade(itens)
@@ -1532,10 +1550,10 @@ app.post('/api/solicitacoes/:id/pronta', auth(['almoxarifado']), (req, res) => {
   res.json({ ok: true, cautela_id })
 })
 
-app.post('/api/solicitacoes/:id/cancelar', auth(['almoxarifado', 'lider']), (req, res) => {
+app.post('/api/solicitacoes/:id/cancelar', auth(['almoxarifado', 'lider', 'engenheiro']), (req, res) => {
   const s = db.prepare('SELECT * FROM solicitacoes WHERE id=?').get(req.params.id)
   if (!s) return res.status(404).json({ error: 'Não encontrada' })
-  if (req.user.role === 'lider' && s.lider_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' })
+  if ((req.user.role === 'lider' || req.user.role === 'engenheiro') && s.lider_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' })
   if (!['solicitada', 'separando'].includes(s.status)) return res.status(400).json({ error: 'Não pode cancelar neste status' })
   db.prepare("UPDATE solicitacoes SET status='cancelada' WHERE id=?").run(req.params.id)
   audit(req.user.id, 'CANCELAR_SOLICITACAO', 'solicitacoes', req.params.id, null)
@@ -1559,7 +1577,7 @@ const cautelaItensQuery = `
 app.get('/api/cautelas', auth(), (req, res) => {
   let q = cautelaQuery + ' WHERE 1=1'
   const p = []
-  if (req.user.role === 'lider') { q += ' AND c.lider_id=?'; p.push(req.user.id) }
+  if (req.user.role === 'lider' || req.user.role === 'engenheiro') { q += ' AND c.lider_id=?'; p.push(req.user.id) }
   else if (req.user.role === 'operario') {
     q += ' AND (c.id IN (SELECT cautela_id FROM cautela_entregas WHERE operario_id=?) OR (c.cautela_tipo=\'direto\' AND c.lider_id=?))'
     p.push(req.user.id, req.user.id)
@@ -1645,7 +1663,7 @@ app.post('/api/cautelas/:id/retirar', auth(['almoxarifado']), (req, res) => {
 })
 
 // Líder entrega ao operário: operário autentica no dispositivo do líder
-app.post('/api/cautelas/:id/entregas', auth(['lider']), (req, res) => {
+app.post('/api/cautelas/:id/entregas', auth(['lider', 'engenheiro']), (req, res) => {
   const { email, senha, assinatura, itens } = req.body
   const c = db.prepare('SELECT * FROM cautelas WHERE id=?').get(req.params.id)
   if (!c) return res.status(404).json({ error: 'Não encontrada' })
@@ -1674,7 +1692,7 @@ app.post('/api/cautelas/:id/entregas', auth(['lider']), (req, res) => {
   res.json({ ok: true, id, operario_nome: op.nome })
 })
 
-app.post('/api/cautelas/:id/entregas/:eid/devolver', auth(['lider']), (req, res) => {
+app.post('/api/cautelas/:id/entregas/:eid/devolver', auth(['lider', 'engenheiro']), (req, res) => {
   const e = db.prepare('SELECT * FROM cautela_entregas WHERE id=? AND cautela_id=?').get(req.params.eid, req.params.id)
   if (!e) return res.status(404).json({ error: 'Não encontrada' })
   const c = db.prepare('SELECT * FROM cautelas WHERE id=?').get(req.params.id)
@@ -1744,7 +1762,7 @@ app.get('/api/emprestimos', auth(), (req, res) => {
   const p = []
   if (req.user.role === 'operario') {
     q += ' AND (e.solicitante_id=? OR e.tomador_id=?)'; p.push(req.user.id, req.user.id)
-  } else if (req.user.role === 'lider') {
+  } else if (req.user.role === 'lider' || req.user.role === 'engenheiro') {
     q += ' AND e.lider_id=?'; p.push(req.user.id)
   }
   q += ' ORDER BY e.criado_em DESC'
@@ -1797,7 +1815,7 @@ app.post('/api/emprestimos/:id/recusar', auth(['operario']), (req, res) => {
 })
 
 // Líder assina
-app.post('/api/emprestimos/:id/aval-lider', auth(['lider']), (req, res) => {
+app.post('/api/emprestimos/:id/aval-lider', auth(['lider', 'engenheiro']), (req, res) => {
   const { assinatura } = req.body
   const e = db.prepare('SELECT * FROM emprestimos WHERE id=?').get(req.params.id)
   if (!e) return res.status(404).json({ error: 'Não encontrado' })
@@ -1812,7 +1830,7 @@ app.post('/api/emprestimos/:id/aval-lider', auth(['lider']), (req, res) => {
 })
 
 // Devolver
-app.post('/api/emprestimos/:id/devolver', auth(['operario', 'lider', 'almoxarifado']), (req, res) => {
+app.post('/api/emprestimos/:id/devolver', auth(['operario', 'lider', 'engenheiro', 'almoxarifado']), (req, res) => {
   const e = db.prepare('SELECT * FROM emprestimos WHERE id=?').get(req.params.id)
   if (!e) return res.status(404).json({ error: 'Não encontrado' })
   if (e.status !== 'ativo') return res.status(400).json({ error: 'Empréstimo não está ativo' })
@@ -2353,7 +2371,7 @@ app.get('/api/notificacoes', auth(), (req, res) => {
     n.cautelas_aguardando   = db.prepare("SELECT COUNT(*) c FROM cautelas WHERE status='aguardando_retirada'").get().c
   }
 
-  if (u.role === 'lider') {
+  if (u.role === 'lider' || u.role === 'engenheiro') {
     n.emprestimos_aguardando_aval = db.prepare("SELECT COUNT(*) c FROM emprestimos WHERE lider_id=? AND status='aguardando_lider'").get(u.id).c
     n.solicitacoes_prontas = db.prepare("SELECT COUNT(*) c FROM solicitacoes WHERE lider_id=? AND status='pronta'").get(u.id).c
     n.cautelas_aguardando_retirada = db.prepare("SELECT COUNT(*) c FROM cautelas WHERE lider_id=? AND status='aguardando_retirada'").get(u.id).c
@@ -2398,7 +2416,7 @@ function posseColaborador(operarioId) {
 }
 
 // Painel "Minha equipe" do líder: membros (lider_id = eu) + pendências de transferência.
-app.get('/api/equipe', auth(['lider']), (req, res) => {
+app.get('/api/equipe', auth(['lider', 'engenheiro']), (req, res) => {
   const membros = db.prepare(`
     SELECT u.id, u.nome, u.cargo, u.obra_id, ob.nome obra_nome
     FROM usuarios u LEFT JOIN obras ob ON ob.id=u.obra_id
@@ -2437,7 +2455,7 @@ app.get('/api/equipe', auth(['lider']), (req, res) => {
 })
 
 // Detalhe: quais cautelas/ferramentas estão em posse de um colaborador da minha equipe.
-app.get('/api/equipe/:colaboradorId/cautelas', auth(['lider']), (req, res) => {
+app.get('/api/equipe/:colaboradorId/cautelas', auth(['lider', 'engenheiro']), (req, res) => {
   const col = db.prepare("SELECT * FROM usuarios WHERE id=? AND role='operario'").get(req.params.colaboradorId)
   if (!col) return res.status(404).json({ error: 'Colaborador não encontrado' })
   if (col.lider_id !== req.user.id) return res.status(403).json({ error: 'Colaborador não é da sua equipe' })
@@ -2462,7 +2480,7 @@ app.get('/api/equipe/:colaboradorId/cautelas', auth(['lider']), (req, res) => {
 
 // Auditoria da equipe: histórico de retiradas, devoluções e transferências dos colaboradores
 // que pertencem a este líder (gestão à vista dos processos da equipe dele — não custódia).
-app.get('/api/equipe/auditoria', auth(['lider']), (req, res) => {
+app.get('/api/equipe/auditoria', auth(['lider', 'engenheiro']), (req, res) => {
   const ev = []
   // Entregas (recebimento e devolução) dos operários da minha equipe
   const entregas = db.prepare(`
@@ -2507,7 +2525,7 @@ app.get('/api/equipe/auditoria', auth(['lider']), (req, res) => {
 })
 
 // Mover colaborador: troca de obra (imediata, na própria equipe) e/ou passa p/ outro líder (pendente).
-app.post('/api/equipe/mover', auth(['lider']), (req, res) => {
+app.post('/api/equipe/mover', auth(['lider', 'engenheiro']), (req, res) => {
   const { colaborador_id, obra_id, para_lider_id } = req.body
   const col = db.prepare("SELECT * FROM usuarios WHERE id=? AND role='operario' AND ativo=1").get(colaborador_id)
   if (!col) return res.status(404).json({ error: 'Colaborador não encontrado' })
@@ -2521,7 +2539,7 @@ app.post('/api/equipe/mover', auth(['lider']), (req, res) => {
     return res.json({ ok: true, imediato: true })
   }
   // Passa para outro líder → transferência PENDENTE (colaborador só migra quando o outro aceita).
-  const alvo = db.prepare("SELECT id,nome FROM usuarios WHERE id=? AND role='lider' AND ativo=1").get(para_lider_id)
+  const alvo = db.prepare("SELECT id,nome FROM usuarios WHERE id=? AND role IN ('lider','engenheiro') AND ativo=1").get(para_lider_id)
   if (!alvo) return res.status(404).json({ error: 'Líder de destino não encontrado' })
   // Uma pendência por colaborador: cancela pendências anteriores dele antes de abrir a nova.
   db.prepare("UPDATE transferencias SET status='cancelada', resolvido_em=datetime('now','localtime') WHERE colaborador_id=? AND status='pendente'").run(colaborador_id)
@@ -2532,7 +2550,7 @@ app.post('/api/equipe/mover', auth(['lider']), (req, res) => {
 })
 
 // Líder que recebe ACEITA: agora sim o colaborador (e o valor em posse) migra para a equipe dele.
-app.post('/api/equipe/transferencias/:id/aceitar', auth(['lider']), (req, res) => {
+app.post('/api/equipe/transferencias/:id/aceitar', auth(['lider', 'engenheiro']), (req, res) => {
   const t = db.prepare("SELECT * FROM transferencias WHERE id=? AND status='pendente'").get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Transferência não encontrada ou já resolvida' })
   if (t.para_lider_id !== req.user.id) return res.status(403).json({ error: 'Só o líder que recebe pode aceitar.' })
@@ -2547,7 +2565,7 @@ app.post('/api/equipe/transferencias/:id/aceitar', auth(['lider']), (req, res) =
 })
 
 // Líder que recebe RECUSA → colaborador permanece na equipe de origem.
-app.post('/api/equipe/transferencias/:id/recusar', auth(['lider']), (req, res) => {
+app.post('/api/equipe/transferencias/:id/recusar', auth(['lider', 'engenheiro']), (req, res) => {
   const t = db.prepare("SELECT * FROM transferencias WHERE id=? AND status='pendente'").get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Transferência não encontrada ou já resolvida' })
   if (t.para_lider_id !== req.user.id) return res.status(403).json({ error: 'Só o líder que recebe pode recusar.' })
@@ -2557,7 +2575,7 @@ app.post('/api/equipe/transferencias/:id/recusar', auth(['lider']), (req, res) =
 })
 
 // Líder que enviou CANCELA a pendência antes do outro responder.
-app.post('/api/equipe/transferencias/:id/cancelar', auth(['lider']), (req, res) => {
+app.post('/api/equipe/transferencias/:id/cancelar', auth(['lider', 'engenheiro']), (req, res) => {
   const t = db.prepare("SELECT * FROM transferencias WHERE id=? AND status='pendente'").get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Transferência não encontrada ou já resolvida' })
   if (t.de_lider_id !== req.user.id) return res.status(403).json({ error: 'Só quem enviou pode cancelar.' })
@@ -2624,7 +2642,7 @@ app.get('/api/dashboard', auth(), (req, res) => {
       ORDER BY s.criado_em DESC LIMIT 5`).all()
   }
 
-  if (u.role === 'lider') {
+  if (u.role === 'lider' || u.role === 'engenheiro') {
     s.minhas_sol_ativas    = db.prepare("SELECT COUNT(*) n FROM solicitacoes WHERE lider_id=? AND status NOT IN ('retirada','cancelada')").get(u.id).n
     s.cautelas_ativas      = db.prepare("SELECT COUNT(*) n FROM cautelas WHERE lider_id=? AND status='ativa'").get(u.id).n
     s.valor_responsabilidade = db.prepare("SELECT COALESCE(SUM(valor_total),0) v FROM cautelas WHERE lider_id=? AND status='ativa'").get(u.id).v

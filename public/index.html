@@ -33,7 +33,7 @@
   --surface:#ffffff;--surface-alt:#EEF1F5;--row-hover:#E4E9EF;--primary-text:#1A2535;
   --shadow-sm:0 1px 2px rgba(26,37,53,.06),0 6px 18px -10px rgba(26,37,53,.20);
   --shadow-md:0 2px 4px rgba(26,37,53,.08),0 18px 40px -18px rgba(26,37,53,.32);
-  --sidebar-w:240px;--bottom-nav-h:60px;color-scheme:light}
+  --sidebar-w:240px;color-scheme:light}
 /* ===== Dark mode — segue OS quando o usuário não escolheu (sem [data-theme]) ===== */
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --primary:#0E1621;--primary-light:#1B2A3D;--primary-accent:#5CA8BD;--silver:#8A9BB0;--silver-light:#2C3A4C;
@@ -53,7 +53,8 @@
   --shadow-md:0 2px 4px rgba(0,0,0,.5),0 18px 40px -18px rgba(0,0,0,.7);
   color-scheme:dark}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+html{overflow-x:hidden}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;max-width:100vw}
 #root{display:flex;flex-direction:column;min-height:100vh}
 .login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--primary) 0%,#0F1820 100%)}
 .login-box{background:var(--surface);border-radius:16px;padding:48px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -79,7 +80,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .sidebar-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.1)}
 .btn-logout{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.6);background:none;border:none;cursor:pointer;font-size:.85rem;width:100%;padding:8px}
 .btn-logout:hover{color:white}
-.main-content{margin-left:var(--sidebar-w);flex:1;padding:28px;min-height:100vh}
+.main-content{margin-left:var(--sidebar-w);flex:1;min-width:0;padding:28px;min-height:100vh}
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px}
 .topbar h2{font-size:1.25rem;font-weight:700;color:var(--text)}
 .topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -222,16 +223,12 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 /* Auth device box */
 .auth-device-box{background:var(--surface-alt);border:2px solid var(--silver-light);border-radius:10px;padding:20px;margin-bottom:16px}
 .auth-device-box h4{color:var(--primary-accent);font-size:.95rem;margin-bottom:12px;font-weight:700}
-/* Bottom nav */
-.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:var(--bottom-nav-h);background:var(--primary);z-index:100;border-top:2px solid rgba(255,255,255,.1)}
-.bottom-nav-inner{display:flex;height:100%}
-.bottom-nav-btn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.02em;padding:4px 2px;transition:all .15s;position:relative}
-.bottom-nav-btn .bn-label{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
-.bottom-nav-btn .bn-icon{display:flex;align-items:center;justify-content:center;line-height:1}
-.bottom-nav-btn.active{color:var(--accent)}
-.bn-badge{position:absolute;top:6px;right:8px;background:var(--notif);color:white;border-radius:8px;font-size:.6rem;font-weight:800;padding:1px 5px;min-width:14px;text-align:center;box-shadow:0 0 0 2px var(--primary)}
 .mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;height:52px;background:var(--primary);z-index:90;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.1)}
-.mobile-topbar .mtb-brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;font-size:.98rem}
+.mobile-topbar .mtb-left{display:flex;align-items:center;gap:8px;min-width:0}
+.mobile-topbar .mtb-menu{display:flex;align-items:center;justify-content:center;background:none;border:none;color:#fff;padding:6px;margin:-6px 0;cursor:pointer;flex-shrink:0}
+.mobile-topbar .mtb-menu:active{opacity:.6}
+.mobile-topbar .mtb-brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;font-size:.98rem;min-width:0}
+.sidebar-overlay{display:none}
 .mobile-topbar .mtb-right{display:flex;align-items:center;gap:8px}
 .mobile-topbar .mtb-logout{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
 .mobile-topbar .mtb-logout:active{background:rgba(255,255,255,.18)}
@@ -240,33 +237,45 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 @media(max-width:768px){
   .sidebar{transform:translateX(-100%)}
   .sidebar.open{transform:translateX(0);box-shadow:4px 0 20px rgba(0,0,0,.4)}
+  .sidebar-overlay.open{display:block;position:fixed;inset:0;background:rgba(15,24,32,.5);z-index:45}
   .mobile-topbar{display:flex}
-  .main-content{margin-left:0;padding:12px 14px;padding-top:64px;padding-bottom:calc(var(--bottom-nav-h) + 12px)}
+  .main-content{margin-left:0;padding:12px 14px;padding-top:64px;padding-bottom:24px}
   .form-grid{grid-template-columns:1fr}
-  .bottom-nav{display:block}
   .topbar{margin-bottom:16px}
-  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat-card{padding:16px}
+  .stat-value.money{font-size:1.05rem}
   table{font-size:.82rem}th,td{padding:8px 10px}
   .modal{margin:0 8px}
   .kanban{grid-template-columns:1fr}
   /* Obras (líder): kanban horizontal -> pilha vertical, cada obra ocupa a largura toda */
   .obras-board{flex-direction:column !important;overflow-x:visible !important;gap:14px !important}
   .obra-lane{min-width:0 !important;max-width:none !important;width:100% !important;flex:1 1 auto !important}
-  /* Tabela -> cartoes empilhados (uso em campo, celular) */
+  /* ── Listas em cartões (mobile) ──────────────────────────────────
+     É CARTÃO, não lista. O container .card que embrulha a tabela perde
+     o próprio box — senão vira cartão-dentro-de-cartão e sobra aquele
+     "corredor" entre os itens. Cada linha é um cartão fechado, com a
+     1ª célula como faixa-título (nome da obra, nº, item…). */
+  .card:has(table.cards-mobile){background:none;border:none;border-radius:0;box-shadow:none;margin-bottom:8px}
+  .card:has(table.cards-mobile) .table-wrap{overflow:visible}
+  .card:has(table.cards-mobile) .card-header{padding:2px 2px 12px}
   table.cards-mobile,table.cards-mobile tbody{display:block}
   table.cards-mobile thead{display:none}
-  table.cards-mobile tr{display:block;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px 2px;margin-bottom:12px}
+  table.cards-mobile tr{display:block;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow-sm)}
   table.cards-mobile tr:hover td{background:none}
-  table.cards-mobile td{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border:none;border-bottom:1px solid var(--border);padding:9px 14px;text-align:right}
+  table.cards-mobile td{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border:none;border-bottom:1px solid var(--border);padding:11px 14px;text-align:right}
   table.cards-mobile td:last-child{border-bottom:none}
-  table.cards-mobile td::before{content:attr(data-label);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);text-align:left;white-space:nowrap;flex-shrink:0}
+  table.cards-mobile td::before{content:attr(data-label);font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--text-secondary);text-align:left;white-space:nowrap;flex-shrink:0}
+  /* 1ª célula = faixa-título do cartão */
+  table.cards-mobile td:first-child{display:block;text-align:left;background:var(--bg);color:var(--text);font-weight:700;font-size:.9rem;letter-spacing:.01em;padding:11px 14px;border-bottom:1px solid var(--border)}
+  table.cards-mobile td:first-child::before{display:none}
   table.cards-mobile td.cell-actions{display:block;text-align:left;padding-top:12px}
   table.cards-mobile td.cell-actions::before{display:none}
   table.cards-mobile td.cell-actions .actions .btn{flex:1;justify-content:center}
-  table.cards-mobile td[colspan]{display:block;text-align:center}
+  table.cards-mobile td[colspan]{display:block;text-align:center;background:none;color:var(--text-secondary)}
   table.cards-mobile td[colspan]::before{display:none}
-  /* Linha de estado vazio nao deve virar cartao (evita cartao-dentro-de-cartao) */
-  table.cards-mobile tr:has(td[colspan]){background:none;border:0;border-radius:0;padding:0;margin:0}
+  /* Linha de estado vazio não vira cartão */
+  table.cards-mobile tr:has(td[colspan]){background:none;border:0;border-radius:0;padding:0;margin:0;box-shadow:none}
 }
 /* ===== Card-herói financeiro (patrimônio sob responsabilidade) ===== */
 .fin-hero{position:relative;overflow:hidden;border-radius:16px;padding:22px 24px 20px;color:#EAEFF4;background:linear-gradient(135deg,#1A2535,#2E3F55);border:1px solid #33455d;box-shadow:var(--shadow-md)}
@@ -736,27 +745,6 @@ function Dashboard({ user, navigate, addToast }) {
   if (user.role === 'almoxarifado') return (
     <div>
       <div className="topbar"><h2>Painel Geral</h2>{user.is_master && <a href="/api/admin/backup" className="btn btn-ghost btn-sm" style={{fontSize:'.8rem',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="download" size={14}/> Baixar backup</a>}</div>
-      <div className="stat-section">
-        <div className="stat-section-title"><span className="st-ic"><Icon name="package" size={14}/></span>Estoque</div>
-        <div className="stats-grid">
-          <div className="stat-card blue"><div className="stat-label">Ferramentas</div><div className="stat-value">{stats.total_ferramentas||0}</div><div style={{fontSize:'.75rem',color:'var(--text-secondary)',marginTop:2}}>{stats.total_unidades||0} unidades</div></div>
-        </div>
-      </div>
-      <div className="stat-section">
-        <div className="stat-section-title"><span className="st-ic"><Icon name="exchange" size={14}/></span>Operação</div>
-        <div className="stats-grid">
-          <div className="stat-card blue"><div className="stat-label">Usuários</div><div className="stat-value">{stats.total_usuarios||0}</div></div>
-          <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
-        </div>
-      </div>
-      <div className="stat-section">
-        <div className="stat-section-title"><span className="st-ic"><Icon name="clipboard" size={14}/></span>Fila de solicitações</div>
-        <div className="stats-grid">
-          <div className="stat-card"><div className="stat-label">Solicitações novas</div><div className="stat-value">{stats.sol_solicitadas||0}</div></div>
-          <div className="stat-card"><div className="stat-label">Separando</div><div className="stat-value">{stats.sol_separando||0}</div></div>
-          <div className="stat-card"><div className="stat-label">Prontas p/ retirada</div><div className="stat-value">{stats.sol_prontas||0}</div></div>
-        </div>
-      </div>
       {user.is_master && (() => {
         const totalCampo = stats.valor_em_campo || 0
         const obras = (stats.por_obra || []).filter(o => (o.valor_em_campo || 0) > 0).sort((a, b) => (b.valor_em_campo || 0) - (a.valor_em_campo || 0))
@@ -784,6 +772,27 @@ function Dashboard({ user, navigate, addToast }) {
           </div>
         )
       })()}
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="package" size={14}/></span>Estoque</div>
+        <div className="stats-grid">
+          <div className="stat-card blue"><div className="stat-label">Ferramentas</div><div className="stat-value">{stats.total_ferramentas||0}</div><div style={{fontSize:'.75rem',color:'var(--text-secondary)',marginTop:2}}>{stats.total_unidades||0} unidades</div></div>
+        </div>
+      </div>
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="exchange" size={14}/></span>Operação</div>
+        <div className="stats-grid">
+          <div className="stat-card blue"><div className="stat-label">Usuários</div><div className="stat-value">{stats.total_usuarios||0}</div></div>
+          <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.cautelas_ativas||0}</div></div>
+        </div>
+      </div>
+      <div className="stat-section">
+        <div className="stat-section-title"><span className="st-ic"><Icon name="clipboard" size={14}/></span>Fila de solicitações</div>
+        <div className="stats-grid">
+          <div className="stat-card"><div className="stat-label">Solicitações novas</div><div className="stat-value">{stats.sol_solicitadas||0}</div></div>
+          <div className="stat-card"><div className="stat-label">Separando</div><div className="stat-value">{stats.sol_separando||0}</div></div>
+          <div className="stat-card"><div className="stat-label">Prontas p/ retirada</div><div className="stat-value">{stats.sol_prontas||0}</div></div>
+        </div>
+      </div>
       {(stats.por_obra||[]).length > 0 && (
         <div className="stat-section">
           <div className="stat-section-title"><span className="st-ic"><Icon name="building" size={14}/></span>Consolidado por obra</div>
@@ -3646,6 +3655,7 @@ const ICON_PATHS = {
   worker: <><circle cx="12" cy="8" r="3"/><path d="M4 21v-2a6 6 0 0112 0v2"/><path d="M2 10l10-5 10 5"/></>,
   trash: <><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/></>,
   x: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+  menu: <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>,
   send: <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
   download: <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
   inbox: <><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></>,
@@ -3721,7 +3731,7 @@ function ThemeToggleIcon() {
 }
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-function Sidebar({ user, page, navigate, onLogout, notif }) {
+function Sidebar({ user, page, navigate, onLogout, notif, open }) {
   const alm = user.role === 'almoxarifado'
   const lider = user.role === 'lider'
   const eng = user.role === 'engenheiro'
@@ -3746,7 +3756,7 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
     { id: 'auditoria', icon: 'history', label: 'Auditoria', show: alm },
   ].filter(i => i.show)
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${open?'open':''}`}>
       <div className="sidebar-header">
         <div className="sidebar-logo">
           {empresaInfo.logoUrl && <img src={empresaInfo.logoUrl} alt={empresaInfo.nome} style={{maxWidth:36,maxHeight:36,borderRadius:6}} />}
@@ -3777,40 +3787,6 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
   )
 }
 
-// ─── BOTTOM NAV ───────────────────────────────────────────────────────────────
-function BottomNav({ user, page, navigate, notif }) {
-  const alm = user.role === 'almoxarifado'
-  const lider = user.role === 'lider'
-  const eng = user.role === 'engenheiro'
-  const op = user.role === 'operario'
-  const diretor = user.role === 'diretor'
-  const gerente = user.role === 'gerente'
-  const unif = PERFIS_UNIFORME.includes(user.role)
-  const items = [
-    { id: 'dashboard', icon: 'dashboard', label: 'Painel' },
-    { id: 'solicitacoes', icon: 'clipboard', label: alm?'Fila':'Pedidos', badge: alm?((notif.solicitacoes_novas||0)+(notif.solicitacoes_prontas||0)):(notif.sol_prontas||0), show: alm||lider||eng },
-    { id: 'equipe', icon: 'users', label: 'Equipe', show: eng, badge: notif.transferencias_recebidas||0 },
-    { id: 'obras', icon: 'building', label: 'Obras', show: diretor||gerente||eng },
-    { id: 'cautelas', icon: 'package', label: 'Cautelas', show: alm||lider||eng||op },
-    { id: 'uniformes', icon: 'shirt', label: 'Uniformes', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
-    { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm||lider||eng||op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):((lider||eng)?(notif.emprestimos_aguardando_aval||0):0) },
-    { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
-  ].filter(i => i.show !== false).slice(0,5)
-  return (
-    <nav className="bottom-nav">
-      <div className="bottom-nav-inner">
-        {items.map(item=>(
-          <button key={item.id} className={`bottom-nav-btn ${page===item.id?'active':''}`} onClick={()=>navigate(item.id)}>
-            <span className="bn-icon"><Icon name={item.icon} size={20}/></span>
-            <span className="bn-label">{item.label}</span>
-            {item.badge > 0 && <span className="bn-badge">{item.badge}</span>}
-          </button>
-        ))}
-      </div>
-    </nav>
-  )
-}
-
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 function App() {
   const [user, setUser] = useState(null)
@@ -3818,6 +3794,7 @@ function App() {
   const [toasts, setToasts] = useState([])
   const [checking, setChecking] = useState(true)
   const [notif, setNotif] = useState({})
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const addToast = useCallback((msg, type='success') => {
     const id = Date.now()
@@ -3865,7 +3842,7 @@ function App() {
     return () => clearInterval(interval)
   }, [user])
 
-  const navigate = p => setPage(p)
+  const navigate = p => { setPage(p); setMenuOpen(false) }
   const logout = () => { token.value = null; localStorage.removeItem('cf_token'); setUser(null); setPage('dashboard') }
 
   if (checking) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',fontSize:'1.2rem',color:'#6b7280'}}>Carregando...</div>
@@ -3892,10 +3869,14 @@ function App() {
 
   return (
     <div className="layout">
-      <Sidebar user={user} page={page} navigate={navigate} onLogout={logout} notif={notif} />
+      <Sidebar user={user} page={page} navigate={navigate} onLogout={logout} notif={notif} open={menuOpen} />
+      <div className={`sidebar-overlay ${menuOpen?'open':''}`} onClick={()=>setMenuOpen(false)} />
       <div className="main-content">
         <header className="mobile-topbar">
-          <div className="mtb-brand">{empresaInfo.logoUrl && <img src={empresaInfo.logoUrl} alt="" style={{maxHeight:28,maxWidth:28,borderRadius:5}} />}<span>Cautelix</span></div>
+          <div className="mtb-left">
+            <button className="mtb-menu" onClick={()=>setMenuOpen(true)} aria-label="Abrir menu"><Icon name="menu" size={22}/></button>
+            <div className="mtb-brand">{empresaInfo.logoUrl && <img src={empresaInfo.logoUrl} alt="" style={{maxHeight:28,maxWidth:28,borderRadius:5}} />}<span>Cautelix</span></div>
+          </div>
           <div className="mtb-right">
             <ThemeToggleIcon/>
             <button className="mtb-logout" onClick={logout}><Icon name="logout" size={15}/> Sair</button>
@@ -3903,7 +3884,6 @@ function App() {
         </header>
         {renderPage()}
       </div>
-      <BottomNav user={user} page={page} navigate={navigate} notif={notif} />
       <Toast toasts={toasts} />
     </div>
   )

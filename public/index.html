@@ -84,12 +84,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .topbar h2{font-size:1.25rem;font-weight:700;color:var(--text)}
 .topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}
-.stat-card{background:var(--card);border-radius:14px;padding:18px 20px;border:1px solid var(--border);position:relative;overflow:hidden;box-shadow:var(--shadow-sm);transition:transform .18s ease,box-shadow .18s ease}
+.stat-card{background:var(--card);border-radius:14px;padding:18px 20px;border:1px solid var(--border);box-shadow:var(--shadow-sm);transition:transform .18s ease,box-shadow .18s ease}
 .stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
-.stat-card::before{content:'';position:absolute;top:0;right:0;width:4px;height:100%;background:var(--accent)}
-.stat-card.blue::before{background:var(--primary-accent)}
-.stat-card.green::before{background:var(--success)}
-.stat-card.red::before{background:var(--danger)}
 .stat-label{font-size:.72rem;color:var(--text-secondary);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
 .stat-value{font-size:2rem;font-weight:800;margin-top:6px;line-height:1.02;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--accent)}
 .stat-value.money{font-size:clamp(1.25rem,3.2vw,1.6rem);letter-spacing:-.01em}
@@ -236,8 +232,11 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .bn-badge{position:absolute;top:6px;right:8px;background:var(--notif);color:white;border-radius:8px;font-size:.6rem;font-weight:800;padding:1px 5px;min-width:14px;text-align:center;box-shadow:0 0 0 2px var(--primary)}
 .mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;height:52px;background:var(--primary);z-index:90;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.1)}
 .mobile-topbar .mtb-brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;font-size:.98rem}
+.mobile-topbar .mtb-right{display:flex;align-items:center;gap:8px}
 .mobile-topbar .mtb-logout{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
 .mobile-topbar .mtb-logout:active{background:rgba(255,255,255,.18)}
+.mobile-topbar .mtb-theme{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;cursor:pointer}
+.mobile-topbar .mtb-theme:active{background:rgba(255,255,255,.18)}
 @media(max-width:768px){
   .sidebar{transform:translateX(-100%)}
   .sidebar.open{transform:translateX(0);box-shadow:4px 0 20px rgba(0,0,0,.4)}
@@ -268,7 +267,6 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 }
 /* ===== Card-herói financeiro (patrimônio sob responsabilidade) ===== */
 .fin-hero{position:relative;overflow:hidden;border-radius:16px;padding:22px 24px 20px;color:#EAEFF4;background:linear-gradient(135deg,#1A2535,#2E3F55);border:1px solid #33455d;box-shadow:var(--shadow-md)}
-.fin-hero .fh-rail{position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(#A07C4E,#8B6B3D)}
 .fin-hero .fh-label{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#B9C6D6;display:flex;align-items:center;gap:7px}
 .fin-hero .fh-value{font-size:clamp(2rem,6vw,2.8rem);font-weight:800;letter-spacing:-.02em;line-height:1;margin:8px 0 4px;color:#fff;font-variant-numeric:tabular-nums}
 .fin-hero .fh-value .cur{font-size:.5em;color:#C39A64;font-weight:700;margin-right:5px;vertical-align:.14em}
@@ -768,7 +766,6 @@ function Dashboard({ user, navigate, addToast }) {
           <div className="stat-section">
             <div className="stat-section-title"><span className="st-ic"><Icon name="signature" size={14}/></span>Responsabilidade &amp; valores</div>
             <div className="fin-hero" style={{marginBottom:16}}>
-              <span className="fh-rail"></span>
               <span className="fh-chip">tempo real</span>
               <div className="fh-label"><Icon name="shield" size={14}/> Patrimônio sob responsabilidade · em campo</div>
               <div className="fh-value"><span className="cur">R$</span>{fmtBRL(totalCampo).replace('R$ ', '')}</div>
@@ -836,7 +833,6 @@ function Dashboard({ user, navigate, addToast }) {
     <div>
       <div className="topbar">
         <h2>Painel do Engenheiro</h2>
-        <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}><Icon name="plus" size={14}/> Nova Solicitação</button>
       </div>
       {(stats.sol_prontas > 0 || stats.emp_aguardando_aval > 0) && (
         <div className="pending-banner">
@@ -886,7 +882,6 @@ function Dashboard({ user, navigate, addToast }) {
     <div>
       <div className="topbar">
         <h2>Painel do Líder</h2>
-        <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}><Icon name="plus" size={14}/> Nova Solicitação</button>
       </div>
       {(stats.sol_prontas > 0 || stats.emp_aguardando_aval > 0) && (
         <div className="pending-banner">
@@ -3676,26 +3671,49 @@ function Icon({ name, size=20 }) {
   )
 }
 
-// ─── TOGGLE DE TEMA (claro/escuro) — escolha explícita persiste em localStorage ─
+// ─── TEMA (claro/escuro) — escolha explícita persiste em localStorage ───────────
+// Lógica central compartilhada pelos dois controles (segmentado no desktop e ícone
+// no mobile); um evento mantém ambos em sincronia quando um deles altera o tema.
+function temaAtual() {
+  const t = localStorage.getItem('cf_theme')
+  if (t === 'dark' || t === 'light') return t
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches) ? 'dark' : 'light'
+}
+function aplicarTema(t) {
+  document.documentElement.setAttribute('data-theme', t)
+  try { localStorage.setItem('cf_theme', t) } catch (e) {}
+  const m = document.querySelector('meta[name="theme-color"]')
+  if (m) m.setAttribute('content', t === 'dark' ? '#0F1621' : '#1A2535')
+  window.dispatchEvent(new CustomEvent('cf-theme', { detail: t }))
+}
+function useTema() {
+  const [theme, setTheme] = useState(temaAtual)
+  useEffect(() => {
+    const h = e => setTheme(e.detail)
+    window.addEventListener('cf-theme', h)
+    return () => window.removeEventListener('cf-theme', h)
+  }, [])
+  return theme
+}
+// Controle segmentado (rodapé da sidebar, desktop)
 function ThemeToggle() {
-  const effective = () => {
-    const t = localStorage.getItem('cf_theme')
-    if (t === 'dark' || t === 'light') return t
-    return (window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches) ? 'dark' : 'light'
-  }
-  const [theme, setTheme] = useState(effective)
-  const apply = (t) => {
-    document.documentElement.setAttribute('data-theme', t)
-    try { localStorage.setItem('cf_theme', t) } catch (e) {}
-    const m = document.querySelector('meta[name="theme-color"]')
-    if (m) m.setAttribute('content', t === 'dark' ? '#0F1621' : '#1A2535')
-    setTheme(t)
-  }
+  const theme = useTema()
   return (
     <div className="theme-toggle" role="group" aria-label="Tema">
-      <button type="button" className={theme === 'light' ? 'active' : ''} aria-pressed={theme === 'light'} onClick={() => apply('light')}><Icon name="sun" size={14} /> Claro</button>
-      <button type="button" className={theme === 'dark' ? 'active' : ''} aria-pressed={theme === 'dark'} onClick={() => apply('dark')}><Icon name="moon" size={14} /> Escuro</button>
+      <button type="button" className={theme === 'light' ? 'active' : ''} aria-pressed={theme === 'light'} onClick={() => aplicarTema('light')}><Icon name="sun" size={14} /> Claro</button>
+      <button type="button" className={theme === 'dark' ? 'active' : ''} aria-pressed={theme === 'dark'} onClick={() => aplicarTema('dark')}><Icon name="moon" size={14} /> Escuro</button>
     </div>
+  )
+}
+// Controle minimalista de um toque (barra superior, mobile)
+function ThemeToggleIcon() {
+  const theme = useTema()
+  const alvo = theme === 'dark' ? 'light' : 'dark'
+  return (
+    <button type="button" className="mtb-theme" onClick={() => aplicarTema(alvo)}
+      aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}>
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={17} />
+    </button>
   )
 }
 
@@ -3875,7 +3893,10 @@ function App() {
       <div className="main-content">
         <header className="mobile-topbar">
           <div className="mtb-brand">{empresaInfo.logoUrl && <img src={empresaInfo.logoUrl} alt="" style={{maxHeight:28,maxWidth:28,borderRadius:5}} />}<span>Cautelix</span></div>
-          <button className="mtb-logout" onClick={logout}><Icon name="logout" size={15}/> Sair</button>
+          <div className="mtb-right">
+            <ThemeToggleIcon/>
+            <button className="mtb-logout" onClick={logout}><Icon name="logout" size={15}/> Sair</button>
+          </div>
         </header>
         {renderPage()}
       </div>

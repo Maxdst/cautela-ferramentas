@@ -771,6 +771,15 @@ function gerarNumero(prefix) {
   return `${prefix}-${String(n).padStart(4, '0')}`
 }
 
+// Gera uma senha temporária legível (sem caracteres ambíguos I/O/0/1) para o
+// gestor entregar ao usuário na redefinição. Sempre 8 caracteres, com maiúscula,
+// minúsculas e dígitos — atende o mínimo do sistema e é fácil de ditar.
+function gerarSenhaTemporaria() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ', a = 'abcdefghijkmnpqrstuvwxyz', n = '23456789'
+  const pick = s => s[Math.floor(Math.random() * s.length)]
+  return pick(A) + pick(a) + pick(a) + pick(a) + pick(n) + pick(n) + pick(n) + pick(n)
+}
+
 function fmtBRL(v) {
   if (!v) return 'R$ 0,00'
   return 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
@@ -1197,6 +1206,30 @@ app.delete('/api/usuarios/:id', auth(['almoxarifado', 'diretor']), (req, res) =>
   db.prepare('DELETE FROM usuarios WHERE id=?').run(req.params.id)
   audit(req.user.id, 'EXCLUIR_USUARIO', 'usuarios', req.params.id, { nome: u.nome, email: u.email })
   res.json({ ok: true })
+})
+
+// Redefinição de senha pelo gestor (Master/Almoxarifado/Diretor). Gera uma senha
+// temporária e força a troca no próximo acesso (primeiro_acesso=1): o titular cria
+// a SUA senha pessoal ao entrar, então o gestor nunca fica de posse da senha real
+// — preserva o Termo de Confidencialidade. Respeita a MESMA hierarquia da edição:
+// Master redefine qualquer conta (inclusive Diretor e outro Almoxarifado);
+// Almoxarifado redefine os papéis operacionais; Diretor, só um nível abaixo.
+app.post('/api/usuarios/:id/redefinir-senha', auth(['almoxarifado', 'diretor']), (req, res) => {
+  const alvo = db.prepare('SELECT id,nome,email,role,is_master FROM usuarios WHERE id=?').get(req.params.id)
+  if (!alvo) return res.status(404).json({ error: 'Usuário não encontrado' })
+  // A conta do administrador master só é redefinida por outro master.
+  if (alvo.is_master && !req.user.is_master)
+    return res.status(403).json({ error: 'Apenas o administrador master pode redefinir esta conta.' })
+  // Hierarquia: quem não é almox/master só redefine os papéis que gerencia.
+  if (!req.user.is_master && req.user.role !== 'almoxarifado' && !rolesGerenciaveis(req.user).includes(alvo.role))
+    return res.status(403).json({ error: 'Sem permissão para redefinir a senha deste usuário.' })
+  // Senha informada pelo gestor (opcional, ≥6) ou temporária gerada pelo sistema.
+  const informada = req.body && req.body.senha != null ? String(req.body.senha) : ''
+  const senhaTemp = informada.length >= 6 ? informada : gerarSenhaTemporaria()
+  db.prepare('UPDATE usuarios SET senha_hash=?, primeiro_acesso=1 WHERE id=?')
+    .run(bcrypt.hashSync(senhaTemp, 10), alvo.id)
+  audit(req.user.id, 'REDEFINIR_SENHA', 'usuarios', alvo.id, { alvo: alvo.email })
+  res.json({ ok: true, senha_temporaria: senhaTemp, nome: alvo.nome })
 })
 
 // ─── DISPONIBILIDADE DE ESTOQUE ───────────────────────────────────────────────

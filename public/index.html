@@ -3669,6 +3669,8 @@ function UsuariosPage({ user, addToast }) {
   const [form, setForm] = useState({})
   const [filtroRole, setFiltroRole] = useState('')
   const [confirmDel, setConfirmDel] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [resetResult, setResetResult] = useState(null)  // { nome, senha } após redefinir
   // Perfis que este usuário pode criar/gerenciar (espelha a hierarquia do backend).
   // Diretor: só um nível abaixo (Gerente/líder/operário). Almox: todos os operacionais.
   // Master: todos, INCLUSIVE o próprio Almoxarifado (perfil totalmente editável só pelo Master).
@@ -3677,12 +3679,24 @@ function UsuariosPage({ user, addToast }) {
     : [...(user.is_master ? [{ v:'almoxarifado', l:'Almoxarifado' }] : []), { v:'administracao', l:'Administração' }, { v:'compras', l:'Compras' }, { v:'diretor', l:'Diretor de Operações' }, { v:'gerente', l:'Gerente de Contrato' }, { v:'engenheiro', l:'Engenheiro' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }]
   const load = () => GET('/usuarios').then(setLista)
   useEffect(() => { load(); GET('/obras').then(setObras).catch(()=>{}); GET('/usuarios/lideres').then(setLideres).catch(()=>{}) }, [])
-  const abrirNovo = () => { setForm({role:'operario',ativo:true}); setConfirmDel(false); setOpenId('new') }
+  const abrirNovo = () => { setForm({role:'operario',ativo:true}); setConfirmDel(false); setConfirmReset(false); setResetResult(null); setOpenId('new') }
   const toggle = u => {
     if (openId === u.id) { fechar(); return }
-    setForm({...u, senha:''}); setConfirmDel(false); setOpenId(u.id)
+    setForm({...u, senha:''}); setConfirmDel(false); setConfirmReset(false); setResetResult(null); setOpenId(u.id)
   }
-  const fechar = () => { setOpenId(null); setConfirmDel(false) }
+  const fechar = () => { setOpenId(null); setConfirmDel(false); setConfirmReset(false); setResetResult(null) }
+  // Redefinição de senha: o backend gera uma senha temporária e força a troca no
+  // próximo acesso do titular (primeiro_acesso=1). O gestor apenas repassa a senha.
+  const redefinirSenha = async () => {
+    try {
+      const r = await POST(`/usuarios/${form.id}/redefinir-senha`, {})
+      setResetResult({ nome: r.nome || form.nome, senha: r.senha_temporaria })
+      setConfirmReset(false); load()
+    } catch(e) { addToast(e.message,'error') }
+  }
+  // Espelha a hierarquia do backend: só pode redefinir quem gerencia aquele perfil
+  // (perfisDisp já reflete isso), nunca a própria conta.
+  const podeRedefinir = u => u && u.id && u.id !== user.id && (!u.is_master || user.is_master) && perfisDisp.some(p => p.v === u.role)
   const save = async () => {
     if (!form.nome || !form.email) { addToast('Nome e email obrigatórios.','error'); return }
     if (!form.id && !form.senha) { addToast('Informe a senha.','error'); return }
@@ -3703,8 +3717,16 @@ function UsuariosPage({ user, addToast }) {
         <span style={{fontSize:'.85rem',color:'var(--danger)',fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> Excluir este usuário? Não pode ser desfeito.</span>
         <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={()=>setConfirmDel(false)}>Não</button><button className="btn btn-danger btn-sm" onClick={del}>Sim, excluir</button></div>
       </div>
+    ) : confirmReset ? (
+      <div style={{display:'flex',alignItems:'center',gap:10,width:'100%',justifyContent:'space-between',flexWrap:'wrap'}}>
+        <span style={{fontSize:'.85rem',color:'var(--warning)',fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}><Icon name="key" size={15}/> Gerar senha temporária? O usuário criará uma nova senha no próximo acesso.</span>
+        <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={()=>setConfirmReset(false)}>Não</button><button className="btn btn-primary btn-sm" onClick={redefinirSenha}><Icon name="key" size={14}/> Sim, redefinir</button></div>
+      </div>
     ) : (<>
-      <div>{form.id && !form.is_master && form.id !== user.id && (form.role !== 'almoxarifado' || user.is_master) && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Excluir</button>}</div>
+      <div className="gap-8">
+        {form.id && !form.is_master && form.id !== user.id && (form.role !== 'almoxarifado' || user.is_master) && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Excluir</button>}
+        {podeRedefinir(form) && <button className="btn btn-ghost btn-sm" style={{borderColor:'var(--warning)',color:'var(--warning)'}} onClick={()=>{setResetResult(null);setConfirmReset(true)}}><Icon name="key" size={14}/> Redefinir senha</button>}
+      </div>
       <div className="gap-8">
         <button className="btn btn-ghost btn-sm" onClick={fechar}>Cancelar</button>
         <button className="btn btn-primary btn-sm" onClick={save}><Icon name="check" size={14}/> Salvar</button>
@@ -3712,6 +3734,16 @@ function UsuariosPage({ user, addToast }) {
     </>)
     return (
       <PainelEdicao titulo={form.id ? 'Editar usuário' : 'Novo usuário'} onFechar={fechar} footer={footer}>
+        {resetResult && (
+          <div className="alert" style={{marginBottom:14,borderLeft:'3px solid var(--warning)'}}>
+            <div style={{fontWeight:700,marginBottom:8,display:'flex',alignItems:'center',gap:6}}><Icon name="key" size={15}/> Senha temporária de {resetResult.nome}</div>
+            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              <code style={{fontFamily:'monospace',fontSize:'1.3rem',fontWeight:700,letterSpacing:'2px',background:'var(--bg)',padding:'8px 14px',borderRadius:6,border:'1px solid var(--border)'}}>{resetResult.senha}</code>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={()=>{try{navigator.clipboard.writeText(resetResult.senha);addToast('Senha copiada.','success')}catch(e){addToast('Copie manualmente.','error')}}}><Icon name="clipboard" size={14}/> Copiar</button>
+            </div>
+            <p className="text-muted" style={{fontSize:'.78rem',marginTop:8,lineHeight:1.4}}>Entregue esta senha ao usuário. No próximo login ele será obrigado a criar uma senha pessoal — você não fica com a senha real.</p>
+          </div>
+        )}
         <div className="form-grid">
           <div className="form-group"><label>Nome *</label><input value={form.nome||''} onChange={e=>setForm({...form,nome:e.target.value})} /></div>
           <div className="form-group"><label>Email *</label><input type="email" value={form.email||''} onChange={e=>setForm({...form,email:e.target.value})} disabled={!!form.id} /></div>
@@ -3789,7 +3821,7 @@ function AuditoriaPage({ user, addToast }) {
   const [zerarQtdLoading, setZerarQtdLoading] = useState(false)
   const [zerarQtdErr, setZerarQtdErr] = useState('')
   useEffect(() => { GET('/auditoria').then(setLogs) }, [])
-  const ACAO_ICON = { LOGIN:'key', CRIAR_SOLICITACAO:'clipboard', SOLICITACAO_SEPARANDO:'package', SOLICITACAO_PRONTA:'checkCircle', CANCELAR_SOLICITACAO:'x', RETIRADA_CAUTELA:'signature', DEVOLVER_CAUTELA:'download', ENTREGA_OPERARIO:'send', DEVOLUCAO_ENTREGA:'download', SOLICITAR_EMPRESTIMO:'handshake', CONFIRMAR_EMPRESTIMO:'checkCircle', RECUSAR_EMPRESTIMO:'x', AVAL_LIDER_EMPRESTIMO:'signature', DEVOLVER_EMPRESTIMO:'download', CRIAR_FERRAMENTA:'wrench', EDITAR_FERRAMENTA:'edit', EXCLUIR_FERRAMENTA:'trash', CRIAR_USUARIO:'worker', EDITAR_USUARIO:'edit', CRIAR_BOLSA:'backpack', EDITAR_BOLSA:'edit', VER_TERMO:'fileText', RESET_TRANSACIONAL:'alertTriangle' }
+  const ACAO_ICON = { LOGIN:'key', CRIAR_SOLICITACAO:'clipboard', SOLICITACAO_SEPARANDO:'package', SOLICITACAO_PRONTA:'checkCircle', CANCELAR_SOLICITACAO:'x', RETIRADA_CAUTELA:'signature', DEVOLVER_CAUTELA:'download', ENTREGA_OPERARIO:'send', DEVOLUCAO_ENTREGA:'download', SOLICITAR_EMPRESTIMO:'handshake', CONFIRMAR_EMPRESTIMO:'checkCircle', RECUSAR_EMPRESTIMO:'x', AVAL_LIDER_EMPRESTIMO:'signature', DEVOLVER_EMPRESTIMO:'download', CRIAR_FERRAMENTA:'wrench', EDITAR_FERRAMENTA:'edit', EXCLUIR_FERRAMENTA:'trash', CRIAR_USUARIO:'worker', EDITAR_USUARIO:'edit', EXCLUIR_USUARIO:'trash', REDEFINIR_SENHA:'key', CRIAR_BOLSA:'backpack', EDITAR_BOLSA:'edit', VER_TERMO:'fileText', RESET_TRANSACIONAL:'alertTriangle' }
   const filtrados = logs.filter(l => !busca || (l.usuario_nome||'').toLowerCase().includes(busca.toLowerCase()) || l.acao.toLowerCase().includes(busca.toLowerCase()))
 
   async function zerarQuantidades() {

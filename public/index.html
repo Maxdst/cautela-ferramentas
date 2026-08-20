@@ -249,6 +249,9 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
   table{font-size:.82rem}th,td{padding:8px 10px}
   .modal{margin:0 8px}
   .kanban{grid-template-columns:1fr}
+  /* Obras (líder): kanban horizontal -> pilha vertical, cada obra ocupa a largura toda */
+  .obras-board{flex-direction:column !important;overflow-x:visible !important;gap:14px !important}
+  .obra-lane{min-width:0 !important;max-width:none !important;width:100% !important;flex:1 1 auto !important}
   /* Tabela -> cartoes empilhados (uso em campo, celular) */
   table.cards-mobile,table.cards-mobile tbody{display:block}
   table.cards-mobile thead{display:none}
@@ -3147,13 +3150,13 @@ function ObrasLiderPage({ user, addToast }) {
       {obras.length === 0 ? (
         <div className="card"><div className="empty"><div className="empty-icon"><Icon name="building" size={32}/></div><p>Nenhuma obra atribuída a você ainda.</p><p className="text-muted" style={{fontSize:'.82rem'}}>O Diretor de Operações ou o Almoxarifado define quais obras são suas.</p></div></div>
       ) : (
-        <div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:10,alignItems:'flex-start'}}>
+        <div className="obras-board" style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:10,alignItems:'flex-start'}}>
           {colunas.map(col => {
             const ms = membrosDaColuna(col.id)
             const total = ms.reduce((s,m)=>s+(m.valor_em_posse||0),0)
             const over = overCol === (col.id||null)
             return (
-              <div key={col.id||'sem'}
+              <div key={col.id||'sem'} className="obra-lane"
                 onDragOver={e=>{ e.preventDefault(); setOverCol(col.id||null) }}
                 onDragLeave={()=>setOverCol(prev => prev===(col.id||null) ? undefined : prev)}
                 onDrop={()=>{ if(dragId!=null) mover(dragId, col.id) }}

@@ -54,6 +54,24 @@ Validado: `node --check` OK + JSX compila (Babel). Falta: push na `main` + verif
     que faltou no deploy do demo visual (Minhas obras/Colaboradores/Cautelas/Valor — calculados do estado
     já carregado, sem back novo). Validado: `node --check` OK + JSX compila (Babel preset-react).
 
+### Lote 2026-08-20 (b): Equipe por função, Obras enxuta e logout no mobile
+16. **Aba Minha equipe (`EquipePage`) minimalista, orientada a função.** Cards de indicadores agora são
+    **Colaboradores (total) + um card por função/cargo** (contagem por `cargo`, ex.: Pedreiro de manutenção,
+    Ajudante…); **removidos** os cards de Cautelas ativas e Valor em campo. A lista abaixo passou a ser
+    **agrupada por seção de função** — cabeçalho da função + contagem, e sob ele **somente os nomes** de cada
+    colaborador (removidos valor/cautelas e o detalhe de ferramentas). Mantido o acordeão de **mover de obra /
+    passar para outro líder** (aceite) ao tocar no nome — indicador chevron que gira. `toggle` não busca mais
+    `/equipe/:id/cautelas`. Agrupamento no cliente sobre `data.membros` (o `/api/equipe` já devolve `cargo`).
+17. **Aba Obras (`ObrasLiderPage`) enxuta.** Faixa de indicadores reduzida a **somente "Minhas obras"**
+    (removidos Colaboradores/Cautelas/Valor). No card de cada colaborador, a linha de **cautela(s)·valor** virou
+    **função/cargo** (`m.cargo || 'Sem função'`). No cabeçalho de cada obra (coluna) segue o **valor** abaixo do
+    nome (`N colab. · valor`, agora sempre visível).
+18. **Logout no front mobile.** Antes o "Sair" só existia no sidebar, inacessível no mobile (sidebar oculta e
+    sem hambúrguer); a bottom-nav não tinha logout. Adicionada **barra superior fixa mobile** (`.mobile-topbar`,
+    só em `≤768px`) com marca **Cautelix** + botão **Sair** (chama o mesmo `logout`). `main-content` ganhou
+    `padding-top` no mobile p/ não ficar sob a barra. z-index 90 (abaixo de modais 200 / toasts 999 / bottom-nav
+    100). Validado: JSX compila (Babel preset-react).
+
 ### Lote 2026-08-19 (c): papel Engenheiro + hierarquia de comando
 7. **Papel novo `engenheiro`** = todas as funcionalidades do **Líder atual**, um nível **acima do Líder** e
    **abaixo do Gerente de Contrato**. Migração idempotente estende o CHECK (`... 'gerente','engenheiro'`,

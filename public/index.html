@@ -234,10 +234,15 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .bottom-nav-btn .bn-icon{display:flex;align-items:center;justify-content:center;line-height:1}
 .bottom-nav-btn.active{color:var(--accent)}
 .bn-badge{position:absolute;top:6px;right:8px;background:var(--notif);color:white;border-radius:8px;font-size:.6rem;font-weight:800;padding:1px 5px;min-width:14px;text-align:center;box-shadow:0 0 0 2px var(--primary)}
+.mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;height:52px;background:var(--primary);z-index:90;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.1)}
+.mobile-topbar .mtb-brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;font-size:.98rem}
+.mobile-topbar .mtb-logout{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
+.mobile-topbar .mtb-logout:active{background:rgba(255,255,255,.18)}
 @media(max-width:768px){
   .sidebar{transform:translateX(-100%)}
   .sidebar.open{transform:translateX(0);box-shadow:4px 0 20px rgba(0,0,0,.4)}
-  .main-content{margin-left:0;padding:12px 14px;padding-bottom:calc(var(--bottom-nav-h) + 12px)}
+  .mobile-topbar{display:flex}
+  .main-content{margin-left:0;padding:12px 14px;padding-top:64px;padding-bottom:calc(var(--bottom-nav-h) + 12px)}
   .form-grid{grid-template-columns:1fr}
   .bottom-nav{display:block}
   .topbar{margin-bottom:16px}
@@ -3142,9 +3147,6 @@ function ObrasLiderPage({ user, addToast }) {
 
       <div className="stats-grid" style={{marginBottom:16}}>
         <div className="stat-card blue"><div className="stat-label">Minhas obras</div><div className="stat-value">{obras.length}</div></div>
-        <div className="stat-card"><div className="stat-label">Colaboradores</div><div className="stat-value">{membros.length}</div></div>
-        <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{membros.reduce((s,m)=>s+(m.cautelas_ativas||0),0)}</div></div>
-        <div className="stat-card"><div className="stat-label">Valor em campo</div><div className="stat-value money">{fmtBRL(membros.reduce((s,m)=>s+(m.valor_em_posse||0),0))}</div></div>
       </div>
 
       {obras.length === 0 ? (
@@ -3165,7 +3167,7 @@ function ObrasLiderPage({ user, addToast }) {
                   <span style={{width:30,height:30,borderRadius:8,background:col.semObra?'var(--silver)':'var(--primary-light)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={col.semObra?'users':'building'} size={16}/></span>
                   <div style={{minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:'.9rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{col.nome}{col.codigo?<span className="text-muted" style={{fontWeight:400,fontSize:'.72rem',marginLeft:5}}>{col.codigo}</span>:null}</div>
-                    <div className="text-muted" style={{fontSize:'.72rem'}}>{ms.length} colab.{total>0?` · ${fmtBRL(total)}`:''}</div>
+                    <div className="text-muted" style={{fontSize:'.72rem'}}>{ms.length} colab. · {fmtBRL(total)}</div>
                   </div>
                 </div>
                 <div style={{marginTop:9,display:'flex',flexDirection:'column',gap:7,minHeight:44}}>
@@ -3177,7 +3179,7 @@ function ObrasLiderPage({ user, addToast }) {
                         <span style={{width:24,height:24,borderRadius:'50%',background:'var(--primary-accent)',color:'#fff',fontSize:'.64rem',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{iniciais(m.nome)}</span>
                         <div style={{minWidth:0,flex:1}}>
                           <div style={{fontWeight:600,fontSize:'.82rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.nome}</div>
-                          <div className="text-muted" style={{fontSize:'.7rem'}}>{m.cautelas_ativas||0} cautela(s) · {fmtBRL(m.valor_em_posse||0)}</div>
+                          <div className="text-muted" style={{fontSize:'.7rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.cargo || 'Sem função'}</div>
                         </div>
                       </div>
                       <select value="" onChange={e=>{ const v=e.target.value; if(v!=='') mover(m.id, v==='__sem'?null:Number(v)) }}
@@ -3218,11 +3220,15 @@ function EquipePage({ user, addToast }) {
 
   const lideresDisp = lideres.filter(l => l.id !== user.id)
 
+  // Agrupa a equipe por função/cargo — indicadores por função + lista por seção.
+  const grupos = {}
+  for (const m of data.membros) { const k = (m.cargo && m.cargo.trim()) || 'Sem função'; (grupos[k] = grupos[k] || []).push(m) }
+  const gruposOrd = Object.keys(grupos).sort((a,b)=>a.localeCompare(b,'pt'))
+
   const toggle = (m) => {
     if (openId === m.id) { setOpenId(null); return }
     setOpenId(m.id)
     setMov({ obra_id: m.obra_id || '', para_lider_id: '' })
-    if (!detalhe[m.id]) GET(`/equipe/${m.id}/cautelas`).then(cs => setDetalhe(d => ({...d, [m.id]: cs}))).catch(()=>{})
   }
 
   const mover = async (m) => {
@@ -3254,8 +3260,9 @@ function EquipePage({ user, addToast }) {
 
       <div className="stats-grid" style={{marginBottom:16}}>
         <div className="stat-card blue"><div className="stat-label">Colaboradores</div><div className="stat-value">{data.membros.length}</div></div>
-        <div className="stat-card"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{data.total_cautelas}</div></div>
-        <div className="stat-card green"><div className="stat-label">Valor em campo</div><div className="stat-value money">{fmtBRL(data.total_valor)}</div></div>
+        {gruposOrd.map(g => (
+          <div key={g} className="stat-card"><div className="stat-label">{g}</div><div className="stat-value">{grupos[g].length}</div></div>
+        ))}
       </div>
 
       {data.pendentes_recebimento.length > 0 && (
@@ -3293,49 +3300,46 @@ function EquipePage({ user, addToast }) {
       <div className="card">
         {data.membros.length === 0 ? (
           <div className="empty"><div className="empty-icon"><Icon name="users" size={32}/></div><p>Nenhum colaborador na sua equipe ainda.</p><p className="text-muted" style={{fontSize:'.82rem'}}>Ao entregar uma cautela a um operário, ele entra automaticamente na sua equipe.</p></div>
-        ) : data.membros.map(m => (
-          <div key={m.id} style={{borderBottom:'1px solid var(--border,#eee)'}}>
-            <button onClick={()=>toggle(m)} style={{width:'100%',background:'none',border:'none',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'12px 4px',textAlign:'left',color:'inherit'}}>
-              <div style={{display:'flex',alignItems:'center',gap:11,minWidth:0}}>
-                <span style={{width:36,height:36,borderRadius:'50%',background:'var(--primary-accent)',color:'#fff',fontSize:'.8rem',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{iniciais(m.nome)}</span>
-                <div style={{minWidth:0}}>
-                  <div style={{fontWeight:600}}>{m.nome}</div>
-                  <div className="text-muted" style={{fontSize:'.8rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.obra_nome || 'Volante'}{m.cargo?` · ${m.cargo}`:''}</div>
-                </div>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <div style={{fontWeight:600}}>{fmtBRL(m.valor_em_posse)}</div>
-                <div className="text-muted" style={{fontSize:'.78rem'}}>{m.cautelas_ativas} cautela(s)</div>
-              </div>
-            </button>
-            {openId === m.id && (
-              <div style={{padding:'2px 8px 16px'}}>
-                {(detalhe[m.id]||[]).length > 0 ? (
-                  <ul style={{margin:'0 0 12px',paddingLeft:18,fontSize:'.84rem'}}>
-                    {detalhe[m.id].map((c,i)=>(<li key={i} style={{marginBottom:3}}><strong>{c.numero}</strong> — {c.itens||'—'} <span className="text-muted">({fmtBRL(c.valor)})</span></li>))}
-                  </ul>
-                ) : <p className="text-muted" style={{fontSize:'.82rem',margin:'2px 0 12px'}}>Sem ferramentas em posse no momento.</p>}
-                <div className="form-grid">
-                  <div className="form-group"><label>Mover para obra</label>
-                    <select value={mov.obra_id} onChange={e=>setMov({...mov, obra_id:e.target.value})}>
-                      <option value="">Volantes</option>
-                      {obras.map(o=><option key={o.id} value={o.id}>{o.nome}{o.codigo?` (${o.codigo})`:''}</option>)}
-                    </select>
+        ) : gruposOrd.map(g => (
+          <div key={g}>
+            <div style={{display:'flex',alignItems:'center',gap:8,padding:'13px 4px 7px'}}>
+              <span style={{fontWeight:700,fontSize:'.8rem',textTransform:'uppercase',letterSpacing:'.03em',color:'var(--primary-accent)'}}>{g}</span>
+              <span className="text-muted" style={{fontSize:'.76rem'}}>· {grupos[g].length}</span>
+            </div>
+            {grupos[g].map(m => (
+              <div key={m.id} style={{borderBottom:'1px solid var(--border,#eee)'}}>
+                <button onClick={()=>toggle(m)} style={{width:'100%',background:'none',border:'none',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'11px 4px',textAlign:'left',color:'inherit'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:11,minWidth:0}}>
+                    <span style={{width:34,height:34,borderRadius:'50%',background:'var(--primary-accent)',color:'#fff',fontSize:'.78rem',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{iniciais(m.nome)}</span>
+                    <div style={{fontWeight:600,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.nome}</div>
                   </div>
-                  <div className="form-group"><label>Passar para outro líder (opcional)</label>
-                    <select value={mov.para_lider_id} onChange={e=>setMov({...mov, para_lider_id:e.target.value})}>
-                      <option value="">Manter na minha equipe</option>
-                      {lideresDisp.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
-                    </select>
+                  <span style={{display:'inline-flex',flexShrink:0,color:'var(--silver)',transition:'transform .2s',transform:openId===m.id?'rotate(90deg)':'none'}}><Icon name="chevronRight" size={16}/></span>
+                </button>
+                {openId === m.id && (
+                  <div style={{padding:'2px 8px 16px'}}>
+                    <div className="form-grid">
+                      <div className="form-group"><label>Mover para obra</label>
+                        <select value={mov.obra_id} onChange={e=>setMov({...mov, obra_id:e.target.value})}>
+                          <option value="">Volantes</option>
+                          {obras.map(o=><option key={o.id} value={o.id}>{o.nome}{o.codigo?` (${o.codigo})`:''}</option>)}
+                        </select>
+                      </div>
+                      <div className="form-group"><label>Passar para outro líder (opcional)</label>
+                        <select value={mov.para_lider_id} onChange={e=>setMov({...mov, para_lider_id:e.target.value})}>
+                          <option value="">Manter na minha equipe</option>
+                          {lideresDisp.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    {mov.para_lider_id && <p className="text-muted" style={{fontSize:'.8rem',margin:'6px 0 0',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={13}/> O colaborador só migra quando o líder que recebe confirmar o recebimento.</p>}
+                    <div style={{marginTop:12,justifyContent:'flex-end',display:'flex',gap:8}}>
+                      <button className="btn btn-ghost btn-sm" onClick={()=>setOpenId(null)}>Cancelar</button>
+                      <button className="btn btn-primary btn-sm" disabled={busy} onClick={()=>mover(m)}><Icon name={mov.para_lider_id?'handshake':'check'} size={14}/> {mov.para_lider_id?'Enviar transferência':'Salvar obra'}</button>
+                    </div>
                   </div>
-                </div>
-                {mov.para_lider_id && <p className="text-muted" style={{fontSize:'.8rem',margin:'6px 0 0',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={13}/> O colaborador só migra quando o líder que recebe confirmar o recebimento.</p>}
-                <div style={{marginTop:12,justifyContent:'flex-end',display:'flex',gap:8}}>
-                  <button className="btn btn-ghost btn-sm" onClick={()=>setOpenId(null)}>Cancelar</button>
-                  <button className="btn btn-primary btn-sm" disabled={busy} onClick={()=>mover(m)}><Icon name={mov.para_lider_id?'handshake':'check'} size={14}/> {mov.para_lider_id?'Enviar transferência':'Salvar obra'}</button>
-                </div>
+                )}
               </div>
-            )}
+            ))}
           </div>
         ))}
       </div>
@@ -3868,7 +3872,13 @@ function App() {
   return (
     <div className="layout">
       <Sidebar user={user} page={page} navigate={navigate} onLogout={logout} notif={notif} />
-      <div className="main-content">{renderPage()}</div>
+      <div className="main-content">
+        <header className="mobile-topbar">
+          <div className="mtb-brand">{empresaInfo.logoUrl && <img src={empresaInfo.logoUrl} alt="" style={{maxHeight:28,maxWidth:28,borderRadius:5}} />}<span>Cautelix</span></div>
+          <button className="mtb-logout" onClick={logout}><Icon name="logout" size={15}/> Sair</button>
+        </header>
+        {renderPage()}
+      </div>
       <BottomNav user={user} page={page} navigate={navigate} notif={notif} />
       <Toast toasts={toasts} />
     </div>

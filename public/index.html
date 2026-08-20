@@ -690,7 +690,60 @@ function Dashboard({ user, navigate, addToast }) {
     </div>
   )
 
-  if (user.role === 'lider' || user.role === 'engenheiro') return (
+  // Painel do Engenheiro — foco em INDICADORES de Obras + Equipe.
+  // Cards: Minhas obras · Colaboradores · Cautelas ativas (em posse da equipe) · Valor em campo ·
+  // Aguard. meu aval. (Os cards de equipe espelham a aba Minha equipe; os de Obras, a aba Obras.)
+  if (user.role === 'engenheiro') return (
+    <div>
+      <div className="topbar">
+        <h2>Painel do Engenheiro</h2>
+        <button className="btn btn-accent" onClick={()=>navigate('nova-solicitacao')}><Icon name="plus" size={14}/> Nova Solicitação</button>
+      </div>
+      {(stats.sol_prontas > 0 || stats.emp_aguardando_aval > 0) && (
+        <div className="pending-banner">
+          <div>
+            <div className="msg" style={{display:'flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> Itens requerem sua atenção</div>
+            <div style={{fontSize:'.85rem',marginTop:4,color:'#92400e'}}>
+              {stats.sol_prontas > 0 && <span>{stats.sol_prontas} solicitação(ões) pronta(s) para retirada &nbsp;</span>}
+              {stats.emp_aguardando_aval > 0 && <span>{stats.emp_aguardando_aval} empréstimo(s) aguardando seu aval</span>}
+            </div>
+          </div>
+          <div className="gap-8">
+            {stats.sol_prontas > 0 && <button className="btn btn-accent btn-sm" onClick={()=>navigate('solicitacoes')}>Retirar →</button>}
+            {stats.emp_aguardando_aval > 0 && <button className="btn btn-primary btn-sm" onClick={()=>navigate('emprestimos')}>Aval →</button>}
+          </div>
+        </div>
+      )}
+      <div className="stat-section">
+        <div className="section-title" style={{display:'flex',alignItems:'center',gap:8,margin:'0 0 12px',fontWeight:600,color:'var(--text-secondary)'}}><Icon name="building" size={16}/> Minhas obras e equipe</div>
+        <div className="stats-grid">
+          <div className="stat-card blue"><div className="stat-label">Minhas obras</div><div className="stat-value">{stats.minhas_obras||0}</div></div>
+          <div className="stat-card"><div className="stat-label">Colaboradores</div><div className="stat-value">{stats.equipe_colaboradores||0}</div></div>
+          <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{stats.equipe_cautelas||0}</div></div>
+          <div className="stat-card"><div className="stat-label">Valor em campo</div><div className="stat-value money">{fmtBRL(stats.equipe_valor||0)}</div></div>
+          <div className="stat-card"><div className="stat-label">Aguard. meu aval (emprést.)</div><div className="stat-value">{stats.emp_aguardando_aval||0}</div></div>
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-header"><span className="card-title">Minhas solicitações</span><button className="btn btn-outline btn-sm" onClick={()=>navigate('solicitacoes')}>Ver todas</button></div>
+        <div className="table-wrap"><table className="cards-mobile">
+          <thead><tr><th>Número</th><th>Data</th><th>Status</th></tr></thead>
+          <tbody>
+            {(stats.minhas_solicitacoes||[]).map(s=>(
+              <tr key={s.id}>
+                <td className="fw-bold" data-label="Número">{s.numero}</td>
+                <td data-label="Data">{fmt(s.criado_em)}</td>
+                <td data-label="Status"><span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+              </tr>
+            ))}
+            {!(stats.minhas_solicitacoes||[]).length && <tr><td colSpan="3" className="text-muted" style={{textAlign:'center',padding:20}}>Nenhuma solicitação ainda.</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  )
+
+  if (user.role === 'lider') return (
     <div>
       <div className="topbar">
         <h2>Painel do Líder</h2>
@@ -2916,6 +2969,13 @@ function ObrasLiderPage({ user, addToast }) {
       <div className="topbar"><h2>Obras</h2></div>
       <p className="text-muted" style={{margin:'-6px 0 14px',fontSize:'.84rem'}}>Suas obras e quem está em cada uma. Arraste o colaborador (ou use o seletor no card) para movê-lo de obra na hora — imediato, dentro da sua equipe.</p>
 
+      <div className="stats-grid" style={{marginBottom:16}}>
+        <div className="stat-card blue"><div className="stat-label">Minhas obras</div><div className="stat-value">{obras.length}</div></div>
+        <div className="stat-card"><div className="stat-label">Colaboradores</div><div className="stat-value">{membros.length}</div></div>
+        <div className="stat-card green"><div className="stat-label">Cautelas ativas</div><div className="stat-value">{membros.reduce((s,m)=>s+(m.cautelas_ativas||0),0)}</div></div>
+        <div className="stat-card"><div className="stat-label">Valor em campo</div><div className="stat-value money">{fmtBRL(membros.reduce((s,m)=>s+(m.valor_em_posse||0),0))}</div></div>
+      </div>
+
       {obras.length === 0 ? (
         <div className="card"><div className="empty"><div className="empty-icon"><Icon name="building" size={32}/></div><p>Nenhuma obra atribuída a você ainda.</p><p className="text-muted" style={{fontSize:'.82rem'}}>O Diretor de Operações ou o Almoxarifado define quais obras são suas.</p></div></div>
       ) : (
@@ -3149,10 +3209,11 @@ function UsuariosPage({ user, addToast }) {
   const [filtroRole, setFiltroRole] = useState('')
   const [confirmDel, setConfirmDel] = useState(false)
   // Perfis que este usuário pode criar/gerenciar (espelha a hierarquia do backend).
-  // Diretor: só um nível abaixo (Gerente/líder/operário). Almox/master: todos.
+  // Diretor: só um nível abaixo (Gerente/líder/operário). Almox: todos os operacionais.
+  // Master: todos, INCLUSIVE o próprio Almoxarifado (perfil totalmente editável só pelo Master).
   const perfisDisp = user.role === 'diretor'
     ? [{ v:'gerente', l:'Gerente de Contrato' }, { v:'engenheiro', l:'Engenheiro' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }]
-    : [{ v:'administracao', l:'Administração' }, { v:'compras', l:'Compras' }, { v:'diretor', l:'Diretor de Operações' }, { v:'gerente', l:'Gerente de Contrato' }, { v:'engenheiro', l:'Engenheiro' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }]
+    : [...(user.is_master ? [{ v:'almoxarifado', l:'Almoxarifado' }] : []), { v:'administracao', l:'Administração' }, { v:'compras', l:'Compras' }, { v:'diretor', l:'Diretor de Operações' }, { v:'gerente', l:'Gerente de Contrato' }, { v:'engenheiro', l:'Engenheiro' }, { v:'lider', l:'Líder' }, { v:'operario', l:'Operário' }]
   const load = () => GET('/usuarios').then(setLista)
   useEffect(() => { load(); GET('/obras').then(setObras).catch(()=>{}); GET('/usuarios/lideres').then(setLideres).catch(()=>{}) }, [])
   const abrirNovo = () => { setForm({role:'operario',ativo:true}); setConfirmDel(false); setOpenId('new') }
@@ -3182,7 +3243,7 @@ function UsuariosPage({ user, addToast }) {
         <div className="gap-8"><button className="btn btn-ghost btn-sm" onClick={()=>setConfirmDel(false)}>Não</button><button className="btn btn-danger btn-sm" onClick={del}>Sim, excluir</button></div>
       </div>
     ) : (<>
-      <div>{form.id && form.role !== 'almoxarifado' && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Excluir</button>}</div>
+      <div>{form.id && !form.is_master && form.id !== user.id && (form.role !== 'almoxarifado' || user.is_master) && <button className="btn btn-danger btn-sm" onClick={()=>setConfirmDel(true)}><Icon name="trash" size={14}/> Excluir</button>}</div>
       <div className="gap-8">
         <button className="btn btn-ghost btn-sm" onClick={fechar}>Cancelar</button>
         <button className="btn btn-primary btn-sm" onClick={save}><Icon name="check" size={14}/> Salvar</button>

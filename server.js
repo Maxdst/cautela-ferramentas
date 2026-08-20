@@ -737,12 +737,17 @@ function requireMaster(req, res, next) {
 }
 
 // Hierarquia de gestão de contas: quais papéis cada usuário pode criar/editar/excluir/resetar senha.
-//  • Almoxarifado e master: todos os papéis operacionais.
+//  • Master: todos os papéis, INCLUSIVE o próprio Almoxarifado (criar/editar/excluir outras contas
+//    de almoxarifado — a conta master em si permanece protegida contra exclusão).
+//  • Almoxarifado (não-master): todos os papéis operacionais, menos criar/excluir outro almoxarifado
+//    (isso é exclusivo do master).
 //  • Diretor de Operações: um nível abaixo — Gerente de Contrato, líder e operário (não toca em
 //    diretor, almoxarifado, master, administração ou compras).
 //  • Gerente de Contrato e demais papéis: não gerenciam contas.
 function rolesGerenciaveis(user) {
-  if (user.is_master || user.role === 'almoxarifado')
+  if (user.is_master)
+    return ['almoxarifado', 'gerente', 'diretor', 'engenheiro', 'lider', 'operario', 'administracao', 'compras']
+  if (user.role === 'almoxarifado')
     return ['gerente', 'diretor', 'engenheiro', 'lider', 'operario', 'administracao', 'compras']
   if (user.role === 'diretor')
     return ['gerente', 'engenheiro', 'lider', 'operario']
@@ -1115,7 +1120,7 @@ app.post('/api/auth/validar', auth(), (req, res) => {
 // ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
 app.get('/api/usuarios', auth(['almoxarifado', 'lider', 'engenheiro', 'diretor']), (req, res) => {
   const { role } = req.query
-  let q = 'SELECT id,nome,email,cargo,role,ativo,cpf_cnpj,empresa,endereco,telefone,obra_id,lider_id FROM usuarios WHERE 1=1'
+  let q = 'SELECT id,nome,email,cargo,role,ativo,cpf_cnpj,empresa,endereco,telefone,obra_id,lider_id,is_master FROM usuarios WHERE 1=1'
   const p = []
   // A conta do administrador master só aparece para outro master (invisível ao almoxarifado do cliente)
   if (!req.user.is_master) q += ' AND is_master=0'
@@ -1179,7 +1184,10 @@ app.put('/api/usuarios/:id', auth(['almoxarifado', 'diretor']), (req, res) => {
 app.delete('/api/usuarios/:id', auth(['almoxarifado', 'diretor']), (req, res) => {
   const u = db.prepare('SELECT * FROM usuarios WHERE id=?').get(req.params.id)
   if (!u) return res.status(404).json({ error: 'Usuário não encontrado' })
-  if (u.role === 'almoxarifado') return res.status(400).json({ error: 'Não é possível excluir o administrador do sistema' })
+  // A conta do administrador master nunca é excluível pela UI (é o admin do sistema).
+  if (u.is_master) return res.status(400).json({ error: 'Não é possível excluir a conta do administrador master.' })
+  // Demais contas de almoxarifado: só o master pode excluir.
+  if (u.role === 'almoxarifado' && !req.user.is_master) return res.status(400).json({ error: 'Apenas o administrador master pode excluir contas de almoxarifado.' })
   if (parseInt(req.params.id) === req.user.id) return res.status(400).json({ error: 'Não pode excluir seu próprio usuário' })
   // Hierarquia: quem não é almox/master só exclui os papéis que gerencia (e nunca a conta master).
   if (!req.user.is_master && req.user.role !== 'almoxarifado' && (u.is_master || !rolesGerenciaveis(req.user).includes(u.role)))
@@ -2658,6 +2666,15 @@ app.get('/api/dashboard', auth(), (req, res) => {
     s.minhas_solicitacoes  = db.prepare(`
       SELECT s.id,s.numero,s.status,s.criado_em FROM solicitacoes s
       WHERE s.lider_id=? ORDER BY s.criado_em DESC LIMIT 5`).all(u.id)
+    // Indicadores de Obras + Equipe (espelham a aba Minha equipe / Obras no Painel do Engenheiro).
+    // Obras sob responsabilidade dele + totais da equipe (colaboradores, cautelas em posse, valor em campo).
+    s.minhas_obras = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id=?').get(u.id).n
+    const membrosEq = db.prepare("SELECT id FROM usuarios WHERE lider_id=? AND role='operario' AND ativo=1").all(u.id)
+    let eqValor = 0, eqCautelas = 0
+    for (const m of membrosEq) { const p = posseColaborador(m.id); eqValor += p.valor; eqCautelas += p.cautelas }
+    s.equipe_colaboradores = membrosEq.length
+    s.equipe_cautelas = eqCautelas
+    s.equipe_valor = eqValor
   }
 
   if (u.role === 'operario') {

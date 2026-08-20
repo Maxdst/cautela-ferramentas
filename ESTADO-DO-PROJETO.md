@@ -37,6 +37,23 @@ Validado: `node --check` OK + JSX compila (Babel). Falta: push na `main` + verif
    (`marlon@markat.com`, senha padrão `Markat@2025`). Idempotente: guarda-rápida por `codigo='FMS'` +
    checagem por nome. Log de deploy: `N obra(s) do contrato FMS Niterói semeadas com líder definido`.
 
+### Lote 2026-08-20: Almoxarifado editável pelo Master + Painel do Engenheiro (indicadores)
+14. **Perfil `almoxarifado` totalmente gerenciável pelo Master** (só pelo Master). `rolesGerenciaveis`
+    agora dá ao master a lista **com** `almoxarifado` (criar/editar/excluir outras contas de almox); almox
+    não-master segue sem tocar em outro almox. Frontend: `perfisDisp` inclui **Almoxarifado** quando
+    `user.is_master` (aparece no dropdown de criação e no filtro); botão **Excluir** aparece para almox
+    quando o usuário é master. Guardas de segurança: a **conta master** (`is_master`) nunca é excluível
+    pela UI/back; almox só é excluível pelo master; sem autoexclusão. `GET /usuarios` passou a devolver
+    `is_master` (para a UI blindar a conta master).
+15. **Painel do Engenheiro** (antes caía no "Painel do Líder", compartilhado). Título próprio
+    **"Painel do Engenheiro"** e o bloco de stat-cards trocado para **indicadores de Obras + Equipe**:
+    Minhas obras · Colaboradores · Cautelas ativas (em posse da equipe) · Valor em campo · Aguard. meu aval.
+    O Líder mantém o painel antigo intacto (blocos separados por papel no `Dashboard`). Dashboard back
+    ganhou p/ lider+engenheiro: `minhas_obras`, `equipe_colaboradores`, `equipe_cautelas`, `equipe_valor`
+    (loop `posseColaborador` sobre a equipe). **Aba Obras** (`ObrasLiderPage`) ganhou a faixa de stat-cards
+    que faltou no deploy do demo visual (Minhas obras/Colaboradores/Cautelas/Valor — calculados do estado
+    já carregado, sem back novo). Validado: `node --check` OK + JSX compila (Babel preset-react).
+
 ### Lote 2026-08-19 (c): papel Engenheiro + hierarquia de comando
 7. **Papel novo `engenheiro`** = todas as funcionalidades do **Líder atual**, um nível **acima do Líder** e
    **abaixo do Gerente de Contrato**. Migração idempotente estende o CHECK (`... 'gerente','engenheiro'`,

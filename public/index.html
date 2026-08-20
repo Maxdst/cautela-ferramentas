@@ -288,6 +288,58 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
   table.cards-mobile td.money,table.cards-mobile td .money{font-weight:700}
 }
 @media(prefers-reduced-motion:reduce){.stat-card,.card{transition:none}}
+/* ===== Card 04 — disponibilidade da ferramenta (sub-linha no acordeão) ===== */
+.tool-row-wrap{border-bottom:1px solid var(--border)}
+.tool-row-wrap:last-child{border-bottom:none}
+.tool-row-wrap .tool-item{border-bottom:none}
+.tool-row-wrap .tool-item.with-sub{padding-bottom:6px}
+.ti-sub{padding:0 20px 13px 20px}
+.tavail{display:flex;flex-direction:column;gap:5px}
+.tavail-row{display:flex;justify-content:space-between;align-items:baseline;font-size:.72rem;color:var(--text-secondary);gap:10px}
+.tavail-row b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600}
+.tavail-row .val{color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
+.tavail-track{height:7px;border-radius:5px;background:var(--border);overflow:hidden;display:flex}
+.tavail-track span{display:block;height:100%}
+.tavail-track .field{background:var(--accent)}
+.tavail-track .free{background:var(--success)}
+.tavail-track .none{background:var(--danger)}
+/* ===== Card 03 — responsável (tela de Cautelas) ===== */
+.cbgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.cbcard{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);padding:16px;display:flex;flex-direction:column;gap:13px;transition:transform .18s,box-shadow .18s}
+.cbcard:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.cbcard .head{display:flex;align-items:center;gap:12px}
+.cbav{width:44px;height:44px;border-radius:12px;flex:none;display:grid;place-items:center;font-weight:700;font-size:1rem;color:#fff;background:linear-gradient(135deg,var(--primary-accent),var(--primary-light));letter-spacing:.02em}
+.cbcard .who{min-width:0;display:flex;flex-direction:column;gap:2px}
+.cbcard .nm{font-weight:600;font-size:.98rem;color:var(--text);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbcard .num{font-size:.76rem;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.cbcard .head .badge{margin-left:auto;align-self:flex-start}
+.cbcard .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.cbcard .cell .k{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);font-weight:700}
+.cbcard .cell .v{font-weight:600;font-size:1rem;color:var(--text);margin-top:2px;font-variant-numeric:tabular-nums}
+.cbcard .cell .v.resp{color:var(--accent)}
+.cbcard .acts{display:flex;gap:8px;flex-wrap:wrap}
+.cbcard .acts .btn{flex:1;justify-content:center;min-width:110px}
+/* ===== Card 05 — alerta (Estoque no mínimo / Desgaste) ===== */
+.acard-list{display:flex;flex-direction:column;gap:10px}
+.acard{position:relative;overflow:hidden;display:flex;gap:13px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px 14px 18px;box-shadow:var(--shadow-sm)}
+.acard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px}
+.acard.warn::before{background:var(--warning)}
+.acard.crit::before{background:var(--danger)}
+.acard .ic{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center}
+.acard.warn .ic{background:rgba(184,134,11,.16);color:var(--warning)}
+.acard.crit .ic{background:rgba(150,60,60,.18);color:var(--danger)}
+.acard .bd{flex:1;min-width:0}
+.acard .tag{font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.acard.warn .tag{color:var(--warning)}
+.acard.crit .tag{color:var(--danger)}
+.acard .nm{font-weight:600;font-size:.95rem;color:var(--text);margin:2px 0 8px}
+.acard .nm small{font-weight:500;color:var(--text-secondary)}
+.acard .meter{display:flex;align-items:center;gap:10px;font-size:.8rem;color:var(--text-secondary);flex-wrap:wrap}
+.acard .meter b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600}
+.acard .mini{height:6px;border-radius:4px;background:var(--border);overflow:hidden;width:120px;max-width:32vw}
+.acard .mini span{display:block;height:100%}
+.acard.warn .mini span{background:var(--warning)}
+.acard.crit .mini span{background:var(--danger)}
 </style>
 </head>
 <body>
@@ -1757,33 +1809,42 @@ function CautelasPage({ user, navigate, addToast }) {
       <div className="topbar">
         <h2>Cautelas</h2>
       </div>
-      <div className="card">
-        <div className="table-wrap"><table className="cards-mobile">
-          <thead><tr><th>Número</th><th>Tipo</th><th>Responsável</th><th>Retirada</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
-          <tbody>
-            {lista.map(c=>(
-              <tr key={c.id}>
-                <td className="fw-bold" data-label="Número">{c.numero}</td>
-                <td data-label="Tipo">{c.cautela_tipo==='direto' ? <span className="badge badge-solicitada">Direta</span> : <span className="badge badge-lider">Via Líder</span>}</td>
-                <td data-label="Responsável">{c.lider_nome}{c.cautela_tipo==='direto'&&<><br/><span style={{fontSize:'.7rem',color:'var(--text-secondary)'}}>Operário</span></>}</td>
-                <td data-label="Retirada">{fmt(c.data_retirada)}</td>
-                <td data-label="Valor" style={{color:'var(--success)',fontWeight:600}}>{fmtBRL(c.valor_total)}</td>
-                <td data-label="Status"><span className={`badge badge-${c.status}`}>{STATUS_LABEL[c.status]}</span></td>
-                <td className="cell-actions"><div className="actions">
-                  <button className="btn btn-outline btn-sm" onClick={()=>verDetalhe(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="eye" size={14}/> Ver</button>
-                  {isLider && c.cautela_tipo!=='direto' && c.status === 'ativa' && c.lider_id === user.id && (
-                    <button className="btn btn-accent btn-sm" onClick={()=>abrirEntrega(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="send" size={14}/> Entregar a operário</button>
+      {lista.length ? (
+        <div className="cbgrid">
+          {lista.map(c=>{
+            const nome = (c.lider_nome||'—').trim()
+            const ini = nome.split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase() || '?'
+            const direto = c.cautela_tipo === 'direto'
+            return (
+              <div className="cbcard" key={c.id}>
+                <div className="head">
+                  <span className="cbav">{ini}</span>
+                  <div className="who">
+                    <span className="nm">{nome}</span>
+                    <span className="num">{c.numero} · {direto ? 'Operário (direta)' : 'Via líder'}</span>
+                  </div>
+                  <span className={`badge badge-${c.status}`}>{STATUS_LABEL[c.status]}</span>
+                </div>
+                <div className="grid">
+                  <div className="cell"><div className="k">Retirada</div><div className="v" style={{fontSize:'.9rem'}}>{fmt(c.data_retirada)}</div></div>
+                  <div className="cell"><div className="k">Sob responsab.</div><div className="v resp">{fmtBRL(c.valor_total)}</div></div>
+                </div>
+                <div className="acts">
+                  <button className="btn btn-outline btn-sm" onClick={()=>verDetalhe(c)}><Icon name="eye" size={14}/> Ver</button>
+                  {isLider && !direto && c.status === 'ativa' && c.lider_id === user.id && (
+                    <button className="btn btn-accent btn-sm" onClick={()=>abrirEntrega(c)}><Icon name="send" size={14}/> Entregar</button>
                   )}
                   {isAlm && c.status === 'ativa' && (
-                    <button className="btn btn-success btn-sm" onClick={()=>abrirDevolver(c)} style={{display:'inline-flex',alignItems:'center',gap:5}}><Icon name="download" size={14}/> Registrar devolução</button>
+                    <button className="btn btn-success btn-sm" onClick={()=>abrirDevolver(c)}><Icon name="download" size={14}/> Devolução</button>
                   )}
-                </div></td>
-              </tr>
-            ))}
-            {!lista.length && <tr><td colSpan="7"><div className="empty"><div className="empty-icon"><Icon name="clipboard" size={32}/></div><p>Nenhuma cautela.</p></div></td></tr>}
-          </tbody>
-        </table></div>
-      </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="card"><div className="empty"><div className="empty-icon"><Icon name="clipboard" size={32}/></div><p>Nenhuma cautela.</p></div></div>
+      )}
 
       {/* Detalhe */}
       {detalhe && (
@@ -2164,13 +2225,14 @@ function ListaAcordeao({ itens, keyOf, resumo, painel, novoAberto, painelNovo, a
         const isOpen = abertoId === k
         const r = resumo(it)
         return (
-          <React.Fragment key={k}>
-            <button className={`tool-item ${isOpen?'open':''}`} onClick={()=>onToggle(it)}>
+          <div className="tool-row-wrap" key={k}>
+            <button className={`tool-item ${isOpen?'open':''} ${r.sub&&!isOpen?'with-sub':''}`} onClick={()=>onToggle(it)}>
               <span className="ti-nome">{r.titulo}</span>
               <span className="ti-right">{r.direita}<span className="ti-chevron"><Icon name="chevronRight" size={18}/></span></span>
             </button>
+            {r.sub && !isOpen && <div className="ti-sub">{r.sub}</div>}
             {isOpen && painel(it)}
-          </React.Fragment>
+          </div>
         )
       })}
     </div>
@@ -2272,11 +2334,24 @@ function FerramentasPage({ user, addToast }) {
           itens={filtradas} keyOf={f=>f.id} abertoId={openId} onToggle={toggle}
           novoAberto={openId==='new'} painelNovo={painel()} painel={()=>painel()} vazio={vazio}
           resumo={f=>{
-            const disp = f.quantidade_disponivel != null ? f.quantidade_disponivel : f.quantidade_total
+            const total = f.quantidade_total || 0
+            const disp = Math.max(0, f.quantidade_disponivel != null ? f.quantidade_disponivel : total)
+            const emCampo = Math.max(0, total - disp)
             const esgotado = disp <= 0
+            const val = f.valor_unitario || 0
             return {
               titulo: <><span className="nm">{f.nome}</span>{f.codigo && <span title="Item patrimonial único" style={{color:'var(--text-secondary)',display:'inline-flex',flexShrink:0}}><Icon name="lock" size={12}/></span>}</>,
-              direita: <span className="qtd-badge" title={`${Math.max(0,disp)} disponível de ${f.quantidade_total} no total`} style={esgotado?{color:'var(--danger)',borderColor:'var(--danger)'}:(disp!==f.quantidade_total?{color:'var(--warning)',borderColor:'var(--warning)'}:null)}>{Math.max(0,disp)}{disp!==f.quantidade_total && <span style={{color:'var(--text-secondary)',fontWeight:500}}> / {f.quantidade_total}</span>}</span>
+              direita: <span className="qtd-badge" title={`${disp} disponível de ${total} no total`} style={esgotado?{color:'var(--danger)',borderColor:'var(--danger)'}:(disp!==total?{color:'var(--warning)',borderColor:'var(--warning)'}:null)}>{disp}{disp!==total && <span style={{color:'var(--text-secondary)',fontWeight:500}}> / {total}</span>}</span>,
+              sub: total > 0 ? (
+                <div className="tavail">
+                  <div className="tavail-row"><span>Disponibilidade</span><span><b>{emCampo}</b> em campo · <b>{disp}</b> {disp===1?'livre':'livres'}</span></div>
+                  <div className="tavail-track">
+                    {emCampo>0 && <span className="field" style={{width:(emCampo/total*100)+'%'}}></span>}
+                    {disp>0 && <span className="free" style={{width:(disp/total*100)+'%'}}></span>}
+                  </div>
+                  {val>0 && <div className="tavail-row"><span>Valor unitário</span><span className="val">{fmtBRL(val)}</span></div>}
+                </div>
+              ) : null
             }
           }}
         />
@@ -2828,38 +2903,52 @@ function UniAlertas() {
     <div>
       <div className="card">
         <div className="card-header"><span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="package" size={15} /> Estoque no mínimo</span></div>
-        <div className="table-wrap"><table className="cards-mobile">
-          <thead><tr><th>Item</th><th>Tamanho</th><th>Categoria</th><th>Em estoque</th><th>Mínimo</th></tr></thead>
-          <tbody>
-            {dados.minimo.map(i => (
-              <tr key={`${i.id}-${i.tamanho}`}>
-                <td data-label="Item"><strong>{i.nome}</strong></td>
-                <td data-label="Tamanho">{i.tamanho === '—' ? 'único' : i.tamanho}</td>
-                <td data-label="Categoria">{i.categoria}</td>
-                <td data-label="Em estoque" style={{ color: 'var(--danger)', fontWeight: 700 }}>{i.estoque_atual} {i.unidade}</td>
-                <td data-label="Mínimo">{i.minimo}</td>
-              </tr>
-            ))}
-            {!dados.minimo.length && <tr><td colSpan="5" className="text-muted" style={{ textAlign: 'center', padding: 20 }}>Nenhum item abaixo do mínimo.</td></tr>}
-          </tbody>
-        </table></div>
+        <div className="card-body">
+          {dados.minimo.length ? (
+            <div className="acard-list">
+              {dados.minimo.map(i => {
+                const atual = i.estoque_atual || 0
+                const min = i.minimo || 0
+                const crit = atual <= 0
+                const pct = min > 0 ? Math.min(100, atual / min * 100) : 0
+                return (
+                  <div className={`acard ${crit ? 'crit' : 'warn'}`} key={`${i.id}-${i.tamanho}`}>
+                    <span className="ic"><Icon name="package" size={20} /></span>
+                    <div className="bd">
+                      <div className="tag">{crit ? 'Crítico · sem estoque' : 'Abaixo do mínimo'}</div>
+                      <div className="nm">{i.nome} <small>{i.tamanho === '—' ? '· único' : `· ${i.tamanho}`} · {i.categoria}</small></div>
+                      <div className="meter"><b>{atual}</b> {i.unidade} em estoque <div className="mini"><span style={{ width: pct + '%' }}></span></div> mín. <b>{min}</b></div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : <p className="text-muted" style={{ textAlign: 'center', padding: 12 }}>Nenhum item abaixo do mínimo.</p>}
+        </div>
       </div>
       <div className="card">
         <div className="card-header"><span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="history" size={15} /> Desgaste vencendo (≤ 30 dias)</span></div>
-        <div className="table-wrap"><table className="cards-mobile">
-          <thead><tr><th>Colaborador</th><th>Item</th><th>Vence em</th><th>Faltam</th></tr></thead>
-          <tbody>
-            {dados.desgaste.map((d, i) => (
-              <tr key={i}>
-                <td data-label="Colaborador"><strong>{d.colaborador_nome}</strong>{d.setor && <span className="text-muted"> — {d.setor}</span>}</td>
-                <td data-label="Item">{d.item_nome}{d.tamanho ? ` (${d.tamanho})` : ''}</td>
-                <td data-label="Vence em">{fmt(d.vence_em)}</td>
-                <td data-label="Faltam" style={{ fontWeight: 700, color: d.dias_restantes <= 0 ? 'var(--danger)' : d.dias_restantes <= 15 ? 'var(--warning)' : 'var(--text-secondary)' }}>{d.dias_restantes <= 0 ? 'Vencido' : `${d.dias_restantes} d`}</td>
-              </tr>
-            ))}
-            {!dados.desgaste.length && <tr><td colSpan="4" className="text-muted" style={{ textAlign: 'center', padding: 20 }}>Nenhuma reposição próxima.</td></tr>}
-          </tbody>
-        </table></div>
+        <div className="card-body">
+          {dados.desgaste.length ? (
+            <div className="acard-list">
+              {dados.desgaste.map((d, idx) => {
+                const dias = d.dias_restantes
+                const crit = dias <= 0
+                const pct = crit ? 100 : Math.min(100, Math.max(6, (30 - dias) / 30 * 100))
+                return (
+                  <div className={`acard ${crit ? 'crit' : 'warn'}`} key={idx}>
+                    <span className="ic"><Icon name="history" size={20} /></span>
+                    <div className="bd">
+                      <div className="tag">{crit ? 'Vencido' : 'Desgaste vencendo'}</div>
+                      <div className="nm">{d.colaborador_nome} <small>{d.setor ? `· ${d.setor} ` : ''}· {d.item_nome}{d.tamanho ? ` (${d.tamanho})` : ''}</small></div>
+                      <div className="meter">Vence em <b>{fmt(d.vence_em)}</b> <div className="mini"><span style={{ width: pct + '%' }}></span></div> {crit ? 'Vencido' : `faltam ${dias} d`}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : <p className="text-muted" style={{ textAlign: 'center', padding: 12 }}>Nenhuma reposição próxima.</p>}
+        </div>
       </div>
     </div>
   )

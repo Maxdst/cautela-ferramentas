@@ -72,6 +72,33 @@ Validado: `node --check` OK + JSX compila (Babel). Falta: push na `main` + verif
     `padding-top` no mobile p/ não ficar sob a barra. z-index 90 (abaixo de modais 200 / toasts 999 / bottom-nav
     100). Validado: JSX compila (Babel preset-react).
 
+### Lote 2026-08-20 (c): Painel do Diretor (cockpit) + scaffold de módulos por pacote
+> **No branch `claude/operations-director-dashboard-0wy8dk`, ainda NÃO em `main`/produção.**
+> Aprovado por mockup visual antes de codar. Validação local completa (ver abaixo); falta push na `main`
+> + teste logado do Maxwel (papel `diretor`).
+19. **Painel do Diretor virou cockpit de decisão** (antes eram só 3 contagens de obras). Ramo
+    `diretor`/`gerente` do `GET /api/dashboard` reescrito com blocos: **Prioridade 1 — Exposição
+    financeira** (valor total em campo, média/colaborador e /obra, **aging** de ferramenta em campo em
+    faixas 15–30/30–60/+60d com valor, **maiores riscos individuais** = quem está há mais tempo sem
+    devolver); **Prioridade 2 — Desempenho dos líderes/engenheiros** (ranking por engenheiro: obras ·
+    colaboradores · cautelas · valor sob gestão · transf. pendentes · solicitações paradas +3d);
+    **Contexto** (cobertura de obras, funil de solicitações, pessoas/alocação + volantes). **Radar** de
+    alertas acionáveis no topo (obras sem eng., R$ em aging +60d, transf. +48h, prontas paradas +3d, EPI
+    no mínimo). Front: componente `DiretorDashboard` reescrito com CSS próprio `.dc-*` (paleta Aço &
+    Prata), helper `fmtBRLc` (moeda compacta). Diretor **vê valores** (é a função dele) — sem gate de master.
+20. **Scaffold de módulos (comercialização por pacote).** Backend: registro `MODULOS_TODOS =
+    ['cautela','obras','equipe','emprestimos','uniformes']`; **`cautela` é base (sempre ativo)**. Ativos
+    definidos por **env `CAUTELIX_MODULOS`** (lista por vírgula; ex.: `obras,equipe`). **Default = TODOS**
+    → Markat e qualquer deploy legado seguem idênticos. Helper `modAtivo(m)`; o painel do Diretor só
+    calcula/renderiza os indicadores dos módulos ativos — **nenhum indicador zera ou quebra**. Os módulos
+    ativos viajam ao front em `user.modulos` (login + `/auth/me` + troca-senha). Front: `MODULO_DA_ABA` +
+    `temModulo(user,m)` + `abaAtiva()` → **sidebar e bottom-nav filtram as abas** pelos módulos contratados,
+    e cada card do painel é gated por `temModulo`. Ausência de `user.modulos` (token legado) = tudo ligado.
+21. **Validação local:** `node --check server.js` OK · JSX compila no Babel 7.23.2 (preset-react) ·
+    **12/12 queries do painel** rodadas em schema mínimo (node:sqlite) com resultados corretos ·
+    lógica do registro de módulos testada (default=todos, subset sempre inclui base, env vazio→todos).
+    SW bumpado **v6→v7**. Falta: push na `main` + teste logado (não temos a senha do Maxwel).
+
 ### Lote 2026-08-19 (c): papel Engenheiro + hierarquia de comando
 7. **Papel novo `engenheiro`** = todas as funcionalidades do **Líder atual**, um nível **acima do Líder** e
    **abaixo do Gerente de Contrato**. Migração idempotente estende o CHECK (`... 'gerente','engenheiro'`,

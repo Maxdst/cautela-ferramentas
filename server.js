@@ -1056,7 +1056,7 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   const payload = { id: u.id, nome: u.nome, email: u.email, role: u.role, cargo: u.cargo, primeiro_acesso: u.primeiro_acesso || 0, is_master: u.is_master || 0 }
   const token = jwt.sign(payload, SECRET, { expiresIn: '8h' })
   audit(u.id, 'LOGIN', 'usuarios', u.id, 'Login realizado')
-  res.json({ token, user: payload })
+  res.json({ token, user: { ...payload, modulos: MODULOS_ATIVOS } })
 })
 
 // Download do backup (somente almoxarifado)
@@ -1071,7 +1071,7 @@ app.get('/api/admin/backup', auth(['almoxarifado']), requireMaster, (req, res) =
 
 app.get('/api/auth/me', auth(), (req, res) => {
   const u = db.prepare('SELECT id,nome,email,cargo,role,primeiro_acesso,is_master,assinatura FROM usuarios WHERE id=?').get(req.user.id)
-  if (u) { u.tem_assinatura = !!u.assinatura; delete u.assinatura } // não trafega a imagem no /me (leve)
+  if (u) { u.tem_assinatura = !!u.assinatura; delete u.assinatura; u.modulos = MODULOS_ATIVOS } // não trafega a imagem no /me (leve)
   res.json(u)
 })
 
@@ -1102,7 +1102,7 @@ app.post('/api/auth/trocar-senha', auth(), (req, res) => {
   const payload = { id: u.id, nome: u.nome, email: u.email, role: u.role, cargo: u.cargo, primeiro_acesso: 0, is_master: u.is_master || 0 }
   const newToken = jwt.sign(payload, SECRET, { expiresIn: '8h' })
   audit(req.user.id, 'TROCAR_SENHA_PRIMEIRO_ACESSO', 'usuarios', req.user.id, {})
-  res.json({ token: newToken, user: payload })
+  res.json({ token: newToken, user: { ...payload, modulos: MODULOS_ATIVOS } })
 })
 
 // Validar credenciais sem gerar token (usado para auth no dispositivo)
@@ -1324,6 +1324,21 @@ app.put('/api/bolsas/:id', auth(['almoxarifado']), (req, res) => {
   audit(req.user.id, 'EDITAR_BOLSA', 'bolsas', req.params.id, { nome })
   res.json({ ok: true })
 })
+
+// ─── MÓDULOS (comercialização por pacote) ─────────────────────────────────────
+// O produto é vendido por pacote: um cliente pode contratar só alguns módulos.
+// 'cautela' é o módulo BASE (sempre ativo — é o coração do SaaS). Os demais podem
+// ser ligados/desligados por deploy via env CAUTELIX_MODULOS (lista separada por
+// vírgula, ex.: "obras,equipe"). Default = TODOS (Markat e qualquer deploy legado
+// seguem idênticos). O painel do Diretor só calcula/renderiza os indicadores dos
+// módulos ativos — nenhum indicador zera ou quebra por falta de módulo.
+const MODULOS_TODOS = ['cautela', 'obras', 'equipe', 'emprestimos', 'uniformes']
+const MODULOS_ATIVOS = (() => {
+  const env = String(process.env.CAUTELIX_MODULOS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  const set = env.length ? new Set(['cautela', ...env]) : new Set(MODULOS_TODOS) // base entra sempre
+  return MODULOS_TODOS.filter(m => set.has(m)) // preserva a ordem canônica
+})()
+const modAtivo = m => MODULOS_ATIVOS.includes(m)
 
 // ─── SOLICITAÇÕES ─────────────────────────────────────────────────────────────
 // ─── OBRAS / CANTEIROS ────────────────────────────────────────────────────────
@@ -2597,9 +2612,140 @@ app.get('/api/dashboard', auth(), (req, res) => {
   const s = {}
 
   if (u.role === 'diretor' || u.role === 'gerente') {
-    s.obras_ativas    = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1').get().n
-    s.obras_com_lider = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id IS NOT NULL').get().n
-    s.obras_sem_lider = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id IS NULL').get().n
+    // Quais módulos este cliente contratou → o painel se monta só com o que existe.
+    s.modulos = MODULOS_ATIVOS
+
+    // Base da posse dinâmica: cada "unidade" = 1 colaborador segurando 1 cautela, com a
+    // obra ATUAL dele e o valor da posse. Reaproveitada por vários indicadores abaixo.
+    const posseSQL = `
+      SELECT ce.cautela_id, ce.operario_id colaborador_id, u.obra_id,
+             cei.quantidade * COALESCE(f.valor_unitario,0) valor
+      FROM cautela_entregas ce
+      JOIN cautela_entrega_itens cei ON cei.entrega_id=ce.id
+      JOIN ferramentas f ON f.id=cei.ferramenta_id
+      JOIN usuarios u ON u.id=ce.operario_id
+      WHERE ce.status='ativa'
+      UNION ALL
+      SELECT c.id cautela_id, c.lider_id colaborador_id, u.obra_id, c.valor_total valor
+      FROM cautelas c JOIN usuarios u ON u.id=c.lider_id
+      WHERE c.status='ativa' AND c.cautela_tipo='direto'`
+
+    // ── PRIORIDADE 1 — Exposição financeira (módulo base 'cautela', sempre presente) ──
+    s.valor_em_campo = db.prepare(`SELECT COALESCE(SUM(valor),0) v FROM (${posseSQL})`).get().v
+    s.cautelas_ativas = db.prepare("SELECT COUNT(*) n FROM cautelas WHERE status='ativa'").get().n
+    s.colaboradores_em_campo = db.prepare(`SELECT COUNT(DISTINCT colaborador_id) n FROM (${posseSQL}) WHERE valor>0`).get().n
+    s.valor_medio_colaborador = s.colaboradores_em_campo ? s.valor_em_campo / s.colaboradores_em_campo : 0
+
+    // Aging: tempo que cada cautela está em campo (risco de perda). Unidade = colaborador×cautela.
+    const agingUnidades = db.prepare(`
+      SELECT ce.cautela_id, u.nome colaborador, ob.nome obra_nome, eng.nome eng_nome,
+        CAST(julianday('now','localtime') - julianday(COALESCE(c.data_retirada,c.criado_em)) AS INTEGER) dias,
+        (SELECT COALESCE(SUM(cei.quantidade*COALESCE(f.valor_unitario,0)),0)
+           FROM cautela_entrega_itens cei JOIN ferramentas f ON f.id=cei.ferramenta_id
+           WHERE cei.entrega_id=ce.id) valor
+      FROM cautela_entregas ce
+      JOIN cautelas c ON c.id=ce.cautela_id
+      JOIN usuarios u ON u.id=ce.operario_id
+      LEFT JOIN obras ob ON ob.id=u.obra_id
+      LEFT JOIN usuarios eng ON eng.id=ob.lider_id
+      WHERE ce.status='ativa'
+      UNION ALL
+      SELECT c.id, u.nome, ob.nome, eng.nome,
+        CAST(julianday('now','localtime') - julianday(COALESCE(c.data_retirada,c.criado_em)) AS INTEGER) dias,
+        c.valor_total
+      FROM cautelas c JOIN usuarios u ON u.id=c.lider_id
+      LEFT JOIN obras ob ON ob.id=u.obra_id
+      LEFT JOIN usuarios eng ON eng.id=ob.lider_id
+      WHERE c.status='ativa' AND c.cautela_tipo='direto'`).all()
+    const faixa = (min, max) => agingUnidades.filter(a => a.dias >= min && (max == null || a.dias < max))
+    const soma = arr => arr.reduce((t, a) => t + (a.valor || 0), 0)
+    const f1 = faixa(15, 30), f2 = faixa(30, 60), f3 = faixa(60, null)
+    s.aging = [
+      { faixa: '15–30 dias', cautelas: f1.length, valor: soma(f1) },
+      { faixa: '30–60 dias', cautelas: f2.length, valor: soma(f2) },
+      { faixa: '+60 dias',   cautelas: f3.length, valor: soma(f3) },
+    ]
+    s.aging_valor_60 = soma(f3)
+    // Top riscos individuais: quem está há mais tempo com ferramenta sem devolver.
+    s.riscos_individuais = agingUnidades
+      .filter(a => a.dias >= 15)
+      .sort((a, b) => b.dias - a.dias)
+      .slice(0, 5)
+      .map(a => ({ colaborador: a.colaborador, obra_nome: a.obra_nome, eng_nome: a.eng_nome, dias: a.dias, valor: a.valor }))
+
+    // ── Módulo OBRAS: ranking de valor por obra + cobertura ──
+    if (modAtivo('obras')) {
+      s.por_obra = db.prepare(`
+        SELECT ob.id obra_id, ob.nome obra_nome, eng.nome eng_nome,
+          COUNT(DISTINCT h.cautela_id) cautelas,
+          COUNT(DISTINCT h.colaborador_id) colaboradores,
+          COALESCE(SUM(h.valor),0) valor
+        FROM obras ob
+        LEFT JOIN usuarios eng ON eng.id=ob.lider_id
+        LEFT JOIN (${posseSQL}) h ON h.obra_id=ob.id
+        WHERE ob.ativo=1
+        GROUP BY ob.id, ob.nome, eng.nome
+        ORDER BY valor DESC, ob.nome
+        LIMIT 6`).all()
+      // Bucket "Volantes" (colaborador sem obra que ainda segura ferramenta).
+      const volantes = db.prepare(`
+        SELECT COUNT(DISTINCT colaborador_id) colaboradores, COUNT(DISTINCT cautela_id) cautelas,
+               COALESCE(SUM(valor),0) valor FROM (${posseSQL}) WHERE obra_id IS NULL`).get()
+      if (volantes && volantes.valor > 0)
+        s.por_obra.push({ obra_id: null, obra_nome: 'Volantes (sem obra)', eng_nome: null, ...volantes })
+      s.obras_ativas    = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1').get().n
+      s.obras_com_lider = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id IS NOT NULL').get().n
+      s.obras_sem_lider = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id IS NULL').get().n
+      // Obras ativas sem NENHUMA ferramenta em campo hoje (obra "parada").
+      s.obras_sem_movimento = db.prepare(`
+        SELECT COUNT(*) n FROM obras ob WHERE ob.ativo=1
+        AND NOT EXISTS (SELECT 1 FROM (${posseSQL}) h WHERE h.obra_id=ob.id AND h.valor>0)`).get().n
+      s.valor_medio_obra = s.obras_ativas ? s.valor_em_campo / s.obras_ativas : 0
+    }
+
+    // ── Módulo EQUIPE: ranking por engenheiro/líder + pessoas/alocação ──
+    if (modAtivo('equipe')) {
+      const engs = db.prepare("SELECT id, nome, cargo FROM usuarios WHERE role IN ('engenheiro','lider') AND ativo=1").all()
+      s.ranking_lideres = engs.map(e => {
+        const obras = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id=?').get(e.id).n
+        const membros = db.prepare("SELECT id FROM usuarios WHERE lider_id=? AND role='operario' AND ativo=1").all(e.id)
+        let valor = 0, cautelas = 0
+        for (const m of membros) { const p = posseColaborador(m.id); valor += p.valor; cautelas += p.cautelas }
+        const transf_pend = db.prepare("SELECT COUNT(*) n FROM transferencias WHERE para_lider_id=? AND status='pendente'").get(e.id).n
+        const sol_paradas = db.prepare(`SELECT COUNT(*) n FROM solicitacoes WHERE lider_id=?
+          AND status NOT IN ('retirada','cancelada')
+          AND julianday('now','localtime') - julianday(criado_em) > 3`).get(e.id).n
+        return { id: e.id, nome: e.nome, cargo: e.cargo, obras, colaboradores: membros.length, cautelas, valor, transf_pend, sol_paradas }
+      }).filter(r => r.obras > 0 || r.colaboradores > 0)
+        .sort((a, b) => b.valor - a.valor)
+
+      s.colaboradores_ativos = db.prepare("SELECT COUNT(*) n FROM usuarios WHERE role='operario' AND ativo=1").get().n
+      s.volantes = db.prepare("SELECT COUNT(*) n FROM usuarios WHERE role='operario' AND ativo=1 AND obra_id IS NULL").get().n
+      s.por_funcao = db.prepare(`SELECT COALESCE(NULLIF(TRIM(cargo),''),'Sem função') funcao, COUNT(*) n
+        FROM usuarios WHERE role='operario' AND ativo=1 GROUP BY funcao ORDER BY n DESC LIMIT 5`).all()
+      s.transf_pendentes_48h = db.prepare(`SELECT COUNT(*) n FROM transferencias WHERE status='pendente'
+        AND julianday('now','localtime') - julianday(criado_em) > 2`).get().n
+    }
+
+    // ── Módulo CAUTELA (base): funil de solicitações + prontas paradas ──
+    s.funil = {
+      solicitada: db.prepare("SELECT COUNT(*) n FROM solicitacoes WHERE status='solicitada'").get().n,
+      separando:  db.prepare("SELECT COUNT(*) n FROM solicitacoes WHERE status='separando'").get().n,
+      pronta:     db.prepare("SELECT COUNT(*) n FROM solicitacoes WHERE status='pronta'").get().n,
+      retiradas_7d: db.prepare(`SELECT COUNT(*) n FROM cautelas WHERE data_retirada IS NOT NULL
+        AND julianday('now','localtime') - julianday(data_retirada) <= 7`).get().n,
+    }
+    s.prontas_paradas_3d = db.prepare(`SELECT COUNT(*) n FROM solicitacoes WHERE status='pronta'
+      AND julianday('now','localtime') - julianday(criado_em) > 3`).get().n
+
+    // ── Módulo EMPRÉSTIMOS ──
+    if (modAtivo('emprestimos'))
+      s.emprestimos_ativos = db.prepare("SELECT COUNT(*) n FROM emprestimos WHERE status='ativo'").get().n
+
+    // ── Módulo UNIFORMES / EPI ──
+    if (modAtivo('uniformes'))
+      s.epi_abaixo_minimo = alertasMinimo().length
+
     return res.json(s)
   }
 

@@ -230,6 +230,100 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
   /* Linha de estado vazio nao deve virar cartao (evita cartao-dentro-de-cartao) */
   table.cards-mobile tr:has(td[colspan]){background:none;border:0;border-radius:0;padding:0;margin:0}
 }
+/* ── Painel do Diretor de Operações (cockpit) ── */
+.dc-sec{margin-bottom:24px}
+.dc-head{display:flex;align-items:baseline;gap:10px;margin:0 2px 12px}
+.dc-head .k{font-size:.65rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-dark)}
+.dc-head h3{font-size:1.05rem;color:var(--primary);margin:0}
+.dc-head .sub{font-size:.76rem;color:var(--text-secondary);margin-left:auto;text-align:right}
+.dc-grid{display:grid;gap:15px;grid-template-columns:repeat(12,1fr)}
+.dc-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:15px 16px;position:relative;box-shadow:0 1px 2px rgba(26,37,53,.05)}
+.dc-card>.dc-mtag{position:absolute;top:11px;right:12px;font-size:.57rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--silver);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px 6px}
+.dc-card h4{font-size:.77rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin:0 60px 3px 0;font-weight:700}
+.dc-card .dc-cap{font-size:.75rem;color:var(--silver);margin:0}
+.dc-hero{grid-column:span 5;background:linear-gradient(160deg,var(--primary),var(--primary-light));color:#fff;border-color:transparent}
+.dc-hero h4{color:var(--silver-light)}
+.dc-hero .big{font-size:2.5rem;font-weight:800;line-height:1.05;margin:8px 0 2px;letter-spacing:.005em}
+.dc-hero .line{font-size:.79rem;color:#CFE0E6}
+.dc-hero .split{display:flex;gap:20px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14);flex-wrap:wrap}
+.dc-hero .split .v{font-size:1.2rem;font-weight:800}
+.dc-hero .split .l{font-size:.64rem;color:var(--silver-light);text-transform:uppercase;letter-spacing:.05em}
+.dc-hero .dc-mtag{color:var(--silver-light);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)}
+.dc-span7{grid-column:span 7}.dc-span5{grid-column:span 5}.dc-span12{grid-column:span 12}
+.dc-bar{margin-bottom:10px}.dc-bar:last-child{margin-bottom:0}
+.dc-bar .t{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.dc-bar .nm{font-size:.84rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dc-bar .vl{font-size:.84rem;font-weight:700;color:var(--primary);white-space:nowrap}
+.dc-bar .tk{height:9px;background:#E1E7ED;border-radius:5px;overflow:hidden;margin-top:2px}
+.dc-bar .fl{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--primary-accent),#3C7A8C)}
+.dc-bar .fl.vol{background:linear-gradient(90deg,#A6B2C0,var(--silver))}
+.dc-bar .mt{font-size:.7rem;color:var(--silver);margin-top:1px}
+.dc-ag{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:12px 0;gap:2px;background:#E1E7ED}
+.dc-ag span{display:block;height:100%}
+.dc-agr{display:flex;align-items:center;gap:9px;font-size:.82rem;padding:5px 0}
+.dc-agr .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+.dc-agr .rl{color:var(--text-secondary)}.dc-agr .rn{color:var(--silver);font-size:.73rem}
+.dc-agr .rv{margin-left:auto;font-weight:700;color:var(--primary)}
+.dc-risk{width:100%;border-collapse:collapse}
+.dc-risk td{padding:8px 4px;border-bottom:1px solid var(--border);font-size:.84rem;vertical-align:middle}
+.dc-risk tr:last-child td{border-bottom:0}
+.dc-risk .cn{font-weight:600}.dc-risk .co{color:var(--text-secondary);font-size:.75rem}
+.dc-risk .dd{text-align:right;font-weight:700;white-space:nowrap}
+.dc-risk .vv{text-align:right;font-weight:700;color:var(--primary);white-space:nowrap}
+.dc-pill{display:inline-block;font-size:.66rem;font-weight:700;padding:2px 7px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em;margin-left:5px}
+.dc-pill.crit{background:rgba(122,46,46,.12);color:var(--danger)}
+.dc-pill.warn{background:rgba(160,124,78,.15);color:var(--accent-dark)}
+.dc-lt{width:100%;border-collapse:collapse}
+.dc-lt thead th{font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;color:var(--silver);font-weight:700;text-align:right;padding:0 9px 9px;border-bottom:1px solid var(--border)}
+.dc-lt thead th:first-child{text-align:left}
+.dc-lt td{padding:10px 9px;border-bottom:1px solid var(--border);font-size:.87rem}
+.dc-lt tr:last-child td{border-bottom:0}
+.dc-lt .eng{display:flex;align-items:center;gap:10px}
+.dc-lt .av{width:32px;height:32px;border-radius:8px;flex:0 0 auto;display:grid;place-items:center;font-weight:700;font-size:.8rem;color:#fff;background:linear-gradient(150deg,var(--primary-light),var(--primary-accent))}
+.dc-lt .en{font-weight:700;color:var(--primary)}
+.dc-lt td.n{text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
+.dc-lt .mv{font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums}
+.dc-lt .mb{height:6px;background:#E1E7ED;border-radius:3px;margin-top:4px;overflow:hidden}
+.dc-lt .mb i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent-dark))}
+.dc-flag{display:inline-flex;align-items:center;justify-content:center;min-width:24px;font-weight:700;font-size:.79rem;padding:2px 7px;border-radius:6px;font-variant-numeric:tabular-nums}
+.dc-flag.ok{color:var(--silver)}
+.dc-flag.bad{color:var(--danger);background:rgba(122,46,46,.12)}
+.dc-flag.mid{color:var(--accent-dark);background:rgba(160,124,78,.15)}
+.dc-alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(208px,1fr));gap:12px}
+.dc-alert{background:var(--card);border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:11px 13px;display:flex;gap:11px;align-items:flex-start;text-align:left;width:100%;font:inherit}
+.dc-alert.go{cursor:pointer}
+.dc-alert .ic{width:28px;height:28px;border-radius:8px;flex:0 0 auto;display:grid;place-items:center}
+.dc-alert .n{font-size:1.32rem;font-weight:800;line-height:1;color:var(--primary)}
+.dc-alert .tt{font-size:.77rem;color:var(--text-secondary);line-height:1.3;margin-top:2px}
+.dc-alert.crit{border-left-color:var(--danger)}.dc-alert.crit .ic{background:rgba(122,46,46,.1);color:var(--danger)}
+.dc-alert.warn{border-left-color:var(--warning)}.dc-alert.warn .ic{background:rgba(184,134,11,.13);color:var(--accent-dark)}
+.dc-alert.info{border-left-color:var(--primary-accent)}.dc-alert.info .ic{background:rgba(74,144,164,.13);color:var(--primary-accent)}
+.dc-calm{font-size:.85rem;color:var(--success);display:flex;align-items:center;gap:8px;padding:2px}
+.dc-trio{grid-template-columns:repeat(3,1fr)}
+.dc-cov{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.dc-cov:last-child{border-bottom:0}
+.dc-cov .cv{font-size:1.38rem;font-weight:800;min-width:32px;text-align:right}
+.dc-cov .cl{font-size:.81rem;color:var(--text-secondary)}
+.dc-cov .good{color:var(--success)}.dc-cov .bad{color:var(--danger)}
+.dc-fr{margin-bottom:9px}.dc-fr:last-child{margin-bottom:0}
+.dc-fr .ft{display:flex;justify-content:space-between;font-size:.79rem;margin-bottom:3px}
+.dc-fr .fl{color:var(--text-secondary)}.dc-fr .fv{font-weight:700;color:var(--primary)}
+.dc-fr .tk{height:8px;background:#E1E7ED;border-radius:4px;overflow:hidden}
+.dc-fr .tk i{display:block;height:100%;border-radius:4px;background:var(--primary-accent)}
+.dc-pr{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.83rem}
+.dc-pr:last-child{border-bottom:0}
+.dc-pr .pl{color:var(--text-secondary)}.dc-pr .pv{font-weight:700;color:var(--primary)}
+.dc-pr .pv.vol{color:var(--accent-dark)}
+@media(max-width:768px){
+  .dc-hero,.dc-span7,.dc-span5{grid-column:span 12}
+  .dc-trio{grid-template-columns:1fr}
+  .dc-lt thead{display:none}
+  .dc-lt,.dc-lt tbody,.dc-lt tr,.dc-lt td{display:block;width:100%}
+  .dc-lt tr{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;padding:5px 4px}
+  .dc-lt td{border-bottom:0;display:flex;justify-content:space-between;padding:5px 12px;text-align:right}
+  .dc-lt td.engtd{display:block}
+  .dc-lt td.n::before{content:attr(data-l);color:var(--silver);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+}
 </style>
 </head>
 <body>
@@ -272,6 +366,12 @@ function fmtBRL(v) {
   if (!v) return 'R$ 0,00'
   return 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 }
+// Moeda compacta para leitura de relance no painel (ex.: "R$ 148,3 mil").
+function fmtBRLc(v) {
+  v = Number(v) || 0
+  if (v >= 1000) return 'R$ ' + (v / 1000).toFixed(1).replace('.', ',') + ' mil'
+  return 'R$ ' + v.toFixed(0)
+}
 // Iniciais para avatar (1ª e última palavra do nome).
 function iniciais(nome) {
   const p = String(nome||'').trim().split(/\s+/).filter(Boolean)
@@ -289,6 +389,14 @@ const STATUS_LABEL = {
 const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário', administracao: 'Administração', compras: 'Compras', diretor: 'Diretor de Operações', gerente: 'Gerente de Contrato', engenheiro: 'Engenheiro' }
 // Perfis com acesso ao módulo Uniformes/EPI (mesmo conjunto do backend UNIF_ROLES).
 const PERFIS_UNIFORME = ['almoxarifado', 'administracao', 'compras']
+
+// ── Módulos comercializáveis (scaffold de venda por pacote) ──
+// 'cautela' é base (sempre ativo). Cada aba/indicador declara de qual módulo depende;
+// se o cliente não contratou o módulo, a aba some e o painel se remonta — sem quebrar.
+// O backend manda os módulos ativos em user.modulos; ausência = tudo ligado (legado).
+const MODULO_DA_ABA = { obras: 'obras', equipe: 'equipe', 'equipe-auditoria': 'equipe', emprestimos: 'emprestimos', uniformes: 'uniformes' }
+const temModulo = (user, m) => { if (!m || m === 'cautela') return true; const mods = user && user.modulos; return !mods || mods.includes(m) }
+const abaAtiva = (user, id) => temModulo(user, MODULO_DA_ABA[id])
 
 // ── Helpers de estoque por tamanho (uniformes) ──
 const SEM_TAM_UI = '—'
@@ -593,29 +701,200 @@ function Dashboard({ user, navigate, addToast }) {
     </div>
   )
 
-  // Diretor de Operações / Gerente de Contrato: painel de gestão à vista das obras (não custódia).
-  if (user.role === 'diretor' || user.role === 'gerente') return (
+  // Diretor de Operações / Gerente de Contrato: cockpit de decisão (gestão à vista das equipes).
+  // Cada bloco só é renderizado se o módulo de que depende estiver contratado (temModulo).
+  if (user.role === 'diretor' || user.role === 'gerente') {
+    const has = m => temModulo(user, m)
+    const porObra = stats.por_obra || []
+    const maxObra = Math.max(1, ...porObra.map(o => o.valor || 0))
+    const lideres = stats.ranking_lideres || []
+    const maxLider = Math.max(1, ...lideres.map(l => l.valor || 0))
+    const aging = stats.aging || []
+    const agTotal = Math.max(1, aging.reduce((t, a) => t + (a.valor || 0), 0))
+    const agCor = ['#C9A227', 'var(--accent)', 'var(--danger)']
+    const funil = stats.funil || {}
+    const maxFunil = Math.max(1, funil.solicitada || 0, funil.separando || 0, funil.pronta || 0, funil.retiradas_7d || 0)
+    // Radar — só o que exige ação hoje (cada alerta some com seu módulo).
+    const alertas = []
+    if (has('obras') && (stats.obras_sem_lider || 0) > 0) alertas.push({ sev: 'crit', ic: 'alertTriangle', n: stats.obras_sem_lider, t: <>obras <b>sem engenheiro</b> responsável</>, go: 'obras' })
+    if ((stats.aging_valor_60 || 0) > 0) alertas.push({ sev: 'crit', ic: 'history', n: fmtBRLc(stats.aging_valor_60), t: <>em ferramenta há <b>+60 dias</b> em campo</> })
+    if (has('equipe') && (stats.transf_pendentes_48h || 0) > 0) alertas.push({ sev: 'warn', ic: 'handshake', n: stats.transf_pendentes_48h, t: <><b>transferências</b> pendentes de aceite +48h</> })
+    if ((stats.prontas_paradas_3d || 0) > 0) alertas.push({ sev: 'warn', ic: 'download', n: stats.prontas_paradas_3d, t: <>solicitações <b>prontas</b> sem retirada +3 dias</>, go: 'solicitacoes' })
+    if (has('uniformes') && (stats.epi_abaixo_minimo || 0) > 0) alertas.push({ sev: 'info', ic: 'shirt', n: stats.epi_abaixo_minimo, t: <>itens de <b>EPI</b> abaixo do estoque mínimo</> })
+    const pctPill = d => d >= 60 ? <span className="dc-pill crit">crítico</span> : (d >= 30 ? <span className="dc-pill warn">atenção</span> : null)
+    const flag = (v, bad) => <span className={`dc-flag ${v === 0 ? 'ok' : (v >= bad ? 'bad' : 'mid')}`}>{v}</span>
+
+    return (
     <div>
       <div className="topbar"><h2>Painel — {ROLE_LABEL[user.role]}</h2></div>
-      <div className="stat-section">
-        <div className="stat-section-title"><span className="st-ic"><Icon name="building" size={14}/></span>Obras</div>
-        <div className="stats-grid">
-          <div className="stat-card blue"><div className="stat-label">Obras ativas</div><div className="stat-value">{stats.obras_ativas||0}</div></div>
-          <div className="stat-card"><div className="stat-label">Com engenheiro</div><div className="stat-value">{stats.obras_com_lider||0}</div></div>
-          <div className="stat-card red"><div className="stat-label">Sem engenheiro</div><div className="stat-value">{stats.obras_sem_lider||0}</div></div>
+
+      {/* Radar */}
+      <div className="dc-sec">
+        <div className="dc-head"><span className="k">Radar</span><h3>Precisa da sua ação hoje</h3></div>
+        {alertas.length ? (
+          <div className="dc-alerts">
+            {alertas.map((a, i) => (
+              <button key={i} className={`dc-alert ${a.sev} ${a.go ? 'go' : ''}`} onClick={a.go ? () => navigate(a.go) : undefined}>
+                <span className="ic"><Icon name={a.ic} size={16}/></span>
+                <span><span className="n">{a.n}</span><span className="tt">{a.t}</span></span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="dc-calm"><Icon name="check" size={16}/> Tudo em dia — nenhum alerta operacional aberto.</div>
+        )}
+      </div>
+
+      {/* Prioridade 1 — Exposição financeira */}
+      <div className="dc-sec">
+        <div className="dc-head"><span className="k">Prioridade 1</span><h3>Exposição financeira</h3>
+          <span className="sub">Responsabilização &amp; rastreabilidade — onde está o risco</span></div>
+        <div className="dc-grid">
+          <div className="dc-card dc-hero">
+            <span className="dc-mtag">Cautela</span>
+            <h4>Valor total em campo</h4>
+            <div className="big">{fmtBRLc(stats.valor_em_campo || 0)}</div>
+            <div className="line">{stats.cautelas_ativas || 0} cautelas ativas · {stats.colaboradores_em_campo || 0} colaboradores em campo</div>
+            <div className="split">
+              <div><div className="v">{fmtBRLc(stats.valor_medio_colaborador || 0)}</div><div className="l">média / colaborador</div></div>
+              {has('obras') && <div><div className="v">{fmtBRLc(stats.valor_medio_obra || 0)}</div><div className="l">média / obra</div></div>}
+            </div>
+          </div>
+
+          {has('obras') && porObra.length > 0 && (
+            <div className="dc-card dc-span7">
+              <span className="dc-mtag">Obras</span>
+              <h4>Valor em campo por obra</h4>
+              <p className="dc-cap">Top {porObra.length} · concentração do risco financeiro</p>
+              <div style={{marginTop:12}}>
+                {porObra.map(o => (
+                  <div className="dc-bar" key={o.obra_id ?? 'volantes'}>
+                    <div className="t"><span className="nm">{o.obra_nome}</span><span className="vl">{fmtBRLc(o.valor || 0)}</span></div>
+                    <div className="tk"><div className={`fl ${o.obra_id == null ? 'vol' : ''}`} style={{width:Math.round((o.valor || 0) / maxObra * 100) + '%'}}/></div>
+                    <div className="mt">{o.eng_nome || 'Sem engenheiro'} · {o.colaboradores || 0} colab.</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="dc-card dc-span5">
+            <span className="dc-mtag">Cautela</span>
+            <h4>Ferramenta parada em campo</h4>
+            <p className="dc-cap">Quanto mais tempo fora, maior o risco de perda</p>
+            <div className="dc-ag">
+              {aging.map((a, i) => <span key={i} style={{width:Math.round((a.valor || 0) / agTotal * 100) + '%', background:agCor[i]}}/>)}
+            </div>
+            {aging.map((a, i) => (
+              <div className="dc-agr" key={i}>
+                <span className="sw" style={{background:agCor[i]}}/><span className="rl">{a.faixa}</span>
+                <span className="rn">{a.cautelas} cautela(s)</span><span className="rv">{fmtBRLc(a.valor || 0)}</span>
+              </div>
+            ))}
+          </div>
+
+          {(stats.riscos_individuais || []).length > 0 && (
+            <div className="dc-card dc-span7">
+              <span className="dc-mtag">Cautela</span>
+              <h4>Maiores riscos individuais</h4>
+              <p className="dc-cap">Colaboradores com ferramenta há mais tempo sem devolução</p>
+              <table className="dc-risk" style={{marginTop:10}}><tbody>
+                {stats.riscos_individuais.map((r, i) => (
+                  <tr key={i}>
+                    <td><span className="cn">{r.colaborador}</span><br/><span className="co">{r.obra_nome || 'Sem obra'}{r.eng_nome ? ' · ' + r.eng_nome : ''}</span></td>
+                    <td className="dd" style={{color:r.dias >= 60 ? 'var(--danger)' : 'var(--accent-dark)'}}>{r.dias} dias {pctPill(r.dias)}</td>
+                    <td className="vv">{fmtBRL(r.valor || 0)}</td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </div>
+          )}
         </div>
       </div>
-      {(stats.obras_sem_lider||0) > 0 && (
-        <div className="pending-banner">
-          <span className="msg" style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={15}/> {stats.obras_sem_lider} obra(s) sem engenheiro responsável — atribua para o engenheiro enxergar a obra.</span>
-          <button className="btn btn-accent btn-sm" onClick={()=>navigate('obras')}>Atribuir agora →</button>
+
+      {/* Prioridade 2 — Desempenho dos líderes/engenheiros */}
+      {has('equipe') && lideres.length > 0 && (
+        <div className="dc-sec">
+          <div className="dc-head"><span className="k">Prioridade 2</span><h3>Desempenho dos líderes &amp; engenheiros</h3>
+            <span className="sub">Cobrança à vista — carga, valor sob gestão e gargalos</span></div>
+          <div className="dc-grid">
+            <div className="dc-card dc-span12">
+              <span className="dc-mtag">Equipe</span>
+              <h4>Ranking por engenheiro responsável</h4>
+              <table className="dc-lt" style={{marginTop:12}}>
+                <thead><tr>
+                  <th>Engenheiro</th><th>Obras</th><th>Colab.</th><th>Cautelas</th>
+                  <th>Valor sob gestão</th><th>Transf. pend.</th><th>Sol. paradas</th>
+                </tr></thead>
+                <tbody>
+                  {lideres.map(l => (
+                    <tr key={l.id}>
+                      <td className="engtd"><div className="eng"><div className="av">{iniciais(l.nome)}</div><div><div className="en">{l.nome}</div></div></div></td>
+                      <td className="n" data-l="Obras">{l.obras}</td>
+                      <td className="n" data-l="Colaboradores">{l.colaboradores}</td>
+                      <td className="n" data-l="Cautelas">{l.cautelas}</td>
+                      <td className="n" data-l="Valor sob gestão"><span className="mv">{fmtBRLc(l.valor || 0)}</span><div className="mb"><i style={{width:Math.round((l.valor || 0) / maxLider * 100) + '%'}}/></div></td>
+                      <td className="n" data-l="Transf. pendentes">{flag(l.transf_pend, 2)}</td>
+                      <td className="n" data-l="Sol. paradas">{flag(l.sol_paradas, 2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
-      <div className="card"><div className="card-body" style={{textAlign:'center',padding:24}}>
-        <button className="btn btn-primary" onClick={()=>navigate('obras')}><Icon name="building" size={15}/> Gerir obras e responsáveis</button>
-      </div></div>
+
+      {/* Contexto — cobertura, fluxo, pessoas */}
+      <div className="dc-sec">
+        <div className="dc-head"><span className="k">Contexto</span><h3>Cobertura, fluxo e pessoas</h3></div>
+        <div className="dc-grid dc-trio">
+          {has('obras') && (
+            <div className="dc-card">
+              <span className="dc-mtag">Obras</span>
+              <h4>Cobertura das obras</h4>
+              <div style={{marginTop:6}}>
+                <div className="dc-cov"><span className="cv">{stats.obras_ativas || 0}</span><span className="cl">obras ativas no contrato</span></div>
+                <div className="dc-cov"><span className="cv good">{stats.obras_com_lider || 0}</span><span className="cl">com engenheiro responsável</span></div>
+                <div className="dc-cov"><span className="cv bad">{stats.obras_sem_lider || 0}</span><span className="cl">sem engenheiro — atribuir</span></div>
+                <div className="dc-cov"><span className="cv">{stats.obras_sem_movimento || 0}</span><span className="cl">sem ferramenta em campo hoje</span></div>
+              </div>
+              {(stats.obras_sem_lider || 0) > 0 && <button className="btn btn-accent btn-sm" style={{marginTop:12,width:'100%'}} onClick={()=>navigate('obras')}>Atribuir engenheiros →</button>}
+            </div>
+          )}
+
+          <div className="dc-card">
+            <span className="dc-mtag">Cautela</span>
+            <h4>Funil de solicitações</h4>
+            <div style={{marginTop:10}}>
+              {[['Solicitada', funil.solicitada, 'var(--primary-accent)'], ['Em separação', funil.separando, 'var(--primary-accent)'], ['Pronta p/ retirada', funil.pronta, 'var(--primary-accent)'], ['Retiradas (7 dias)', funil.retiradas_7d, 'var(--success)']].map(([l, v, c], i) => (
+                <div className="dc-fr" key={i}>
+                  <div className="ft"><span className="fl">{l}</span><span className="fv">{v || 0}</span></div>
+                  <div className="tk"><i style={{width:Math.round((v || 0) / maxFunil * 100) + '%', background:c}}/></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {has('equipe') && (
+            <div className="dc-card">
+              <span className="dc-mtag">Equipe</span>
+              <h4>Pessoas &amp; alocação</h4>
+              <div style={{marginTop:6}}>
+                <div className="dc-pr"><span className="pl">Colaboradores ativos</span><span className="pv">{stats.colaboradores_ativos || 0}</span></div>
+                <div className="dc-pr"><span className="pl">Volantes (sem obra)</span><span className="pv vol">{stats.volantes || 0}</span></div>
+                {(stats.por_funcao || []).map((f, i) => (
+                  <div className="dc-pr" key={i}><span className="pl">{f.funcao}</span><span className="pv">{f.n}</span></div>
+                ))}
+                {has('emprestimos') && <div className="dc-pr"><span className="pl">Empréstimos ativos entre equipes</span><span className="pv">{stats.emprestimos_ativos || 0}</span></div>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
-  )
+    )
+  }
 
   if (user.role === 'almoxarifado') return (
     <div>
@@ -3526,7 +3805,7 @@ function Sidebar({ user, page, navigate, onLogout, notif }) {
     // Auditoria fica sempre por último, após Empréstimos (regra de layout do sidebar).
     { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: eng },
     { id: 'auditoria', icon: 'history', label: 'Auditoria', show: alm },
-  ].filter(i => i.show)
+  ].filter(i => i.show && abaAtiva(user, i.id))
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -3572,7 +3851,7 @@ function BottomNav({ user, page, navigate, notif }) {
     { id: 'uniformes', icon: 'shirt', label: 'Uniformes', show: unif, badge: (notif.uniforme_estoque_minimo||0)+(notif.uniforme_desgaste||0) },
     { id: 'emprestimos', icon: 'exchange', label: 'Empréstimos', show: alm||lider||eng||op, badge: op?(notif.emprestimos_aguardando_confirmacao||0):((lider||eng)?(notif.emprestimos_aguardando_aval||0):0) },
     { id: 'ferramentas', icon: 'wrench', label: 'Ferramentas', show: alm },
-  ].filter(i => i.show !== false).slice(0,5)
+  ].filter(i => i.show !== false && abaAtiva(user, i.id)).slice(0,5)
   return (
     <nav className="bottom-nav">
       <div className="bottom-nav-inner">

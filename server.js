@@ -711,6 +711,125 @@ const ADMIN_MASTER = {
   console.log(`  ✅ ${itens.length} itens de uniforme/EPI cadastrados (seed do termo)`)
 })()
 
+// ─── SEED DE COLABORADORES / OPERÁRIOS (GP Santos — quadro ativo do contrato FMS) ─
+// 70 colaboradores reais extraídos do quadro de empregados ativos (GP Santos, executora
+// sob o contrato Markat/FMS Niterói). Cada um vira DUAS coisas, ligadas entre si:
+//   1) usuário com papel 'operario' (login) → recebe cautela de ferramentas e aparece
+//      no Kanban de equipe do engenheiro responsável pela obra;
+//   2) colaborador na tabela `colaboradores` → recebe uniforme/EPI (termo assinado).
+// O colaborador aponta pro usuário (usuario_id) para permitir reautenticação na assinatura.
+// Quando o local (LOC) do quadro casa com uma unidade FMS, o operário já nasce vinculado à
+// obra (obra_id) e ao engenheiro dela (lider_id) — os demais ficam "sem obra" até alocação.
+// E-mails do quadro foram IGNORADOS (a pedido): geramos slug @gpsantos.com só para o login.
+// Senha padrão 'admin123' com troca obrigatória no 1º acesso. Idempotente: guarda pelo 1º e-mail.
+;(() => {
+  if (db.prepare("SELECT id FROM usuarios WHERE LOWER(email)=LOWER('juliano.theodorino@gpsantos.com')").get()) return  // já semeado
+
+  const COLABS = [
+    { nome:'Juliano Pereira Theodorino', cargo:'Profissional Lider de Metalica', cpf:'42312842882', adm:'2024-07-08', email:'juliano.theodorino@gpsantos.com', obra:null },
+    { nome:'Wellington Moreira de Souza', cargo:'Motorista', cpf:'09945794701', adm:'2024-07-08', email:'wellington.souza@gpsantos.com', obra:null },
+    { nome:'Hyago Nata Bonifacio de Paula', cargo:'Montador de Estrutura Metalica de Manutençao II', cpf:'21072734729', adm:'2024-08-07', email:'hyago.paula@gpsantos.com', obra:null },
+    { nome:'Carlos Alberto dos Santos Ramigio', cargo:'Servente', cpf:'03366074744', adm:'2024-08-19', email:'carlos.ramigio@gpsantos.com', obra:null },
+    { nome:'Israel Serra Pereira da Silva', cargo:'Pintor de Manutenção', cpf:'16658346763', adm:'2024-09-13', email:'israel.silva@gpsantos.com', obra:null },
+    { nome:'Charlie Silva da Conceicao', cargo:'Pintor de Manutenção', cpf:'10003751708', adm:'2024-11-11', email:'charlie.conceicao@gpsantos.com', obra:null },
+    { nome:'Ricardo Botelho da Conceicao', cargo:'Motorista II', cpf:'09988888775', adm:'2024-11-12', email:'ricardo.conceicao@gpsantos.com', obra:null },
+    { nome:'Anderson Notenos Rosa', cargo:'Bombeiro Hidraulico de Manutenção', cpf:'10929447700', adm:'2025-01-14', email:'anderson.rosa@gpsantos.com', obra:null },
+    { nome:'Jose Adailton Braz', cargo:'Pedreiro de Manutenção', cpf:'28336380434', adm:'2025-01-21', email:'jose.braz@gpsantos.com', obra:null },
+    { nome:'Hudson Azevedo da Silva', cargo:'Profissional Lider de Metalica', cpf:'15762382702', adm:'2025-01-28', email:'hudson.silva@gpsantos.com', obra:'PRCAS' },
+    { nome:'Sergio Rocha de Andrade', cargo:'Profissional Lider Em Manutenção Predial', cpf:'02648046780', adm:'2025-02-24', email:'sergio.andrade@gpsantos.com', obra:'HOF' },
+    { nome:'Eder Fernando da Silva Teodoro', cargo:'Profissional Lider Em Manutenção Predial', cpf:'09032418700', adm:'2025-02-24', email:'eder.teodoro@gpsantos.com', obra:'HOF' },
+    { nome:'Levi Ferreira Pontes', cargo:'Serralheiro de Manutençao II', cpf:'06352607780', adm:'2025-04-10', email:'levi.pontes@gpsantos.com', obra:'PRCAS' },
+    { nome:'Josias Fernandes Silva', cargo:'1/2 Oficial de Pedreiro de Manutenção', cpf:'10601472705', adm:'2025-04-25', email:'josias.silva@gpsantos.com', obra:'PRLB' },
+    { nome:'Marcio Alexandre Cardoso', cargo:'Pedreiro de Manutenção', cpf:'56134657204', adm:'2025-05-16', email:'marcio.cardoso@gpsantos.com', obra:null },
+    { nome:'Reginaldo Pinto da Silva', cargo:'Pedreiro de Obra', cpf:'09877837773', adm:'2025-05-19', email:'reginaldo.silva@gpsantos.com', obra:null },
+    { nome:'Daniel Dutra Pires', cargo:'Pedreiro de Obra', cpf:'18524065770', adm:'2025-05-26', email:'daniel.pires@gpsantos.com', obra:null },
+    { nome:'Cleyton Oliveira da Silva', cargo:'Servente de Manutenção', cpf:'13255696747', adm:'2025-07-01', email:'cleyton.silva@gpsantos.com', obra:null },
+    { nome:'Luciano Santiago de Souza', cargo:'Pintor de Manutenção', cpf:'09991640746', adm:'2025-07-23', email:'luciano.souza@gpsantos.com', obra:'PRCAS' },
+    { nome:'Francisco Jose Pinto Ferreira', cargo:'Pintor de Manutenção', cpf:'11210895773', adm:'2025-07-28', email:'francisco.ferreira@gpsantos.com', obra:null },
+    { nome:'Anderson Tobia Ferreira', cargo:'Montador de Estrutura Metalica de Manutençao II', cpf:'17726970790', adm:'2025-07-30', email:'anderson.ferreira@gpsantos.com', obra:'PRCAS' },
+    { nome:'Vitor da Silva Paixao', cargo:'Servente de Manutenção', cpf:'15250685714', adm:'2025-08-04', email:'vitor.paixao@gpsantos.com', obra:'HOF' },
+    { nome:'Adriano Pereira Xavier', cargo:'Montador de Estrutura Metalica de Manutençao II', cpf:'12945826909', adm:'2025-08-04', email:'adriano.xavier@gpsantos.com', obra:null },
+    { nome:'Jeferson Carvalho Mathias', cargo:'Montador de Estrutura Metalica de Manutençao II', cpf:'16636028750', adm:'2025-08-07', email:'jeferson.mathias@gpsantos.com', obra:'PRCAS' },
+    { nome:'Marcos Paulo da Silva', cargo:'Servente de Manutenção', cpf:'20497328720', adm:'2025-08-26', email:'marcos.silva@gpsantos.com', obra:null },
+    { nome:'Reginaldo Rangel Moreira', cargo:'Pedreiro de Obra', cpf:'09589493793', adm:'2025-09-03', email:'reginaldo.moreira@gpsantos.com', obra:null },
+    { nome:'Manuel Estacio Marques', cargo:'Eletricista de Manutenção', cpf:'00567025748', adm:'2025-09-18', email:'manuel.marques@gpsantos.com', obra:null },
+    { nome:'Antonio Carlos de Souza', cargo:'Pintor de Manutenção', cpf:'07394727718', adm:'2025-10-09', email:'antonio.souza@gpsantos.com', obra:'PRLB' },
+    { nome:'Raquel Moura de Araujo', cargo:'Auxiliar Tecnico Em Edificações', cpf:'11372696776', adm:'2025-10-13', email:'raquel.araujo@gpsantos.com', obra:null },
+    { nome:'Carlos Alberto Barboza', cargo:'Pedreiro de Manutenção', cpf:'96260645791', adm:'2025-11-03', email:'carlos.barboza@gpsantos.com', obra:null },
+    { nome:'Edson Pinto de Freitas', cargo:'Pedreiro de Manutenção', cpf:'07596923780', adm:'2025-12-08', email:'edson.freitas@gpsantos.com', obra:null },
+    { nome:'Hilton Baptista Ferreira Junior', cargo:'Eletricista de Manutenção II', cpf:'10279780702', adm:'2025-12-08', email:'hilton.junior@gpsantos.com', obra:null },
+    { nome:'Leandro Serveira Ferreira', cargo:'Servente de Manutenção', cpf:'15424029728', adm:'2026-01-12', email:'leandro.ferreira@gpsantos.com', obra:'PRCAS' },
+    { nome:'Rhavel Dhonattan da Silva', cargo:'Montador de Estrutura Metalica de Manutençao II', cpf:'14443738703', adm:'2026-02-02', email:'rhavel.silva@gpsantos.com', obra:'PRI' },
+    { nome:'Noe Galvao da Silva', cargo:'Auxiliar de Almoxarife', cpf:'59686111204', adm:'2026-02-02', email:'noe.silva@gpsantos.com', obra:null },
+    { nome:'Jonathan da Silva', cargo:'Servente de Manutenção', cpf:'06160559788', adm:'2026-02-11', email:'jonathan.silva@gpsantos.com', obra:null },
+    { nome:'Marcelo Bento Rodrigues', cargo:'Servente de Manutenção II', cpf:'05876410705', adm:'2026-03-02', email:'marcelo.rodrigues@gpsantos.com', obra:null },
+    { nome:'Leidinaldo Castilho da Silva', cargo:'Servente de Obra', cpf:'12849771708', adm:'2026-03-02', email:'leidinaldo.silva@gpsantos.com', obra:null },
+    { nome:'Jefferson Cristian Matos Moreira', cargo:'Montador de Estrutura Metalica de Manutençao II', cpf:'12815885719', adm:'2026-03-02', email:'jefferson.moreira@gpsantos.com', obra:'PRI' },
+    { nome:'Breno Dias da Silva Philigret', cargo:'Auxiliar de Almoxarife', cpf:'20009725784', adm:'2026-03-03', email:'breno.philigret@gpsantos.com', obra:null },
+    { nome:'Rafael Santana', cargo:'Eletricista de Manutenção', cpf:'13071001711', adm:'2026-03-05', email:'rafael.santana@gpsantos.com', obra:null },
+    { nome:'Carlos Eduardo Oliveira Silva', cargo:'Servente de Manutenção', cpf:'21869515765', adm:'2026-03-09', email:'carlos.silva@gpsantos.com', obra:null },
+    { nome:'Anderson Leonardo da Silva', cargo:'Pedreiro de Obra', cpf:'12737644712', adm:'2026-03-16', email:'anderson.silva@gpsantos.com', obra:'HOF' },
+    { nome:'Michel Ferreira de Souza', cargo:'Eletricista de Manutenção', cpf:'13351641702', adm:'2026-03-17', email:'michel.souza@gpsantos.com', obra:null },
+    { nome:'Jean Felipe de Almeida dos Santos', cargo:'Servente de Manutenção', cpf:'17174811752', adm:'2026-03-23', email:'jean.santos@gpsantos.com', obra:null },
+    { nome:'Rodrigo Sousa Nascimento', cargo:'Pedreiro de Manutenção', cpf:'11511361743', adm:'2026-04-06', email:'rodrigo.nascimento@gpsantos.com', obra:null },
+    { nome:'Luis Alberto Lira Athaydes', cargo:'Pintor de Obras', cpf:'01505534712', adm:'2026-04-07', email:'luis.athaydes@gpsantos.com', obra:null },
+    { nome:'Jonathan dos Santos Cabral', cargo:'Servente de Manutenção', cpf:'06344517743', adm:'2026-04-16', email:'jonathan.cabral@gpsantos.com', obra:null },
+    { nome:'Salatiel Dias de Souza', cargo:'Pintor de Manutenção II', cpf:'01040830773', adm:'2026-05-11', email:'salatiel.souza@gpsantos.com', obra:'PRCAS' },
+    { nome:'Carlos Vinicius Ramos Leao', cargo:'Servente de Manutenção', cpf:'17238441799', adm:'2026-05-13', email:'carlos.leao@gpsantos.com', obra:null },
+    { nome:'Reginaldo Oliveira Sousa', cargo:'Pedreiro de Manutenção', cpf:'11089625723', adm:'2026-05-18', email:'reginaldo.sousa@gpsantos.com', obra:null },
+    { nome:'Alessandro da Silva Costa', cargo:'Servente de Manutenção', cpf:'17227491722', adm:'2026-05-18', email:'alessandro.costa@gpsantos.com', obra:null },
+    { nome:'Charles Athaydes da Silva', cargo:'Vigia de Obra', cpf:'14016413770', adm:'2026-05-21', email:'charles.silva@gpsantos.com', obra:null },
+    { nome:'Thiago de Oliveira Passos', cargo:'Servente de Manutenção', cpf:'17757052777', adm:'2026-06-10', email:'thiago.passos@gpsantos.com', obra:null },
+    { nome:'Daniel Figueiredo de Andrade', cargo:'Eletricista de Manutenção', cpf:'16974178760', adm:'2026-06-18', email:'daniel.andrade@gpsantos.com', obra:null },
+    { nome:'Paulo Roberto Constantino da Silva', cargo:'Pedreiro de Manutenção', cpf:'09061341701', adm:'2026-07-01', email:'paulo.silva@gpsantos.com', obra:'PRLB' },
+    { nome:'Valmir de Souza Junior', cargo:'Pedreiro de Manutenção', cpf:'07557674707', adm:'2026-07-20', email:'valmir.junior@gpsantos.com', obra:null },
+    { nome:'Roberto de Oliveira Dias', cargo:'Pedreiro de Manutenção', cpf:'09165528700', adm:'2026-08-05', email:'roberto.dias@gpsantos.com', obra:null },
+    { nome:'Sergio Willyan de Araujo', cargo:'Motorista Caminhão', cpf:'94431175768', adm:'2026-08-10', email:'sergio.araujo@gpsantos.com', obra:null },
+    { nome:'Andrey dos Santos Freire', cargo:'Servente de Manutenção', cpf:'18898620705', adm:'2026-08-11', email:'andrey.freire@gpsantos.com', obra:'HOF' },
+    { nome:'Adriano Cardoso da Silva', cargo:'Mecanico de Geradores', cpf:'08796478764', adm:'2025-10-16', email:'adriano.silva@gpsantos.com', obra:null },
+    { nome:'Fernando Teixeira da Silva', cargo:'Servente de Obra', cpf:'05795514748', adm:'2023-09-25', email:'fernando.silva@gpsantos.com', obra:null },
+    { nome:'Rogerio Machado de Souza', cargo:'Pedreiro de Obra', cpf:'11447124758', adm:'2023-12-26', email:'rogerio.souza@gpsantos.com', obra:'PRCAS' },
+    { nome:'Laerth Claudio Calixto Borre', cargo:'Profissional Líder de Obra', cpf:'17428308704', adm:'2024-01-09', email:'laerth.borre@gpsantos.com', obra:'PRI' },
+    { nome:'Celso Costa da Silva', cargo:'Pedreiro de Obra', cpf:'08200490777', adm:'2024-04-29', email:'celso.silva@gpsantos.com', obra:'PRCAS' },
+    { nome:'Adalberto da Conceicao', cargo:'Vigia de Obra', cpf:'09499336788', adm:'2024-05-27', email:'adalberto.conceicao@gpsantos.com', obra:null },
+    { nome:'Adriano Belo da Conceicao', cargo:'Mecanico de Refrig e Manutenção', cpf:'11870661761', adm:'2024-05-27', email:'adriano.conceicao@gpsantos.com', obra:null },
+    { nome:'Frank Neves Nunes', cargo:'Pedreiro de Manutenção II', cpf:'03123748790', adm:'2024-05-27', email:'frank.nunes@gpsantos.com', obra:null },
+    { nome:'Kleber Veiga de Oliveira', cargo:'Eletricista de Manutenção', cpf:'03215249774', adm:'2024-05-27', email:'kleber.oliveira@gpsantos.com', obra:null },
+    { nome:'Renato Bandeira Caldas', cargo:'Pintor de Manutenção', cpf:'11701327740', adm:'2024-06-04', email:'renato.caldas@gpsantos.com', obra:null },  ]
+
+  // Mapa código-da-obra → { id, lider_id } para vincular operário à obra e ao engenheiro dela.
+  const obraPorCodigo = {}
+  for (const o of db.prepare('SELECT id, codigo, lider_id FROM obras WHERE codigo IS NOT NULL').all()) {
+    obraPorCodigo[o.codigo] = o
+  }
+
+  const senhaHash = bcrypt.hashSync('admin123', 10)
+  const insUser = db.prepare(`INSERT OR IGNORE INTO usuarios
+    (nome,email,senha_hash,cargo,role,cpf_cnpj,empresa,obra_id,lider_id,primeiro_acesso)
+    VALUES (?,?,?,?,'operario',?,?,?,?,1)`)
+  const insColab = db.prepare('INSERT INTO colaboradores (nome,setor,cpf,data_admissao,usuario_id) VALUES (?,?,?,?,?)')
+  const jaColab  = db.prepare('SELECT id FROM colaboradores WHERE cpf=?')
+  const pegaUser = db.prepare("SELECT id FROM usuarios WHERE LOWER(email)=LOWER(?)")
+
+  let nOper = 0, nColab = 0, nComObra = 0
+  db.transaction(() => {
+    for (const c of COLABS) {
+      const obra = c.obra ? obraPorCodigo[c.obra] : null
+      const obraId  = obra ? obra.id : null
+      const liderId = obra ? obra.lider_id : null
+      if (obraId) nComObra++
+      const r = insUser.run(c.nome, c.email, senhaHash, c.cargo, c.cpf, 'GP Santos', obraId, liderId)
+      if (r.changes) nOper++
+      const u = pegaUser.get(c.email)
+      if (u && !jaColab.get(c.cpf)) {
+        insColab.run(c.nome, c.cargo, c.cpf, c.adm, u.id)
+        nColab++
+      }
+    }
+  })()
+  console.log(`  ✅ ${nOper} operário(s) + ${nColab} colaborador(es) GP Santos semeados (${nComObra} já vinculados a obra/engenheiro). Senha padrão: admin123`)
+})()
+
 // Nada de sobrescrever os dados do admin em toda inicialização — antes isso apagava qualquer edição
 // feita pelo cliente (ex.: nome/empresa reais) a cada restart/deploy, sempre voltando para os dados da Markat.
 

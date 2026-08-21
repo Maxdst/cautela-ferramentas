@@ -923,9 +923,9 @@ function escolherUsuarioTour(role) {
   return db.prepare(`SELECT u.* ${base} ORDER BY u.id ASC LIMIT 1`).get(role)
 }
 
-// Só Diretor de Operações ou Administrador master podem iniciar/conduzir a apresentação.
+// Somente o Administrador master pode iniciar/conduzir a apresentação (tour do CEO).
 function podeApresentar(user) {
-  return !!(user && !user.tour && (user.is_master || user.role === 'diretor'))
+  return !!(user && !user.tour && user.is_master)
 }
 
 function audit(uid, acao, tabela, id, detalhe) {
@@ -1263,7 +1263,7 @@ app.get('/api/auth/me', auth(), (req, res) => {
 // Serve para montar o seletor de perfis do sidebar do tour, escondendo perfis sem dados.
 app.get('/api/auth/tour/perfis', auth(), (req, res) => {
   if (!podeApresentar(req.user))
-    return res.status(403).json({ error: 'Modo apresentação restrito a Diretor de Operações ou Administrador.' })
+    return res.status(403).json({ error: 'Modo apresentação restrito ao Administrador master.' })
   const perfis = TOUR_ROLES.map(role => {
     const u = escolherUsuarioTour(role)
     return { role, label: TOUR_LABEL[role] || role, disponivel: !!u, exemplo: u ? u.nome : null }
@@ -1276,7 +1276,7 @@ app.get('/api/auth/tour/perfis', auth(), (req, res) => {
 // daquele perfil — e qualquer escrita é barrada no servidor (ver guarda em auth()).
 app.post('/api/auth/tour', auth(), (req, res) => {
   if (!podeApresentar(req.user))
-    return res.status(403).json({ error: 'Modo apresentação restrito a Diretor de Operações ou Administrador.' })
+    return res.status(403).json({ error: 'Modo apresentação restrito ao Administrador master.' })
   const { role } = req.body || {}
   if (!TOUR_ROLES.includes(role))
     return res.status(400).json({ error: 'Perfil inválido para apresentação.' })

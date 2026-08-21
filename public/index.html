@@ -4536,7 +4536,7 @@ function App() {
   // Feedback ao tentar qualquer ação de escrita durante a apresentação (bloqueada no cliente e no servidor).
   useEffect(() => { tourMode.onBlock = () => addToast('Somente leitura no modo apresentação.', 'warning'); return () => { tourMode.onBlock = null } }, [addToast])
 
-  const canPresent = !!(user && !tour && (user.is_master || user.role === 'diretor'))
+  const canPresent = !!(user && !tour && user.is_master)
 
   const enterTour = async () => {
     try {

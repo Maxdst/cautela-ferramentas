@@ -3,14 +3,46 @@
 > Leia este arquivo no início de uma conversa nova para retomar o contexto sem
 > arrastar o histórico inteiro. Mantido por Claude + Maxwel. Atualize ao concluir marcos.
 
-## ⏰ PRÓXIMA AÇÃO (retomar por aqui — 2026-08-19)
-Módulo **Diretor/Kanban está EM PRODUÇÃO** (deploy do dia 19/08 pela `main`, SW v6, `/health` 200).
-Faltam só **passos operacionais no app** (não é deploy):
-1. **Atribuir cada obra a um líder:** aba **Obras** → abrir a obra → campo **"Líder responsável"** → Salvar.
-   Enquanto não fizer, os líderes veem a lista de obras vazia (esperado do modelo novo).
-2. **Teste logado com dados reais:** papel `diretor`, Kanban de obras, mover colaborador entre obras.
+## ⏰ PRÓXIMA AÇÃO (retomar por aqui — 2026-08-21)
+**"Tarefas em aberto" do Gerente de Contrato + correções de UI do cockpit estão EM PRODUÇÃO**
+(deploy 21/08 pela `main`, commits `6822d49` + `afc5cba`, `/health` 200; marcadores `GerenteTarefas`,
+`--ink`, `dc-cols` presentes no HTML servido). Ver seção "Lote 2026-08-21" abaixo.
+Falta só **teste logado com dados reais** (não temos a senha do Maxwel):
+1. Entrar como `gerente` → painel → caixa **"Tarefas em aberto"** → bater **"Ciente"** numa transferência
+   pendente e conferir que fica registrada (esmaece, "✓ Ciente — <nome>", contador cai).
+2. Conferir o cockpit no **modo escuro** (números/tags brancos) e no **mobile** (título sem quebrar,
+   lista de obras preenchendo a coluna).
+Pendências operacionais antigas ainda valem: **atribuir cada obra a um líder** (aba Obras → "Líder
+responsável") senão os líderes veem a lista vazia.
 Deploy daqui pra frente = **`git push` na `main`** (auto-deploy do Railway). NÃO usar `railway up`
 (trava com "os error 5" no Windows). Detalhes na seção "COMO O DEPLOY FUNCIONA".
+
+### Lote 2026-08-21: "Tarefas em aberto" do Gerente (ciência de supervisão) + correções do cockpit
+> ✅ **EM PRODUÇÃO** (deploy 21/08 pela `main`). Validado: `node --check server.js` OK · JSX compila
+> (Babel preset-react) · endpoints testados ponta a ponta em banco real (GET/POST ciente, idempotência,
+> diretor→403) · dark/light conferidos por screenshot. Falta o teste logado do Maxwel.
+22. **Feature nova — caixa "Tarefas em aberto" do Gerente de Contrato** (papel `gerente`). Registro
+    **paralelo e NÃO-bloqueante** de ciência: eventos operacionais que pedem o olho do gerente aparecem
+    como pendência até ele bater **"Ciente"** (grava quem/quando; a operação segue pelo aceite do
+    engenheiro — o ciente é só supervisão). Eventos cobertos agora: **transferências de colaborador
+    pendentes** e **solicitações paradas +3d**. Só o `gerente` vê/reconhece (diretor recebe **403**).
+    Backend: tabela **`gerente_ciencias`** (`UNIQUE(tipo,ref_id)` → idempotente; `CREATE TABLE IF NOT
+    EXISTS`, sem migração de CHECK), helper `tarefasGerente()`, `GET /api/gerente/tarefas`, `POST
+    /api/gerente/tarefas/ciente`, e `s.gerente_tarefas` no `/api/dashboard` (ramo diretor/gerente).
+    Front: componente `GerenteTarefas` + estilos `.gt-*`, renderizado no painel do gerente logo após o
+    Radar. Ordena pendentes acima das já-cientes, mais antigas primeiro.
+23. **Correção de dark mode (estrutural).** Vários valores/títulos do cockpit usavam `var(--primary)`
+    como **cor de texto** — no dark isso vira quase-preto e sumia (uns brancos, outros invisíveis).
+    Criados tokens semânticos **`--ink`** (tinta forte: navy no claro, quase-branco no dark) e
+    **`--mtag-fg`** (cor da tag "CAUTELA/OBRAS"), definidos nos 3 blocos de tema; todos os
+    `color:var(--primary)` de texto migraram para `--ink`, e os números fortes que estavam em
+    `--primary-text` também. O **card hero** (sempre escuro) deixou de depender de `--silver-light`
+    (que flipava escuro no dark) — labels/tag fixados em tom claro. Estrutura evita a recaída do bug.
+24. **Seções sem subtítulo + Prioridade 1 em 2 colunas.** Removido o subtítulo do canto sup. direito
+    das seções (Prioridade 1 e 2) — no mobile ele espremia/quebrava o título; sem ele o título usa a
+    linha toda. Prioridade 1 reestruturada em `.dc-cols` (esquerda empilha hero + aging; direita =
+    "valor por obra" com `.dc-fill`/`.dc-bars`) → a lista **estica p/ preencher a altura da coluna**,
+    acabando o espaço vazio quando não há "riscos individuais".
 
 ### ⏳ Pronto no branch, aguardando deploy (lote 2026-08-19, sessão do deploy)
 Mudanças commitadas em `claude/ultimo-deploy-producao-bgkr5n`, **ainda não em `main`/produção**:
@@ -340,7 +372,9 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 4. Confirmar teor logado é com o Maxwel (sem credenciais).
 
 ## Últimos commits (branch main)
-- `59d1010` **feat: Diretor de Operações + Obras do líder (Kanban) e redesign da equipe** ← NO STAGING
+- `afc5cba` **fix(painel): dark mode legível, seções sem subtítulo e lista que preenche a coluna** ← EM PRODUÇÃO (21/08)
+- `6822d49` **feat(gerente): caixa "Tarefas em aberto" com ciência de supervisão** ← EM PRODUÇÃO (21/08)
+- `59d1010` feat: Diretor de Operações + Obras do líder (Kanban) e redesign da equipe
 - `6f1e17d` docs: handoff — Multi-obra/Equipe do líder EM PRODUÇÃO
 - `5b66159` feat: auditoria da equipe (histórico escopado aos colaboradores do líder)
 - `2ed7dc0` ux: painel do líder como gestão à vista/auditoria (não custódia)

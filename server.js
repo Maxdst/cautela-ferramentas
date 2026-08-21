@@ -898,11 +898,24 @@ function rolesGerenciaveis(user) {
 const TOUR_ROLES = ['diretor', 'gerente', 'engenheiro', 'lider', 'operario', 'almoxarifado', 'compras']
 const TOUR_LABEL = { almoxarifado: 'Almoxarifado', diretor: 'Diretor de Operações', gerente: 'Gerente de Contrato', engenheiro: 'Engenheiro', lider: 'Líder', operario: 'Operário', compras: 'Compras' }
 
-// Escolhe um usuário real, ativo e representativo do perfil — o que tem MAIS dados, para
-// que a tela do tour apareça "cheia" e convincente. Perfis de visão global (diretor,
-// gerente, almoxarifado, compras) veem dados agregados, então qualquer usuário ativo serve.
+// Usuário "em destaque" para a demonstração de um perfil — quando queremos mostrar uma
+// conta específica no tour, independentemente de quem tem mais dados. Casado por nome OU
+// e-mail (configurável por env). Ex.: o engenheiro do tour deve ser o Maxwel.
+const TOUR_DESTAQUE = { engenheiro: process.env.TOUR_ENGENHEIRO || 'Maxwel' }
+
+// Escolhe um usuário real, ativo e representativo do perfil:
+//  1) se há um "destaque" configurado para o perfil, usa-o (ex.: engenheiro = Maxwel);
+//  2) senão, perfis de escopo pessoal (líder/engenheiro/operário) pegam o de MAIS dados,
+//     para a tela aparecer "cheia" e convincente;
+//  3) perfis de visão global (diretor, gerente, almoxarifado, compras) — qualquer ativo.
 function escolherUsuarioTour(role) {
   const base = 'FROM usuarios u WHERE u.ativo=1 AND u.is_master=0 AND u.role=?'
+  const destaque = TOUR_DESTAQUE[role]
+  if (destaque) {
+    const d = db.prepare(`SELECT u.* ${base} AND (LOWER(u.nome) LIKE LOWER(?) OR LOWER(u.email)=LOWER(?)) ORDER BY u.id ASC LIMIT 1`)
+      .get(role, `%${destaque}%`, destaque)
+    if (d) return d
+  }
   if (role === 'lider' || role === 'engenheiro')
     return db.prepare(`SELECT u.*, (SELECT COUNT(*) FROM cautelas c WHERE c.lider_id=u.id) AS _n ${base} ORDER BY _n DESC, u.id ASC LIMIT 1`).get(role)
   if (role === 'operario')

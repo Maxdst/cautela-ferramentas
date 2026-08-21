@@ -856,6 +856,10 @@ function auth(roles = []) {
       req.user = jwt.verify(token, SECRET)
       if (roles.length && !roles.includes(req.user.role))
         return res.status(403).json({ error: 'Sem permissão' })
+      // Modo apresentação (tour do CEO): token somente-leitura. Bloqueia QUALQUER escrita
+      // no servidor — garantia real, independente de a UI esconder botões ou não.
+      if (req.user.tour && !['GET', 'HEAD', 'OPTIONS'].includes(req.method))
+        return res.status(403).json({ error: 'Modo apresentação: acesso somente leitura.' })
       next()
     } catch { res.status(401).json({ error: 'Token inválido' }) }
   }
@@ -885,6 +889,43 @@ function rolesGerenciaveis(user) {
   if (user.role === 'diretor')
     return ['gerente', 'engenheiro', 'lider', 'operario']
   return []
+}
+
+// ── Modo apresentação (tour do CEO) ──
+// Um Diretor/Administrador pode "vestir" cada perfil e mostrar ao decisor a visão real
+// (somente leitura) de cada função. Perfis expostos: toda a cadeia operacional + Compras
+// (fora Administração, por decisão de produto).
+const TOUR_ROLES = ['diretor', 'gerente', 'engenheiro', 'lider', 'operario', 'almoxarifado', 'compras']
+const TOUR_LABEL = { almoxarifado: 'Almoxarifado', diretor: 'Diretor de Operações', gerente: 'Gerente de Contrato', engenheiro: 'Engenheiro', lider: 'Líder', operario: 'Operário', compras: 'Compras' }
+
+// Usuário "em destaque" para a demonstração de um perfil — quando queremos mostrar uma
+// conta específica no tour, independentemente de quem tem mais dados. Casado por nome OU
+// e-mail (configurável por env). Ex.: o engenheiro do tour deve ser o Maxwel.
+const TOUR_DESTAQUE = { engenheiro: process.env.TOUR_ENGENHEIRO || 'Maxwel' }
+
+// Escolhe um usuário real, ativo e representativo do perfil:
+//  1) se há um "destaque" configurado para o perfil, usa-o (ex.: engenheiro = Maxwel);
+//  2) senão, perfis de escopo pessoal (líder/engenheiro/operário) pegam o de MAIS dados,
+//     para a tela aparecer "cheia" e convincente;
+//  3) perfis de visão global (diretor, gerente, almoxarifado, compras) — qualquer ativo.
+function escolherUsuarioTour(role) {
+  const base = 'FROM usuarios u WHERE u.ativo=1 AND u.is_master=0 AND u.role=?'
+  const destaque = TOUR_DESTAQUE[role]
+  if (destaque) {
+    const d = db.prepare(`SELECT u.* ${base} AND (LOWER(u.nome) LIKE LOWER(?) OR LOWER(u.email)=LOWER(?)) ORDER BY u.id ASC LIMIT 1`)
+      .get(role, `%${destaque}%`, destaque)
+    if (d) return d
+  }
+  if (role === 'lider' || role === 'engenheiro')
+    return db.prepare(`SELECT u.*, (SELECT COUNT(*) FROM cautelas c WHERE c.lider_id=u.id) AS _n ${base} ORDER BY _n DESC, u.id ASC LIMIT 1`).get(role)
+  if (role === 'operario')
+    return db.prepare(`SELECT u.*, (SELECT COUNT(*) FROM cautela_entregas e WHERE e.operario_id=u.id) AS _n ${base} ORDER BY _n DESC, u.id ASC LIMIT 1`).get(role)
+  return db.prepare(`SELECT u.* ${base} ORDER BY u.id ASC LIMIT 1`).get(role)
+}
+
+// Somente o Administrador master pode iniciar/conduzir a apresentação (tour do CEO).
+function podeApresentar(user) {
+  return !!(user && !user.tour && user.is_master)
 }
 
 function audit(uid, acao, tabela, id, detalhe) {
@@ -1215,6 +1256,40 @@ app.get('/api/auth/me', auth(), (req, res) => {
   const u = db.prepare('SELECT id,nome,email,cargo,role,primeiro_acesso,is_master,assinatura FROM usuarios WHERE id=?').get(req.user.id)
   if (u) { u.tem_assinatura = !!u.assinatura; delete u.assinatura; u.modulos = MODULOS_ATIVOS } // não trafega a imagem no /me (leve)
   res.json(u)
+})
+
+// ─── MODO APRESENTAÇÃO (TOUR DO CEO) ────────────────────────────────────────────
+// Lista os perfis disponíveis para demonstração (com um exemplo real de usuário de cada).
+// Serve para montar o seletor de perfis do sidebar do tour, escondendo perfis sem dados.
+app.get('/api/auth/tour/perfis', auth(), (req, res) => {
+  if (!podeApresentar(req.user))
+    return res.status(403).json({ error: 'Modo apresentação restrito ao Administrador master.' })
+  const perfis = TOUR_ROLES.map(role => {
+    const u = escolherUsuarioTour(role)
+    return { role, label: TOUR_LABEL[role] || role, disponivel: !!u, exemplo: u ? u.nome : null }
+  })
+  res.json(perfis)
+})
+
+// Emite um token SOMENTE-LEITURA que personifica um usuário real do perfil pedido.
+// Com esse token, todo o app existente renderiza a visão real e corretamente escopada
+// daquele perfil — e qualquer escrita é barrada no servidor (ver guarda em auth()).
+app.post('/api/auth/tour', auth(), (req, res) => {
+  if (!podeApresentar(req.user))
+    return res.status(403).json({ error: 'Modo apresentação restrito ao Administrador master.' })
+  const { role } = req.body || {}
+  if (!TOUR_ROLES.includes(role))
+    return res.status(400).json({ error: 'Perfil inválido para apresentação.' })
+  const alvo = escolherUsuarioTour(role)
+  if (!alvo)
+    return res.status(404).json({ error: `Nenhum usuário ativo com perfil "${TOUR_LABEL[role] || role}" para demonstrar.` })
+  const payload = {
+    id: alvo.id, nome: alvo.nome, email: alvo.email, role: alvo.role, cargo: alvo.cargo,
+    primeiro_acesso: 0, is_master: 0, tour: true, tour_por: req.user.id
+  }
+  const token = jwt.sign(payload, SECRET, { expiresIn: '30m' })
+  audit(req.user.id, 'TOUR_VER_PERFIL', 'usuarios', alvo.id, { role, apresentador: req.user.email })
+  res.json({ token, user: { ...payload, modulos: MODULOS_ATIVOS } })
 })
 
 // ── Minha assinatura (assinatura salva do responsável, "lastreada" nos termos) ──

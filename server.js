@@ -2860,14 +2860,23 @@ app.get('/api/dashboard', auth(), (req, res) => {
       const engs = db.prepare("SELECT id, nome, cargo FROM usuarios WHERE role IN ('engenheiro','lider') AND ativo=1").all()
       s.ranking_lideres = engs.map(e => {
         const obras = db.prepare('SELECT COUNT(*) n FROM obras WHERE ativo=1 AND lider_id=?').get(e.id).n
-        const membros = db.prepare("SELECT id FROM usuarios WHERE lider_id=? AND role='operario' AND ativo=1").all(e.id)
+        // Detalhe para o drill-in do card (Diretor clica → vê quais obras e quais colaboradores).
+        const obras_lista = db.prepare(`SELECT o.nome, o.codigo,
+            (SELECT COUNT(*) FROM usuarios u WHERE u.obra_id=o.id AND u.role='operario' AND u.ativo=1) colaboradores
+          FROM obras o WHERE o.ativo=1 AND o.lider_id=? ORDER BY o.nome`).all(e.id)
+        const membros = db.prepare(`SELECT u.id, u.nome, u.cargo, o.nome obra_nome, o.codigo obra_codigo
+          FROM usuarios u LEFT JOIN obras o ON o.id=u.obra_id
+          WHERE u.lider_id=? AND u.role='operario' AND u.ativo=1 ORDER BY u.nome`).all(e.id)
         let valor = 0, cautelas = 0
-        for (const m of membros) { const p = posseColaborador(m.id); valor += p.valor; cautelas += p.cautelas }
+        const colaboradores_lista = membros.map(m => {
+          const p = posseColaborador(m.id); valor += p.valor; cautelas += p.cautelas
+          return { id: m.id, nome: m.nome, cargo: m.cargo, obra: m.obra_codigo || m.obra_nome || null, valor: p.valor, cautelas: p.cautelas }
+        })
         const transf_pend = db.prepare("SELECT COUNT(*) n FROM transferencias WHERE para_lider_id=? AND status='pendente'").get(e.id).n
         const sol_paradas = db.prepare(`SELECT COUNT(*) n FROM solicitacoes WHERE lider_id=?
           AND status NOT IN ('retirada','cancelada')
           AND julianday('now','localtime') - julianday(criado_em) > 3`).get(e.id).n
-        return { id: e.id, nome: e.nome, cargo: e.cargo, obras, colaboradores: membros.length, cautelas, valor, transf_pend, sol_paradas }
+        return { id: e.id, nome: e.nome, cargo: e.cargo, obras, colaboradores: membros.length, cautelas, valor, transf_pend, sol_paradas, obras_lista, colaboradores_lista }
       }).filter(r => r.obras > 0 || r.colaboradores > 0)
         .sort((a, b) => b.valor - a.valor)
 

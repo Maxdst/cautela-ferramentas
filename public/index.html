@@ -332,6 +332,43 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .dc-lt .mv{font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums}
 .dc-lt .mb{height:6px;background:var(--border);border-radius:3px;margin-top:4px;overflow:hidden}
 .dc-lt .mb i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent-dark))}
+/* ── Ranking por engenheiro: cards expansíveis (Diretor) ── */
+.erk-hint{font-size:.78rem;color:var(--text-secondary);margin:4px 0 12px}
+.erk-wrap{display:flex;flex-direction:column;gap:10px}
+.erk{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.erk.open{border-color:var(--primary-accent);box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.erk-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:13px 14px;background:none;border:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.erk-id{display:flex;align-items:center;gap:11px;min-width:0}
+.erk-av{width:38px;height:38px;border-radius:9px;flex:0 0 auto;display:grid;place-items:center;font-weight:700;font-size:.85rem;color:#fff;background:linear-gradient(150deg,var(--primary-light),var(--primary-accent))}
+.erk-n{font-weight:700;color:var(--primary-text);font-size:.95rem;line-height:1.2}
+.erk-sub{font-size:.76rem;color:var(--text-secondary);margin-top:2px}
+.erk-chev{display:inline-flex;flex:0 0 auto;color:var(--silver);transition:transform .2s}
+.erk.open .erk-chev{transform:rotate(90deg);color:var(--primary-accent)}
+.erk-metrics{padding:0 14px 12px}
+.erk-m{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--border)}
+.erk-l{font-size:.82rem;color:var(--text-secondary)}
+.erk-v{font-size:.95rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.erk-v.strong{font-size:1.08rem;color:var(--primary-text)}
+.erk-m.erk-val{border-top:0;padding-bottom:4px}
+.erk-m.warn .erk-l{color:var(--warning)}
+.erk-m.warn .erk-v{color:var(--warning)}
+.erk-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:0 0 4px}
+.erk-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent-dark))}
+.erk-det{border-top:1px solid var(--border);background:var(--surface-alt);padding:6px 14px 12px}
+.erk-dsec{padding-top:10px}
+.erk-dh{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--silver);margin-bottom:6px;display:flex;align-items:center;gap:7px}
+.erk-dh span{background:var(--primary-accent);color:#fff;border-radius:20px;padding:1px 8px;font-size:.68rem;letter-spacing:0}
+.erk-list{list-style:none;margin:0;padding:0}
+.erk-list li{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.erk-list li:last-child{border-bottom:0}
+.erk-li-n{color:var(--text);min-width:0}
+.erk-li-n em{display:block;font-style:normal;font-size:.74rem;color:var(--text-secondary);margin-top:1px}
+.erk-li-v{flex:0 0 auto;font-size:.78rem;color:var(--text-secondary);font-variant-numeric:tabular-nums;white-space:nowrap}
+.erk-empty{font-size:.8rem;color:var(--text-secondary);padding:4px 0}
+/* Total de colaboradores em destaque (Pessoas & alocação) */
+.dc-people-total{display:flex;align-items:baseline;gap:9px;padding:6px 0 12px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.dc-people-total .dpt-n{font-size:2rem;font-weight:800;color:var(--primary-text);line-height:1;font-variant-numeric:tabular-nums}
+.dc-people-total .dpt-l{font-size:.82rem;color:var(--text-secondary)}
 .dc-flag{display:inline-flex;align-items:center;justify-content:center;min-width:24px;font-weight:700;font-size:.79rem;padding:2px 7px;border-radius:6px;font-variant-numeric:tabular-nums}
 .dc-flag.ok{color:var(--silver)}
 .dc-flag.bad{color:var(--danger);background:rgba(122,46,46,.12)}
@@ -790,6 +827,66 @@ function LoginPage({ onLogin }) {
   )
 }
 
+// Card de engenheiro no ranking do Diretor. Métricas alinhadas numa coluna à direita
+// (leitura de relance) e drill-in ao clicar: abre quais obras e quais colaboradores.
+function EngRankCard({ l, maxLider }) {
+  const [open, setOpen] = useState(false)
+  const obrasL  = l.obras_lista || []
+  const colabsL = l.colaboradores_lista || []
+  const pct = Math.min(100, Math.round((l.valor || 0) / maxLider * 100))
+  return (
+    <div className={`erk ${open ? 'open' : ''}`}>
+      <button className="erk-hd" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <div className="erk-id">
+          <div className="erk-av">{iniciais(l.nome)}</div>
+          <div>
+            <div className="erk-n">{l.nome}</div>
+            <div className="erk-sub">{l.obras} obra{l.obras === 1 ? '' : 's'} · {l.colaboradores} colaborador{l.colaboradores === 1 ? '' : 'es'}</div>
+          </div>
+        </div>
+        <span className="erk-chev"><Icon name="chevronRight" size={18} /></span>
+      </button>
+
+      <div className="erk-metrics">
+        <div className="erk-m"><span className="erk-l">Colaboradores</span><span className="erk-v">{l.colaboradores}</span></div>
+        <div className="erk-m"><span className="erk-l">Cautelas ativas</span><span className="erk-v">{l.cautelas}</span></div>
+        <div className="erk-m erk-val"><span className="erk-l">Valor sob gestão</span><span className="erk-v strong">{fmtBRLc(l.valor || 0)}</span></div>
+        <div className="erk-bar"><i style={{ width: pct + '%' }} /></div>
+        {l.transf_pend > 0 && <div className="erk-m warn"><span className="erk-l">Transferências pendentes</span><span className="erk-v">{l.transf_pend}</span></div>}
+        {l.sol_paradas > 0 && <div className="erk-m warn"><span className="erk-l">Solicitações paradas +3d</span><span className="erk-v">{l.sol_paradas}</span></div>}
+      </div>
+
+      {open && (
+        <div className="erk-det">
+          <div className="erk-dsec">
+            <div className="erk-dh">Obras <span>{obrasL.length}</span></div>
+            {obrasL.length ? (
+              <ul className="erk-list">
+                {obrasL.map((o, i) => (
+                  <li key={i}><span className="erk-li-n">{o.codigo ? o.codigo + ' · ' : ''}{o.nome}</span><span className="erk-li-v">{o.colaboradores} colab.</span></li>
+                ))}
+              </ul>
+            ) : <div className="erk-empty">Nenhuma obra atribuída.</div>}
+          </div>
+          <div className="erk-dsec">
+            <div className="erk-dh">Colaboradores <span>{colabsL.length}</span></div>
+            {colabsL.length ? (
+              <ul className="erk-list">
+                {colabsL.map(c => (
+                  <li key={c.id}>
+                    <span className="erk-li-n">{c.nome}<em>{c.cargo || 'Sem função'}{c.obra ? ' · ' + c.obra : ''}</em></span>
+                    <span className="erk-li-v">{c.cautelas ? c.cautelas + ' cautela' + (c.cautelas === 1 ? '' : 's') : '—'}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : <div className="erk-empty">Nenhum colaborador na equipe.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function Dashboard({ user, navigate, addToast }) {
   const [stats, setStats] = useState({})
@@ -946,25 +1043,10 @@ function Dashboard({ user, navigate, addToast }) {
             <div className="dc-card dc-span12">
               <span className="dc-mtag">Equipe</span>
               <h4>Ranking por engenheiro responsável</h4>
-              <table className="dc-lt" style={{marginTop:12}}>
-                <thead><tr>
-                  <th>Engenheiro</th><th>Obras</th><th>Colab.</th><th>Cautelas</th>
-                  <th>Valor sob gestão</th><th>Transf. pend.</th><th>Sol. paradas</th>
-                </tr></thead>
-                <tbody>
-                  {lideres.map(l => (
-                    <tr key={l.id}>
-                      <td className="engtd"><div className="eng"><div className="av">{iniciais(l.nome)}</div><div><div className="en">{l.nome}</div></div></div></td>
-                      <td className="n" data-l="Obras">{l.obras}</td>
-                      <td className="n" data-l="Colaboradores">{l.colaboradores}</td>
-                      <td className="n" data-l="Cautelas">{l.cautelas}</td>
-                      <td className="n" data-l="Valor sob gestão"><span className="mv">{fmtBRLc(l.valor || 0)}</span><div className="mb"><i style={{width:Math.round((l.valor || 0) / maxLider * 100) + '%'}}/></div></td>
-                      <td className="n" data-l="Transf. pendentes">{flag(l.transf_pend, 2)}</td>
-                      <td className="n" data-l="Sol. paradas">{flag(l.sol_paradas, 2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <p className="erk-hint">Toque num engenheiro para ver as obras e os colaboradores.</p>
+              <div className="erk-wrap">
+                {lideres.map(l => <EngRankCard key={l.id} l={l} maxLider={maxLider} />)}
+              </div>
             </div>
           </div>
         </div>
@@ -1005,8 +1087,11 @@ function Dashboard({ user, navigate, addToast }) {
             <div className="dc-card">
               <span className="dc-mtag">Equipe</span>
               <h4>Pessoas &amp; alocação</h4>
+              <div className="dc-people-total">
+                <span className="dpt-n">{stats.colaboradores_ativos || 0}</span>
+                <span className="dpt-l">colaboradores ativos no total</span>
+              </div>
               <div style={{marginTop:6}}>
-                <div className="dc-pr"><span className="pl">Colaboradores ativos</span><span className="pv">{stats.colaboradores_ativos || 0}</span></div>
                 <div className="dc-pr"><span className="pl">Volantes (sem obra)</span><span className="pv vol">{stats.volantes || 0}</span></div>
                 {(stats.por_funcao || []).map((f, i) => (
                   <div className="dc-pr" key={i}><span className="pl">{f.funcao}</span><span className="pv">{f.n}</span></div>

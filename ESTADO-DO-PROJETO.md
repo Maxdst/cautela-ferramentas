@@ -39,6 +39,13 @@ Deploy daqui pra frente = **`git push` na `main`** (auto-deploy do Railway). NÃ
     (timeline `.aud-*`) com filtros **tipo · pessoa · período** e cor/ícone por categoria. Serve p/ auditar
     desentendimento entre as pessoas. **Engenheiro mantém** a aba "Auditoria" que já tinha (escopada à
     equipe dele) — decisão do Maxwel de não mexer.
+28. **Correção — caixa "Tarefas em aberto" do Gerente não populava.** `GerenteTarefas` inicializava o
+    estado com `useState(inicial||[])` **uma única vez**; como o `/api/dashboard` chega assíncrono, no 1º
+    render a prop vinha `undefined` (stats={}) e o estado ficava travado em `[]` para sempre — a caixa
+    aparecia **vazia** mesmo com tarefas no payload. Adicionado `useEffect(()=>setTarefas(inicial||[]),
+    [inicial])` que sincroniza quando a prop muda (não interfere no update local do "Ciente", pois o
+    dashboard não re-renderiza nessa ação). Sem essa correção o recurso do Gerente ficava inoperante em
+    produção. (commit `3770f62`.)
 
 ### Lote 2026-08-21: "Tarefas em aberto" do Gerente (ciência de supervisão) + correções do cockpit
 > ✅ **EM PRODUÇÃO** (deploy 21/08 pela `main`). Validado: `node --check server.js` OK · JSX compila
@@ -395,6 +402,7 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 4. Confirmar teor logado é com o Maxwel (sem credenciais).
 
 ## Últimos commits (branch main)
+- `3770f62` **fix(gerente): caixa "Tarefas em aberto" não populava (estado preso no valor inicial)** ← EM PRODUÇÃO (21/08 b)
 - **feat: ciência da transferência não-expira + redesign Minha equipe + Auditoria do Diretor** ← EM PRODUÇÃO (21/08 b)
 - `afc5cba` **fix(painel): dark mode legível, seções sem subtítulo e lista que preenche a coluna** ← EM PRODUÇÃO (21/08)
 - `6822d49` **feat(gerente): caixa "Tarefas em aberto" com ciência de supervisão** ← EM PRODUÇÃO (21/08)

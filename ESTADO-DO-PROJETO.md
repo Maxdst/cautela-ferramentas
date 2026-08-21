@@ -17,6 +17,29 @@ responsável") senão os líderes veem a lista vazia.
 Deploy daqui pra frente = **`git push` na `main`** (auto-deploy do Railway). NÃO usar `railway up`
 (trava com "os error 5" no Windows). Detalhes na seção "COMO O DEPLOY FUNCIONA".
 
+### Lote 2026-08-21 (b): ciência da transferência não-expira + redesign Minha equipe + Auditoria do Diretor
+> ✅ **EM PRODUÇÃO** (deploy 21/08 pela `main`). Validado: `node --check` OK · JSX compila · endpoints
+> testados em banco real (persistência da transferência através do 'aceita'; auditoria do Diretor com 5
+> categorias + filtro; engenheiro→403) · claro/escuro conferidos por screenshot. Falta teste logado do Maxwel.
+25. **A ciência da transferência NÃO expira** (`tarefasGerente()` em `server.js`). Antes a tarefa só
+    existia enquanto a transferência estava `pendente` — quando o engenheiro **aceitava**, sumia da caixa
+    do Gerente mesmo sem ele ter tomado ciência. Agora a transferência fica em aberto até o **Gerente**
+    reconhecer: query passou a `status IN ('pendente','aceita')` + só entra se **não** houver ciência
+    registrada; ao aceitar mostra o estado "Aceita pelo engenheiro — aguardando sua ciência". Fecha
+    apenas com a ciência. (Canceladas/recusadas não pedem ciência — não viraram troca real.)
+26. **Redesign da aba "Minha equipe"** (`EquipePage` + CSS `.eq-*`). Saíram os cartõezinhos soltos por
+    função; entrou um **banner "Aço"** com o total de colaboradores + funções em **chips**; pendências de
+    transferência em painel limpo; equipe **agrupada por função** (cabeçalho + contagem) com avatar
+    quadrado, nome forte e a **obra atual** de cada colaborador (ícone de prédio · obra/Volante); acordeão
+    de mover/transferir no card. Alinhado à paleta Aço & Prata e a `--ink` (dark-safe).
+27. **Auditoria do Diretor** (aba nova `diretor-auditoria`, só `diretor`). `GET /api/diretor/auditoria`
+    monta a **trilha operacional GLOBAL** (até o nível de Gerente): retiradas, devoluções, transferências
+    (ciclo completo), movimentações de obra (da tabela `auditoria`, ação `MOVER_COLABORADOR_OBRA`) e as
+    **ciências do Gerente** (`gerente_ciencias`) — devolve `{eventos, pessoas}`. Front: `DiretorAuditoriaPage`
+    (timeline `.aud-*`) com filtros **tipo · pessoa · período** e cor/ícone por categoria. Serve p/ auditar
+    desentendimento entre as pessoas. **Engenheiro mantém** a aba "Auditoria" que já tinha (escopada à
+    equipe dele) — decisão do Maxwel de não mexer.
+
 ### Lote 2026-08-21: "Tarefas em aberto" do Gerente (ciência de supervisão) + correções do cockpit
 > ✅ **EM PRODUÇÃO** (deploy 21/08 pela `main`). Validado: `node --check server.js` OK · JSX compila
 > (Babel preset-react) · endpoints testados ponta a ponta em banco real (GET/POST ciente, idempotência,
@@ -372,6 +395,7 @@ Vendido pela **MindMax (Maxwel)**. Cliente ativo: **Markat Engenharia**.
 4. Confirmar teor logado é com o Maxwel (sem credenciais).
 
 ## Últimos commits (branch main)
+- **feat: ciência da transferência não-expira + redesign Minha equipe + Auditoria do Diretor** ← EM PRODUÇÃO (21/08 b)
 - `afc5cba` **fix(painel): dark mode legível, seções sem subtítulo e lista que preenche a coluna** ← EM PRODUÇÃO (21/08)
 - `6822d49` **feat(gerente): caixa "Tarefas em aberto" com ciência de supervisão** ← EM PRODUÇÃO (21/08)
 - `59d1010` feat: Diretor de Operações + Obras do líder (Kanban) e redesign da equipe

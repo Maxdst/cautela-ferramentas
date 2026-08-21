@@ -2713,6 +2713,65 @@ app.get('/api/equipe/auditoria', auth(['lider', 'engenheiro']), (req, res) => {
   res.json(ev.slice(0, 150))
 })
 
+// ─── AUDITORIA DO DIRETOR — trilha operacional completa (até o nível de Gerente) ──
+// Diferente da auditoria da equipe (escopada a 1 líder), esta é GLOBAL: retiradas,
+// devoluções, transferências (ciclo todo), movimentações de obra e as ciências do
+// Gerente — para o Diretor auditar qualquer desentendimento entre as pessoas.
+app.get('/api/diretor/auditoria', auth(['diretor']), (req, res) => {
+  const ev = []
+  // Retiradas/devoluções via líder (entregas peça a peça)
+  const entregas = db.prepare(`
+    SELECT ce.data_entrega, ce.data_devolucao, o.nome colaborador_nome, c.numero,
+      (SELECT GROUP_CONCAT(f.nome,', ') FROM cautela_entrega_itens cei JOIN ferramentas f ON f.id=cei.ferramenta_id WHERE cei.entrega_id=ce.id) itens,
+      (SELECT COALESCE(SUM(cei.quantidade*COALESCE(f.valor_unitario,0)),0) FROM cautela_entrega_itens cei JOIN ferramentas f ON f.id=cei.ferramenta_id WHERE cei.entrega_id=ce.id) valor
+    FROM cautela_entregas ce JOIN usuarios o ON o.id=ce.operario_id JOIN cautelas c ON c.id=ce.cautela_id`).all()
+  for (const e of entregas) {
+    if (e.data_entrega)   ev.push({ data:e.data_entrega,   categoria:'retirada',  pessoa:e.colaborador_nome, ator:e.colaborador_nome, descricao:`recebeu ${e.itens||'—'}`,  ref:e.numero, valor:e.valor, obra_nome:null })
+    if (e.data_devolucao) ev.push({ data:e.data_devolucao, categoria:'devolucao', pessoa:e.colaborador_nome, ator:e.colaborador_nome, descricao:`devolveu ${e.itens||'—'}`, ref:e.numero, valor:e.valor, obra_nome:null })
+  }
+  // Cautelas diretas (operário retira/devolve pessoalmente)
+  const diretas = db.prepare(`
+    SELECT c.numero, c.data_retirada, c.data_devolucao, o.nome colaborador_nome, c.valor_total valor,
+      (SELECT GROUP_CONCAT(f.nome,', ') FROM cautela_itens ci JOIN ferramentas f ON f.id=ci.ferramenta_id WHERE ci.cautela_id=c.id) itens
+    FROM cautelas c JOIN usuarios o ON o.id=c.lider_id WHERE c.cautela_tipo='direto'`).all()
+  for (const c of diretas) {
+    if (c.data_retirada)  ev.push({ data:c.data_retirada,  categoria:'retirada',  pessoa:c.colaborador_nome, ator:c.colaborador_nome, descricao:`retirou ${c.itens||'—'} (cautela direta)`,  ref:c.numero, valor:c.valor, obra_nome:null })
+    if (c.data_devolucao) ev.push({ data:c.data_devolucao, categoria:'devolucao', pessoa:c.colaborador_nome, ator:c.colaborador_nome, descricao:`devolveu ${c.itens||'—'} (cautela direta)`, ref:c.numero, valor:c.valor, obra_nome:null })
+  }
+  // Transferências — ciclo completo (quem passou, quem recebeu, status)
+  const trs = db.prepare(`
+    SELECT t.status, t.criado_em, t.resolvido_em, col.nome colaborador_nome,
+           dl.nome de_lider_nome, pl.nome para_lider_nome, ob.nome obra_nome
+    FROM transferencias t JOIN usuarios col ON col.id=t.colaborador_id
+    LEFT JOIN usuarios dl ON dl.id=t.de_lider_id LEFT JOIN usuarios pl ON pl.id=t.para_lider_id
+    LEFT JOIN obras ob ON ob.id=t.obra_id`).all()
+  const stLabel = { pendente:'aguardando aceite', aceita:'aceita', recusada:'recusada', cancelada:'cancelada' }
+  for (const t of trs) {
+    ev.push({ data:t.resolvido_em||t.criado_em, categoria:'transferencia', pessoa:t.colaborador_nome, ator:t.para_lider_nome||t.de_lider_nome, obra_nome:t.obra_nome,
+      descricao:`transferência de ${t.colaborador_nome}: ${t.de_lider_nome||'—'} → ${t.para_lider_nome||'—'} — ${stLabel[t.status]||t.status}`, ref:null, valor:null })
+  }
+  // Movimentações de obra (registradas na auditoria)
+  const moves = db.prepare(`
+    SELECT a.criado_em, a.detalhe, act.nome ator_nome, col.nome colaborador_nome
+    FROM auditoria a LEFT JOIN usuarios act ON act.id=a.usuario_id LEFT JOIN usuarios col ON col.id=a.registro_id
+    WHERE a.acao='MOVER_COLABORADOR_OBRA'`).all()
+  for (const m of moves) {
+    let obra = null
+    try { const d = JSON.parse(m.detalhe || '{}'); if (d.obra_id) { const o = db.prepare('SELECT nome FROM obras WHERE id=?').get(d.obra_id); obra = o ? o.nome : null } } catch {}
+    ev.push({ data:m.criado_em, categoria:'obra', pessoa:m.colaborador_nome, ator:m.ator_nome, obra_nome:obra,
+      descricao:`${m.ator_nome||'—'} moveu ${m.colaborador_nome||'colaborador'} para ${obra||'Volantes'}`, ref:null, valor:null })
+  }
+  // Ciências do Gerente
+  const cis = db.prepare('SELECT criado_em, gerente_nome, tipo, ref_id FROM gerente_ciencias').all()
+  for (const c of cis) {
+    ev.push({ data:c.criado_em, categoria:'ciencia', pessoa:c.gerente_nome, ator:c.gerente_nome, obra_nome:null,
+      descricao:`${c.gerente_nome||'Gerente'} deu ciência de ${c.tipo==='transferencia'?'transferência':'solicitação'} #${c.ref_id}`, ref:null, valor:null })
+  }
+  ev.sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')))
+  const pessoas = [...new Set(ev.flatMap(e => [e.pessoa, e.ator].filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'pt'))
+  res.json({ eventos: ev.slice(0, 400), pessoas })
+})
+
 // Mover colaborador: troca de obra (imediata, na própria equipe) e/ou passa p/ outro líder (pendente).
 app.post('/api/equipe/mover', auth(['lider', 'engenheiro']), (req, res) => {
   const { colaborador_id, obra_id, para_lider_id } = req.body
@@ -2783,44 +2842,49 @@ function tarefasGerente() {
   const idade = criadoEm => Math.floor(db.prepare("SELECT julianday('now','localtime') - julianday(?) d").get(criadoEm).d || 0)
   const tarefas = []
 
+  // Transferências: a ciência do Gerente NÃO expira. A tarefa fica em aberto até ELE
+  // reconhecer — mesmo depois de o engenheiro aceitar (status 'aceita'). Só some quando
+  // há ciência registrada. Canceladas/recusadas não viraram troca real → não pedem ciência.
   if (modAtivo('equipe')) {
-    const transf = db.prepare(`SELECT t.id, t.criado_em, c.nome colaborador,
+    const transf = db.prepare(`SELECT t.id, t.status, t.criado_em, c.nome colaborador,
         dl.nome de_lider, pl.nome para_lider, o.nome obra
       FROM transferencias t
       JOIN usuarios c ON c.id=t.colaborador_id
       LEFT JOIN usuarios dl ON dl.id=t.de_lider_id
       LEFT JOIN usuarios pl ON pl.id=t.para_lider_id
       LEFT JOIN obras o ON o.id=t.obra_id
-      WHERE t.status='pendente' ORDER BY t.criado_em`).all()
+      WHERE t.status IN ('pendente','aceita') ORDER BY t.criado_em`).all()
     for (const t of transf) {
-      const ci = ciencia.get('transferencia', t.id)
+      if (ciencia.get('transferencia', t.id)) continue          // já reconhecida → fecha
       tarefas.push({
         tipo: 'transferencia', ref_id: t.id,
         titulo: `Transferência de ${t.colaborador}`,
         detalhe: `${t.de_lider || 'Sem líder'} → ${t.para_lider || '—'}${t.obra ? ' · ' + t.obra : ''}`,
-        dias: idade(t.criado_em), quando: t.criado_em,
-        ciente: !!ci, ciente_por: ci ? ci.gerente_nome : null, ciente_em: ci ? ci.criado_em : null,
+        estado: t.status === 'aceita' ? 'Aceita pelo engenheiro — aguardando sua ciência' : 'Aguardando aceite do engenheiro',
+        dias: idade(t.criado_em), quando: t.criado_em, ciente: false,
       })
     }
   }
 
+  // Solicitações paradas +3d: condição de campo. Some quando o Gerente dá ciência ou
+  // quando a solicitação anda (retirada/cancelada). Também não some por tempo.
   const sol = db.prepare(`SELECT s.id, s.numero, s.status, s.criado_em, l.nome lider
     FROM solicitacoes s JOIN usuarios l ON l.id=s.lider_id
     WHERE s.status NOT IN ('retirada','cancelada')
       AND julianday('now','localtime') - julianday(s.criado_em) > 3
     ORDER BY s.criado_em`).all()
   for (const s of sol) {
-    const ci = ciencia.get('solicitacao', s.id)
+    if (ciencia.get('solicitacao', s.id)) continue
     tarefas.push({
       tipo: 'solicitacao', ref_id: s.id,
       titulo: `Solicitação ${s.numero || '#' + s.id} parada`,
       detalhe: `${STATUS_SOLIC[s.status] || s.status} · ${s.lider}`,
-      dias: idade(s.criado_em), quando: s.criado_em,
-      ciente: !!ci, ciente_por: ci ? ci.gerente_nome : null, ciente_em: ci ? ci.criado_em : null,
+      estado: STATUS_SOLIC[s.status] || s.status,
+      dias: idade(s.criado_em), quando: s.criado_em, ciente: false,
     })
   }
-  // Mais antigas primeiro; pendentes de ciência acima das já reconhecidas.
-  return tarefas.sort((a, b) => (a.ciente - b.ciente) || (b.dias - a.dias))
+  // Mais antigas (mais tempo sem ciência) primeiro.
+  return tarefas.sort((a, b) => b.dias - a.dias)
 }
 const STATUS_SOLIC = { solicitada: 'Solicitada', separando: 'Separando', pronta: 'Pronta p/ retirada' }
 

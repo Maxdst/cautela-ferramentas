@@ -393,9 +393,72 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .gt-body{flex:1 1 auto;min-width:0}
 .gt-t{font-weight:700;color:var(--ink);font-size:.9rem;line-height:1.25}
 .gt-d{font-size:.77rem;color:var(--text-secondary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt-state{font-size:.72rem;color:var(--text-secondary);margin-top:3px;font-weight:600}
+.gt-state.aceita{color:var(--accent-dark)}
 .gt-ack{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;color:var(--success);font-weight:600;margin-top:3px}
 .gt-btn{flex:0 0 auto}
 .gt-badge{flex:0 0 auto;font-size:.72rem;font-weight:700;color:var(--success);border:1px solid var(--success);border-radius:20px;padding:3px 10px}
+/* ── Minha equipe (redesign) ── */
+.eq-wrap{max-width:800px;margin:0 auto}
+.eq-lead{color:var(--text-secondary);font-size:.84rem;margin:-4px 0 16px;line-height:1.5}
+.eq-summary{display:flex;align-items:center;gap:18px;background:linear-gradient(160deg,var(--primary),var(--primary-light));border-radius:14px;padding:15px 18px;flex-wrap:wrap;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.eq-total{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.eq-total-n{font-size:2.4rem;font-weight:800;line-height:1;color:#fff}
+.eq-total-l{font-size:.72rem;color:#C4CDD8;text-transform:uppercase;letter-spacing:.05em;line-height:1.3}
+.eq-funcs{display:flex;flex-wrap:wrap;gap:7px;flex:1 1 240px;padding-left:18px;border-left:1px solid rgba(255,255,255,.15)}
+.eq-func-chip{font-size:.75rem;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);border-radius:20px;padding:4px 11px;color:#DCE4EC}
+.eq-func-chip b{color:#fff;font-weight:800;margin-right:4px}
+.eq-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 15px;margin-bottom:14px}
+.eq-panel.recebe{border-left:3px solid var(--primary-accent)}
+.eq-panel-hd{display:flex;align-items:center;gap:8px;font-size:.76rem;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.eq-panel-hd .c{background:var(--primary-accent);color:#fff;border-radius:20px;font-size:.68rem;padding:1px 8px;letter-spacing:0}
+.eq-trow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border)}
+.eq-trow+.eq-trow{border-top:1px solid var(--border)}
+.eq-trow>.who{min-width:0}
+.eq-trow .who b{color:var(--ink);font-weight:700}
+.eq-trow .arrow{color:var(--silver);margin:0 2px}
+.eq-trow .sub{font-size:.78rem;color:var(--text-secondary);margin-top:2px}
+.eq-list{display:flex;flex-direction:column;gap:13px}
+.eq-group{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm)}
+.eq-group-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 15px;background:var(--surface-alt);border-bottom:1px solid var(--border)}
+.eq-group-t{font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--primary-accent)}
+.eq-group-c{font-size:.7rem;font-weight:700;color:var(--text-secondary);background:var(--card);border:1px solid var(--border);border-radius:20px;padding:1px 9px}
+.eq-member{border-top:1px solid var(--border)}
+.eq-member:first-of-type{border-top:0}
+.eq-member.open{background:var(--surface-alt)}
+.eq-member-hd{width:100%;display:flex;align-items:center;gap:12px;padding:11px 15px;background:none;border:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.eq-av{width:37px;height:37px;border-radius:10px;flex:0 0 auto;display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;background:linear-gradient(150deg,var(--primary-light),var(--primary-accent))}
+.eq-id{flex:1 1 auto;min-width:0}
+.eq-nm{font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eq-meta{font-size:.76rem;color:var(--text-secondary);margin-top:1px;display:flex;align-items:center;gap:5px}
+.eq-chev{flex:0 0 auto;color:var(--silver);transition:transform .2s}
+.eq-member.open .eq-chev{transform:rotate(90deg);color:var(--primary-accent)}
+.eq-acc{padding:0 15px 15px;animation:eqin .18s ease}
+@keyframes eqin{from{opacity:0}to{opacity:1}}
+.eq-empty{text-align:center;padding:34px 16px;color:var(--text-secondary)}
+.eq-empty .ei{width:56px;height:56px;border-radius:14px;margin:0 auto 12px;display:grid;place-items:center;background:var(--surface-alt);color:var(--silver)}
+/* ── Auditoria do Diretor (timeline filtrável) ── */
+.aud-filters{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:16px}
+.aud-filters select{padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font:inherit;font-size:.82rem;cursor:pointer}
+.aud-count{margin-left:auto;font-size:.78rem;color:var(--text-secondary);font-weight:600}
+.aud-timeline{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm)}
+.aud-ev{display:flex;gap:12px;padding:12px 15px;border-top:1px solid var(--border)}
+.aud-ev:first-child{border-top:0}
+.aud-ic{flex:0 0 auto;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:#fff}
+.aud-ic.ac-ret{background:linear-gradient(150deg,var(--primary-light),var(--primary-accent))}
+.aud-ic.ac-dev{background:linear-gradient(150deg,#2E7D6B,#3C9C86)}
+.aud-ic.ac-tra{background:linear-gradient(150deg,var(--accent),var(--accent-dark))}
+.aud-ic.ac-obr{background:linear-gradient(150deg,#7C8CA1,var(--silver))}
+.aud-ic.ac-cie{background:linear-gradient(150deg,#B8860B,#D8A83A)}
+.aud-body{flex:1 1 auto;min-width:0}
+.aud-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.aud-cat{font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--primary-accent)}
+.aud-pessoa{font-size:.78rem;font-weight:700;color:var(--ink)}
+.aud-when{margin-left:auto;font-size:.72rem;color:var(--text-secondary);font-variant-numeric:tabular-nums;white-space:nowrap}
+.aud-desc{font-size:.85rem;color:var(--text);margin-top:2px;line-height:1.35}
+.aud-meta{display:flex;flex-wrap:wrap;gap:12px;margin-top:5px;font-size:.74rem;color:var(--text-secondary)}
+.aud-meta span{display:inline-flex;align-items:center;gap:4px}
+.aud-meta .v{color:var(--ink);font-weight:700}
 .dc-flag{display:inline-flex;align-items:center;justify-content:center;min-width:24px;font-weight:700;font-size:.79rem;padding:2px 7px;border-radius:6px;font-variant-numeric:tabular-nums}
 .dc-flag.ok{color:var(--silver)}
 .dc-flag.bad{color:var(--danger);background:rgba(122,46,46,.12)}
@@ -950,6 +1013,7 @@ function GerenteTarefas({ tarefas: inicial, addToast }) {
                 <div className="gt-body">
                   <div className="gt-t">{t.titulo}</div>
                   <div className="gt-d">há {t.dias}d · {t.detalhe}</div>
+                  {t.estado && <div className={`gt-state ${t.tipo === 'transferencia' && /Aceita/.test(t.estado) ? 'aceita' : ''}`}>{t.estado}</div>}
                   {t.ciente && <div className="gt-ack"><Icon name="check" size={12} /> Ciente — {t.ciente_por}</div>}
                 </div>
                 {t.ciente
@@ -3713,27 +3777,31 @@ function EquipePage({ user, addToast }) {
   }
 
   return (
-    <div style={{maxWidth:760,margin:'0 auto'}}>
+    <div className="eq-wrap">
       <div className="topbar"><h2>Minha equipe</h2></div>
-      <p className="text-muted" style={{margin:'-6px 0 14px',fontSize:'.84rem'}}>Gestão à vista da sua equipe — quem está em cada obra e o que cada colaborador tem em campo. O responsável direto por cada ferramenta é o colaborador que a retirou, até a devolução ao almoxarifado.</p>
+      <p className="eq-lead">Gestão à vista da sua equipe — quem está em cada obra e o que cada colaborador tem em campo. O responsável direto por cada ferramenta é o colaborador que a retirou, até a devolução ao almoxarifado.</p>
 
-      <div className="stats-grid" style={{marginBottom:16}}>
-        <div className="stat-card blue"><div className="stat-label">Colaboradores</div><div className="stat-value">{data.membros.length}</div></div>
-        {gruposOrd.map(g => (
-          <div key={g} className="stat-card"><div className="stat-label">{g}</div><div className="stat-value">{grupos[g].length}</div></div>
-        ))}
+      {/* Resumo: total em destaque + distribuição por função em chips */}
+      <div className="eq-summary">
+        <div className="eq-total">
+          <span className="eq-total-n">{data.membros.length}</span>
+          <span className="eq-total-l">colaboradores<br/>na sua equipe</span>
+        </div>
+        {gruposOrd.length > 0 && (
+          <div className="eq-funcs">
+            {gruposOrd.map(g => <span key={g} className="eq-func-chip"><b>{grupos[g].length}</b>{g}</span>)}
+          </div>
+        )}
       </div>
 
       {data.pendentes_recebimento.length > 0 && (
-        <div className="card" style={{marginBottom:16,borderLeft:'3px solid #4A90A4'}}>
-          <h3 style={{margin:'0 0 6px',display:'flex',alignItems:'center',gap:8,fontSize:'1rem'}}><Icon name="handshake" size={18}/> Recebimentos pendentes</h3>
+        <div className="eq-panel recebe">
+          <div className="eq-panel-hd"><Icon name="handshake" size={15}/> Recebimentos pendentes <span className="c">{data.pendentes_recebimento.length}</span></div>
           {data.pendentes_recebimento.map(t => (
-            <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',padding:'10px 0',borderTop:'1px solid var(--border,#eee)'}}>
-              <div>
-                <strong>{t.colaborador_nome}</strong> <span className="text-muted">— de {t.de_lider_nome||'—'}</span>
-                <div className="text-muted" style={{fontSize:'.82rem'}}>
-                  {t.posse.cautelas} cautela(s) · {fmtBRL(t.posse.valor)}{t.obra_nome ? ` · vai p/ ${t.obra_nome}` : ''}
-                </div>
+            <div key={t.id} className="eq-trow">
+              <div className="who">
+                <span className="eq-nm" style={{display:'inline'}}><b>{t.colaborador_nome}</b></span> <span className="text-muted">de {t.de_lider_nome||'—'}</span>
+                <div className="sub">{t.posse.cautelas} cautela(s) · {fmtBRL(t.posse.valor)}{t.obra_nome ? ` · vai p/ ${t.obra_nome}` : ''}</div>
               </div>
               <div className="gap-8">
                 <button className="btn btn-ghost btn-sm" onClick={()=>responder(t,'recusar')}>Recusar</button>
@@ -3745,63 +3813,67 @@ function EquipePage({ user, addToast }) {
       )}
 
       {data.pendentes_envio.length > 0 && (
-        <div className="card" style={{marginBottom:16}}>
-          <h4 style={{margin:'0 0 6px',fontSize:'.9rem'}}>Aguardando aceite do outro líder</h4>
+        <div className="eq-panel">
+          <div className="eq-panel-hd">Aguardando aceite do outro líder <span className="c">{data.pendentes_envio.length}</span></div>
           {data.pendentes_envio.map(t => (
-            <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,fontSize:'.85rem',padding:'5px 0'}}>
-              <span>{t.colaborador_nome} → <strong>{t.para_lider_nome}</strong>{t.obra_nome?` (${t.obra_nome})`:''}</span>
+            <div key={t.id} className="eq-trow">
+              <div className="who"><b>{t.colaborador_nome}</b> <span className="arrow">→</span> <b>{t.para_lider_nome}</b>{t.obra_nome?<span className="text-muted"> · {t.obra_nome}</span>:''}</div>
               <button className="btn btn-ghost btn-sm" onClick={()=>cancelarEnvio(t)}>Cancelar</button>
             </div>
           ))}
         </div>
       )}
 
-      <div className="card">
-        {data.membros.length === 0 ? (
-          <div className="empty"><div className="empty-icon"><Icon name="users" size={32}/></div><p>Nenhum colaborador na sua equipe ainda.</p><p className="text-muted" style={{fontSize:'.82rem'}}>Ao entregar uma cautela a um operário, ele entra automaticamente na sua equipe.</p></div>
-        ) : gruposOrd.map(g => (
-          <div key={g}>
-            <div style={{display:'flex',alignItems:'center',gap:8,padding:'13px 4px 7px'}}>
-              <span style={{fontWeight:700,fontSize:'.8rem',textTransform:'uppercase',letterSpacing:'.03em',color:'var(--primary-accent)'}}>{g}</span>
-              <span className="text-muted" style={{fontSize:'.76rem'}}>· {grupos[g].length}</span>
+      {data.membros.length === 0 ? (
+        <div className="eq-group"><div className="eq-empty">
+          <div className="ei"><Icon name="users" size={26}/></div>
+          <p style={{fontWeight:600,color:'var(--ink)'}}>Nenhum colaborador na sua equipe ainda.</p>
+          <p style={{fontSize:'.82rem',marginTop:4}}>Ao entregar uma cautela a um operário, ele entra automaticamente na sua equipe.</p>
+        </div></div>
+      ) : (
+        <div className="eq-list">
+          {gruposOrd.map(g => (
+            <div key={g} className="eq-group">
+              <div className="eq-group-hd"><span className="eq-group-t">{g}</span><span className="eq-group-c">{grupos[g].length}</span></div>
+              {grupos[g].map(m => (
+                <div key={m.id} className={`eq-member ${openId===m.id?'open':''}`}>
+                  <button className="eq-member-hd" onClick={()=>toggle(m)}>
+                    <span className="eq-av">{iniciais(m.nome)}</span>
+                    <div className="eq-id">
+                      <div className="eq-nm">{m.nome}</div>
+                      <div className="eq-meta"><Icon name="building" size={12}/> {m.obra_nome || 'Volante'}</div>
+                    </div>
+                    <span className="eq-chev"><Icon name="chevronRight" size={16}/></span>
+                  </button>
+                  {openId === m.id && (
+                    <div className="eq-acc">
+                      <div className="form-grid">
+                        <div className="form-group"><label>Mover para obra</label>
+                          <select value={mov.obra_id} onChange={e=>setMov({...mov, obra_id:e.target.value})}>
+                            <option value="">Volantes</option>
+                            {obras.map(o=><option key={o.id} value={o.id}>{o.nome}{o.codigo?` (${o.codigo})`:''}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group"><label>Passar para outro líder (opcional)</label>
+                          <select value={mov.para_lider_id} onChange={e=>setMov({...mov, para_lider_id:e.target.value})}>
+                            <option value="">Manter na minha equipe</option>
+                            {lideresDisp.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      {mov.para_lider_id && <p className="text-muted" style={{fontSize:'.8rem',margin:'8px 0 0',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={13}/> O colaborador só migra quando o líder que recebe confirmar o recebimento.</p>}
+                      <div style={{marginTop:12,justifyContent:'flex-end',display:'flex',gap:8}}>
+                        <button className="btn btn-ghost btn-sm" onClick={()=>setOpenId(null)}>Cancelar</button>
+                        <button className="btn btn-primary btn-sm" disabled={busy} onClick={()=>mover(m)}><Icon name={mov.para_lider_id?'handshake':'check'} size={14}/> {mov.para_lider_id?'Enviar transferência':'Salvar obra'}</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-            {grupos[g].map(m => (
-              <div key={m.id} style={{borderBottom:'1px solid var(--border,#eee)'}}>
-                <button onClick={()=>toggle(m)} style={{width:'100%',background:'none',border:'none',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'11px 4px',textAlign:'left',color:'inherit'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:11,minWidth:0}}>
-                    <span style={{width:34,height:34,borderRadius:'50%',background:'var(--primary-accent)',color:'#fff',fontSize:'.78rem',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{iniciais(m.nome)}</span>
-                    <div style={{fontWeight:600,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.nome}</div>
-                  </div>
-                  <span style={{display:'inline-flex',flexShrink:0,color:'var(--silver)',transition:'transform .2s',transform:openId===m.id?'rotate(90deg)':'none'}}><Icon name="chevronRight" size={16}/></span>
-                </button>
-                {openId === m.id && (
-                  <div style={{padding:'2px 8px 16px'}}>
-                    <div className="form-grid">
-                      <div className="form-group"><label>Mover para obra</label>
-                        <select value={mov.obra_id} onChange={e=>setMov({...mov, obra_id:e.target.value})}>
-                          <option value="">Volantes</option>
-                          {obras.map(o=><option key={o.id} value={o.id}>{o.nome}{o.codigo?` (${o.codigo})`:''}</option>)}
-                        </select>
-                      </div>
-                      <div className="form-group"><label>Passar para outro líder (opcional)</label>
-                        <select value={mov.para_lider_id} onChange={e=>setMov({...mov, para_lider_id:e.target.value})}>
-                          <option value="">Manter na minha equipe</option>
-                          {lideresDisp.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    {mov.para_lider_id && <p className="text-muted" style={{fontSize:'.8rem',margin:'6px 0 0',display:'inline-flex',alignItems:'center',gap:6}}><Icon name="alertTriangle" size={13}/> O colaborador só migra quando o líder que recebe confirmar o recebimento.</p>}
-                    <div style={{marginTop:12,justifyContent:'flex-end',display:'flex',gap:8}}>
-                      <button className="btn btn-ghost btn-sm" onClick={()=>setOpenId(null)}>Cancelar</button>
-                      <button className="btn btn-primary btn-sm" disabled={busy} onClick={()=>mover(m)}><Icon name={mov.para_lider_id?'handshake':'check'} size={14}/> {mov.para_lider_id?'Enviar transferência':'Salvar obra'}</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -3976,6 +4048,104 @@ function UsuariosPage({ user, addToast }) {
           })}
         />
       </div>
+    </div>
+  )
+}
+
+// ─── AUDITORIA DO DIRETOR — trilha operacional (até o nível de Gerente) ─────────
+const AUD_CATS = {
+  retirada:      { l: 'Retirada',      ic: 'download',    cls: 'ac-ret' },
+  devolucao:     { l: 'Devolução',     ic: 'check',       cls: 'ac-dev' },
+  transferencia: { l: 'Transferência', ic: 'handshake',   cls: 'ac-tra' },
+  obra:          { l: 'Obra',          ic: 'building',     cls: 'ac-obr' },
+  ciencia:       { l: 'Ciência',       ic: 'checkCircle', cls: 'ac-cie' },
+}
+function DiretorAuditoriaPage({ addToast }) {
+  const [data, setData] = useState({ eventos: [], pessoas: [] })
+  const [carregando, setCarregando] = useState(true)
+  const [tipo, setTipo] = useState('')
+  const [pessoa, setPessoa] = useState('')
+  const [periodo, setPeriodo] = useState('')
+  useEffect(() => {
+    GET('/diretor/auditoria').then(d => { setData(d); setCarregando(false) })
+      .catch(e => { addToast && addToast(e.message, 'error'); setCarregando(false) })
+  }, [])
+
+  const agora = Date.now()
+  const eventos = data.eventos.filter(e => {
+    if (tipo && e.categoria !== tipo) return false
+    if (pessoa && e.pessoa !== pessoa && e.ator !== pessoa) return false
+    if (periodo) {
+      const t = new Date(String(e.data || '').replace(' ', 'T')).getTime()
+      const dias = (agora - t) / 86400000
+      if (periodo === '7' && dias > 7) return false
+      if (periodo === '30' && dias > 30) return false
+    }
+    return true
+  })
+  const fmtQuando = s => {
+    if (!s) return '—'
+    const d = new Date(String(s).replace(' ', 'T'))
+    if (isNaN(d)) return s
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+  }
+
+  return (
+    <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <div className="topbar"><h2>Auditoria</h2></div>
+      <p className="eq-lead">Trilha de tudo que acontece na operação — retiradas, devoluções, transferências, movimentações de obra e as ciências do Gerente. Use para rastrear qualquer desentendimento entre as pessoas.</p>
+
+      <div className="aud-filters">
+        <select value={tipo} onChange={e => setTipo(e.target.value)}>
+          <option value="">Todos os tipos</option>
+          {Object.entries(AUD_CATS).map(([k, v]) => <option key={k} value={k}>{v.l}</option>)}
+        </select>
+        <select value={pessoa} onChange={e => setPessoa(e.target.value)}>
+          <option value="">Todas as pessoas</option>
+          {data.pessoas.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <select value={periodo} onChange={e => setPeriodo(e.target.value)}>
+          <option value="">Todo o período</option>
+          <option value="7">Últimos 7 dias</option>
+          <option value="30">Últimos 30 dias</option>
+        </select>
+        <span className="aud-count">{eventos.length} evento(s)</span>
+      </div>
+
+      {carregando ? (
+        <div className="eq-group"><div className="eq-empty">Carregando…</div></div>
+      ) : eventos.length === 0 ? (
+        <div className="eq-group"><div className="eq-empty">
+          <div className="ei"><Icon name="history" size={26} /></div>
+          <p style={{ fontWeight: 600, color: 'var(--ink)' }}>Nenhum evento no filtro atual.</p>
+        </div></div>
+      ) : (
+        <div className="aud-timeline">
+          {eventos.map((e, i) => {
+            const c = AUD_CATS[e.categoria] || { l: e.categoria, ic: 'history', cls: '' }
+            return (
+              <div className="aud-ev" key={i}>
+                <span className={`aud-ic ${c.cls}`}><Icon name={c.ic} size={15} /></span>
+                <div className="aud-body">
+                  <div className="aud-top">
+                    <span className="aud-cat">{c.l}</span>
+                    {e.pessoa && <span className="aud-pessoa">{e.pessoa}</span>}
+                    <span className="aud-when">{fmtQuando(e.data)}</span>
+                  </div>
+                  <div className="aud-desc">{e.descricao}</div>
+                  {(e.obra_nome || e.ref || (e.valor != null && e.valor > 0)) && (
+                    <div className="aud-meta">
+                      {e.obra_nome && <span><Icon name="building" size={11} /> {e.obra_nome}</span>}
+                      {e.ref && <span>#{e.ref}</span>}
+                      {e.valor != null && e.valor > 0 && <span className="v">{fmtBRL(e.valor)}</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -4237,6 +4407,7 @@ function Sidebar({ user, page, navigate, onLogout, notif, open }) {
     { id: 'usuarios', icon: 'users', label: 'Usuários', show: alm || diretor },
     // Auditoria fica sempre por último, após Empréstimos (regra de layout do sidebar).
     { id: 'equipe-auditoria', icon: 'history', label: 'Auditoria', show: eng },
+    { id: 'diretor-auditoria', icon: 'history', label: 'Auditoria', show: diretor },
     { id: 'auditoria', icon: 'history', label: 'Auditoria', show: alm },
   ].filter(i => i.show && abaAtiva(user, i.id))
   return (
@@ -4347,6 +4518,7 @@ function App() {
     if (page === 'obras') return user.role === 'engenheiro' ? <ObrasLiderPage {...props} /> : <ObrasPage {...props} />
     if (page === 'bolsas') return <BolsasPage {...props} />
     if (page === 'usuarios') return <UsuariosPage {...props} />
+    if (page === 'diretor-auditoria') return <DiretorAuditoriaPage {...props} />
     if (page === 'auditoria') return <AuditoriaPage {...props} />
     return <div style={{padding:24}}>Página não encontrada.</div>
   }

@@ -984,6 +984,10 @@ function EngRankCard({ l, maxLider }) {
 // não trava a operação. Pendentes de ciência aparecem primeiro; reconhecidas caem abaixo.
 function GerenteTarefas({ tarefas: inicial, addToast }) {
   const [tarefas, setTarefas] = useState(inicial || [])
+  // O dashboard busca /api/dashboard de forma assíncrona: no 1º render `inicial` chega
+  // undefined (stats={}) e só depois vem preenchido. Sem este sync, o useState mantém o
+  // valor inicial ([]) para sempre e a caixa fica vazia mesmo com tarefas no payload.
+  useEffect(() => { setTarefas(inicial || []) }, [inicial])
   const [busy, setBusy] = useState(null)
   const darCiente = async t => {
     const key = t.tipo + t.ref_id

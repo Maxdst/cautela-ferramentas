@@ -369,6 +369,22 @@ td .actions{display:flex;gap:6px;flex-wrap:wrap}
 .dc-people-total{display:flex;align-items:baseline;gap:9px;padding:6px 0 12px;border-bottom:1px solid var(--border);margin-bottom:4px}
 .dc-people-total .dpt-n{font-size:2rem;font-weight:800;color:var(--primary-text);line-height:1;font-variant-numeric:tabular-nums}
 .dc-people-total .dpt-l{font-size:.82rem;color:var(--text-secondary)}
+/* ── Tarefas em aberto / ciência do Gerente ── */
+.gt-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;border-radius:20px;background:var(--warning);color:#fff;font-size:.74rem;font-weight:800;vertical-align:middle;margin-left:6px}
+.gt-hint{font-size:.78rem;color:var(--text-secondary);margin:4px 0 12px}
+.gt-empty{display:flex;align-items:center;gap:8px;padding:14px;border-radius:10px;background:var(--surface-alt);color:var(--success);font-size:.86rem;font-weight:600}
+.gt-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.gt-item{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--border);border-radius:11px;background:var(--surface)}
+.gt-item.done{opacity:.62;background:var(--surface-alt)}
+.gt-ic{flex:0 0 auto;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#fff}
+.gt-ic.transferencia{background:linear-gradient(150deg,var(--primary-light),var(--primary-accent))}
+.gt-ic.solicitacao{background:linear-gradient(150deg,var(--accent),var(--accent-dark))}
+.gt-body{flex:1 1 auto;min-width:0}
+.gt-t{font-weight:700;color:var(--primary-text);font-size:.9rem;line-height:1.25}
+.gt-d{font-size:.77rem;color:var(--text-secondary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt-ack{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;color:var(--success);font-weight:600;margin-top:3px}
+.gt-btn{flex:0 0 auto}
+.gt-badge{flex:0 0 auto;font-size:.72rem;font-weight:700;color:var(--success);border:1px solid var(--success);border-radius:20px;padding:3px 10px}
 .dc-flag{display:inline-flex;align-items:center;justify-content:center;min-width:24px;font-weight:700;font-size:.79rem;padding:2px 7px;border-radius:6px;font-variant-numeric:tabular-nums}
 .dc-flag.ok{color:var(--silver)}
 .dc-flag.bad{color:var(--danger);background:rgba(122,46,46,.12)}
@@ -887,6 +903,54 @@ function EngRankCard({ l, maxLider }) {
   )
 }
 
+// Caixa "Tarefas em aberto" do Gerente de Contrato. Lista eventos que pedem ciência
+// (transferências pendentes, solicitações paradas). "Ciente" é registro de supervisão —
+// não trava a operação. Pendentes de ciência aparecem primeiro; reconhecidas caem abaixo.
+function GerenteTarefas({ tarefas: inicial, addToast }) {
+  const [tarefas, setTarefas] = useState(inicial || [])
+  const [busy, setBusy] = useState(null)
+  const darCiente = async t => {
+    const key = t.tipo + t.ref_id
+    setBusy(key)
+    try {
+      const r = await POST('/gerente/tarefas/ciente', { tipo: t.tipo, ref_id: t.ref_id })
+      setTarefas(r.tarefas || [])
+      addToast && addToast('Ciência registrada.', 'success')
+    } catch { addToast && addToast('Não foi possível registrar a ciência.', 'error') }
+    setBusy(null)
+  }
+  const pend = tarefas.filter(t => !t.ciente).length
+  return (
+    <div className="dc-card dc-span12">
+      <span className="dc-mtag">Supervisão</span>
+      <h4>Tarefas em aberto {pend > 0 && <span className="gt-count">{pend}</span>}</h4>
+      <p className="gt-hint">Eventos que pedem sua ciência. Registrar não altera a operação — é só supervisão.</p>
+      {tarefas.length === 0 ? (
+        <div className="gt-empty"><Icon name="checkCircle" size={17} /> Nada pendente agora.</div>
+      ) : (
+        <ul className="gt-list">
+          {tarefas.map(t => {
+            const key = t.tipo + t.ref_id
+            return (
+              <li key={key} className={`gt-item ${t.ciente ? 'done' : ''}`}>
+                <span className={`gt-ic ${t.tipo}`}><Icon name={t.tipo === 'transferencia' ? 'handshake' : 'download'} size={16} /></span>
+                <div className="gt-body">
+                  <div className="gt-t">{t.titulo}</div>
+                  <div className="gt-d">há {t.dias}d · {t.detalhe}</div>
+                  {t.ciente && <div className="gt-ack"><Icon name="check" size={12} /> Ciente — {t.ciente_por}</div>}
+                </div>
+                {t.ciente
+                  ? <span className="gt-badge">Ciente</span>
+                  : <button className="btn btn-sm btn-primary gt-btn" disabled={busy === key} onClick={() => darCiente(t)}>{busy === key ? '…' : 'Ciente'}</button>}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function Dashboard({ user, navigate, addToast }) {
   const [stats, setStats] = useState({})
@@ -966,6 +1030,15 @@ function Dashboard({ user, navigate, addToast }) {
           <div className="dc-calm"><Icon name="check" size={16}/> Tudo em dia — nenhum alerta operacional aberto.</div>
         )}
       </div>
+
+      {/* Tarefas em aberto / ciência — só o Gerente de Contrato */}
+      {user.role === 'gerente' && (
+        <div className="dc-sec">
+          <div className="dc-grid">
+            <GerenteTarefas tarefas={stats.gerente_tarefas} addToast={addToast} />
+          </div>
+        </div>
+      )}
 
       {/* Prioridade 1 — Exposição financeira */}
       <div className="dc-sec">

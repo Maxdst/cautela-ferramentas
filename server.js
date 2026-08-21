@@ -318,6 +318,20 @@ db.exec(`
     custo_reposicao REAL,                       -- snapshot na entrega
     vence_em TEXT                               -- data_retirada + vida_util_meses (se houver)
   );
+
+  -- ─── CIÊNCIA DE SUPERVISÃO (Gerente de Contrato) ────────────────────────────
+  -- Registro paralelo, NÃO-bloqueante: marca que o Gerente tomou ciência de um evento
+  -- operacional (transferência pendente, solicitação parada). Não trava a operação —
+  -- é trilha de supervisão (quem/quando reconheceu). 1 ciência por evento (UNIQUE).
+  CREATE TABLE IF NOT EXISTS gerente_ciencias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo TEXT NOT NULL,                         -- 'transferencia' | 'solicitacao'
+    ref_id INTEGER NOT NULL,
+    gerente_id INTEGER REFERENCES usuarios(id),
+    gerente_nome TEXT,                          -- snapshot
+    criado_em TEXT DEFAULT (datetime('now','localtime')),
+    UNIQUE(tipo, ref_id)
+  );
 `)
 
 // ─── MIGRAÇÕES ────────────────────────────────────────────────────────────────
@@ -2758,6 +2772,74 @@ app.post('/api/equipe/transferencias/:id/cancelar', auth(['lider', 'engenheiro']
   res.json({ ok: true })
 })
 
+// ─── TAREFAS EM ABERTO / CIÊNCIA DO GERENTE DE CONTRATO ───────────────────────
+// Eventos operacionais que pedem ciência do Gerente (supervisão, sem travar nada):
+//   • transferências de colaborador pendentes de aceite;
+//   • solicitações paradas há +3 dias.
+// Cada tarefa carrega se já teve ciência (quem/quando). Enquanto o evento não se
+// resolve na operação, ele continua listado — a ciência é só um carimbo de supervisão.
+function tarefasGerente() {
+  const ciencia = db.prepare('SELECT gerente_nome, criado_em FROM gerente_ciencias WHERE tipo=? AND ref_id=?')
+  const idade = criadoEm => Math.floor(db.prepare("SELECT julianday('now','localtime') - julianday(?) d").get(criadoEm).d || 0)
+  const tarefas = []
+
+  if (modAtivo('equipe')) {
+    const transf = db.prepare(`SELECT t.id, t.criado_em, c.nome colaborador,
+        dl.nome de_lider, pl.nome para_lider, o.nome obra
+      FROM transferencias t
+      JOIN usuarios c ON c.id=t.colaborador_id
+      LEFT JOIN usuarios dl ON dl.id=t.de_lider_id
+      LEFT JOIN usuarios pl ON pl.id=t.para_lider_id
+      LEFT JOIN obras o ON o.id=t.obra_id
+      WHERE t.status='pendente' ORDER BY t.criado_em`).all()
+    for (const t of transf) {
+      const ci = ciencia.get('transferencia', t.id)
+      tarefas.push({
+        tipo: 'transferencia', ref_id: t.id,
+        titulo: `Transferência de ${t.colaborador}`,
+        detalhe: `${t.de_lider || 'Sem líder'} → ${t.para_lider || '—'}${t.obra ? ' · ' + t.obra : ''}`,
+        dias: idade(t.criado_em), quando: t.criado_em,
+        ciente: !!ci, ciente_por: ci ? ci.gerente_nome : null, ciente_em: ci ? ci.criado_em : null,
+      })
+    }
+  }
+
+  const sol = db.prepare(`SELECT s.id, s.numero, s.status, s.criado_em, l.nome lider
+    FROM solicitacoes s JOIN usuarios l ON l.id=s.lider_id
+    WHERE s.status NOT IN ('retirada','cancelada')
+      AND julianday('now','localtime') - julianday(s.criado_em) > 3
+    ORDER BY s.criado_em`).all()
+  for (const s of sol) {
+    const ci = ciencia.get('solicitacao', s.id)
+    tarefas.push({
+      tipo: 'solicitacao', ref_id: s.id,
+      titulo: `Solicitação ${s.numero || '#' + s.id} parada`,
+      detalhe: `${STATUS_SOLIC[s.status] || s.status} · ${s.lider}`,
+      dias: idade(s.criado_em), quando: s.criado_em,
+      ciente: !!ci, ciente_por: ci ? ci.gerente_nome : null, ciente_em: ci ? ci.criado_em : null,
+    })
+  }
+  // Mais antigas primeiro; pendentes de ciência acima das já reconhecidas.
+  return tarefas.sort((a, b) => (a.ciente - b.ciente) || (b.dias - a.dias))
+}
+const STATUS_SOLIC = { solicitada: 'Solicitada', separando: 'Separando', pronta: 'Pronta p/ retirada' }
+
+// Lista as tarefas em aberto (só o Gerente de Contrato enxerga/reconhece).
+app.get('/api/gerente/tarefas', auth(['gerente']), (req, res) => {
+  res.json(tarefasGerente())
+})
+
+// Registra a ciência do Gerente sobre um evento (idempotente; não altera a operação).
+app.post('/api/gerente/tarefas/ciente', auth(['gerente']), (req, res) => {
+  const { tipo, ref_id } = req.body || {}
+  if (!['transferencia', 'solicitacao'].includes(tipo) || !Number.isInteger(ref_id))
+    return res.status(400).json({ error: 'tipo/ref_id inválidos' })
+  db.prepare(`INSERT OR IGNORE INTO gerente_ciencias (tipo,ref_id,gerente_id,gerente_nome)
+    VALUES (?,?,?,?)`).run(tipo, ref_id, req.user.id, req.user.nome)
+  audit(req.user.id, 'CIENCIA_GERENTE', tipo, ref_id, `Ciência registrada por ${req.user.nome}`)
+  res.json({ ok: true, tarefas: tarefasGerente() })
+})
+
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 app.get('/api/dashboard', auth(), (req, res) => {
   const u = req.user
@@ -2906,6 +2988,9 @@ app.get('/api/dashboard', auth(), (req, res) => {
     // ── Módulo UNIFORMES / EPI ──
     if (modAtivo('uniformes'))
       s.epi_abaixo_minimo = alertasMinimo().length
+
+    // ── Tarefas em aberto / ciência (só o Gerente de Contrato) ──
+    if (u.role === 'gerente') s.gerente_tarefas = tarefasGerente()
 
     return res.json(s)
   }

@@ -84,6 +84,34 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .sidebar-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.1)}
 .btn-logout{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.6);background:none;border:none;cursor:pointer;font-size:.85rem;width:100%;padding:8px}
 .btn-logout:hover{color:white}
+
+/* ===== Modo apresentação (tour do CEO) ===== */
+/* Botão de entrada no rodapé da sidebar — só faz sentido no desktop */
+.btn-tour{display:flex;align-items:center;gap:8px;color:var(--accent-light,#C4CDD8);background:rgba(160,124,78,.12);border:1px solid rgba(160,124,78,.4);border-radius:8px;cursor:pointer;font-size:.82rem;font-weight:600;width:100%;padding:9px 10px;margin-bottom:10px;transition:all .15s}
+.btn-tour:hover{background:rgba(160,124,78,.24);color:#fff}
+/* Seletor de perfis (as "abas de perfil") no topo da sidebar durante o tour */
+.tour-switch{padding:12px 12px 4px;border-bottom:1px solid rgba(255,255,255,.1)}
+.tour-switch .ts-cap{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.45);font-weight:700;margin:0 4px 8px}
+.tour-perfil{display:flex;flex-direction:column;gap:1px;padding:8px 10px;margin-bottom:5px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,.04);transition:all .15s;text-align:left;width:100%}
+.tour-perfil:hover{background:rgba(255,255,255,.1)}
+.tour-perfil.active{background:rgba(74,144,164,.2);border-color:var(--primary-accent)}
+.tour-perfil .tp-role{color:#fff;font-size:.86rem;font-weight:600;display:flex;align-items:center;gap:7px}
+.tour-perfil .tp-ex{color:rgba(255,255,255,.5);font-size:.7rem;margin-left:22px}
+.tour-perfil:disabled{opacity:.4;cursor:not-allowed}
+.tour-perfil.active .tp-role{color:var(--primary-accent)}
+/* Faixa fixa de "somente leitura" no topo do conteúdo */
+.tour-banner{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(90deg,#A07C4E,#8B6B3D);color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:20px;box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.tour-banner .tb-dot{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.25);flex-shrink:0}
+.tour-banner strong{font-weight:800;letter-spacing:.02em}
+.tour-banner .tb-sub{opacity:.9;font-size:.82rem}
+.tour-banner .tb-exit{margin-left:auto;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;padding:7px 14px;font-size:.82rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.tour-banner .tb-exit:hover{background:rgba(0,0,0,.32)}
+/* Aviso quando alguém tenta usar o tour fora do desktop */
+.tour-mobile-note{display:none}
+@media (max-width:900px){
+  .btn-tour{display:none}
+  .tour-mobile-note{display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;padding:40px 24px;color:var(--text-secondary)}
+}
 .main-content{margin-left:var(--sidebar-w);flex:1;min-width:0;padding:28px;min-height:100vh}
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px}
 .topbar h2{font-size:1.25rem;font-weight:700;color:var(--text)}
@@ -587,7 +615,16 @@ const { useState, useEffect, useRef, useCallback } = React
 
 const token = { value: localStorage.getItem('cf_token') }
 
+// Modo apresentação (tour do CEO): quando ativo, o app está personificando um perfil em
+// SOMENTE LEITURA. O servidor já barra escritas, mas bloqueamos aqui também para dar
+// feedback imediato e evitar qualquer chamada de mutação durante a demonstração.
+const tourMode = { active: false, onBlock: null }
+
 async function api(method, path, body) {
+  if (tourMode.active && method !== 'GET') {
+    if (tourMode.onBlock) tourMode.onBlock()
+    throw new Error('Ação desabilitada no modo apresentação (somente leitura).')
+  }
   const res = await fetch('/api' + path, {
     method,
     headers: { 'Content-Type': 'application/json', ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}) },
@@ -599,6 +636,18 @@ async function api(method, path, body) {
 }
 const GET = p => api('GET', p)
 const POST = (p, b) => api('POST', p, b)
+// Troca de perfil no tour: precisa usar o token do apresentador (master/diretor), não o
+// token-tour vigente (que é somente-leitura), então faz um fetch cru fora do guard.
+async function postTour(role, masterToken) {
+  const res = await fetch('/api/auth/tour', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${masterToken}` },
+    body: JSON.stringify({ role })
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Erro ${res.status}`)
+  return data
+}
 const PUT = (p, b) => api('PUT', p, b)
 const DEL = p => api('DELETE', p)
 
@@ -643,6 +692,8 @@ const STATUS_LABEL = {
 const ROLE_LABEL = { almoxarifado: 'Almoxarifado', lider: 'Líder', operario: 'Operário', administracao: 'Administração', compras: 'Compras', diretor: 'Diretor de Operações', gerente: 'Gerente de Contrato', engenheiro: 'Engenheiro' }
 // Perfis com acesso ao módulo Uniformes/EPI (mesmo conjunto do backend UNIF_ROLES).
 const PERFIS_UNIFORME = ['almoxarifado', 'administracao', 'compras']
+// Ícone de cada perfil no seletor do Modo apresentação (tour do CEO).
+const TOUR_ICON = { diretor: 'dashboard', gerente: 'clipboard', engenheiro: 'building', lider: 'users', operario: 'worker', almoxarifado: 'package', compras: 'exchange' }
 
 // ── Módulos comercializáveis (scaffold de venda por pacote) ──
 // 'cautela' é base (sempre ativo). Cada aba/indicador declara de qual módulo depende;
@@ -4389,7 +4440,7 @@ function ThemeToggleIcon() {
 }
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-function Sidebar({ user, page, navigate, onLogout, notif, open }) {
+function Sidebar({ user, page, navigate, onLogout, notif, open, tour, canPresent, onTourEnter, onTourSelect }) {
   const alm = user.role === 'almoxarifado'
   const lider = user.role === 'lider'
   const eng = user.role === 'engenheiro'
@@ -4427,6 +4478,20 @@ function Sidebar({ user, page, navigate, onLogout, notif, open }) {
         <div className="role">{user.is_master ? 'Administrador Master' : (ROLE_LABEL[user.role] + ((user.cargo && user.cargo.trim().toLowerCase() !== ROLE_LABEL[user.role].toLowerCase()) ? ` — ${user.cargo}` : ''))}</div>
         <div style={{fontSize:'.7rem',color:'rgba(255,255,255,.45)',marginTop:4,wordBreak:'break-all'}}>{user.email}</div>
       </div>
+      {tour && (
+        <div className="tour-switch">
+          <div className="ts-cap">Apresentando o perfil</div>
+          {tour.perfis.map(p => (
+            <button key={p.role}
+              className={`tour-perfil ${tour.role===p.role?'active':''}`}
+              disabled={!p.disponivel}
+              onClick={()=>p.disponivel && onTourSelect(p.role)}>
+              <span className="tp-role"><Icon name={TOUR_ICON[p.role]||'users'} size={15}/>{p.label}</span>
+              <span className="tp-ex">{p.disponivel ? (p.exemplo || 'ver como este perfil') : 'sem usuário cadastrado'}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <nav className="sidebar-nav">
         {items.map(item=>(
           <button key={item.id} className={`nav-item ${page===item.id?'active':''}`} onClick={()=>navigate(item.id)}>
@@ -4437,6 +4502,9 @@ function Sidebar({ user, page, navigate, onLogout, notif, open }) {
         ))}
       </nav>
       <div className="sidebar-footer">
+        {canPresent && !tour && (
+          <button className="btn-tour" onClick={onTourEnter}><Icon name="eye" size={16}/> Modo apresentação</button>
+        )}
         <div className="sb-tools">
           <button className="btn-logout" onClick={onLogout} style={{width:'auto',flex:'0 0 auto'}}><Icon name="logout" size={16}/> Sair</button>
           <ThemeToggle/>
@@ -4454,12 +4522,53 @@ function App() {
   const [checking, setChecking] = useState(true)
   const [notif, setNotif] = useState({})
   const [menuOpen, setMenuOpen] = useState(false)
+  // Modo apresentação (tour do CEO). null = desligado.
+  // Ativo: { perfis:[...], role:'diretor'|null, master:{token,user} } — guarda a sessão real
+  // do apresentador para restaurar ao sair.
+  const [tour, setTour] = useState(null)
 
   const addToast = useCallback((msg, type='success') => {
     const id = Date.now()
     setToasts(t => [...t, {id, msg, type}])
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500)
   }, [])
+
+  // Feedback ao tentar qualquer ação de escrita durante a apresentação (bloqueada no cliente e no servidor).
+  useEffect(() => { tourMode.onBlock = () => addToast('Somente leitura no modo apresentação.', 'warning'); return () => { tourMode.onBlock = null } }, [addToast])
+
+  const canPresent = !!(user && !tour && (user.is_master || user.role === 'diretor'))
+
+  const enterTour = async () => {
+    try {
+      const perfis = await GET('/auth/tour/perfis')
+      const master = { token: token.value, user }
+      const first = (perfis.find(p => p.disponivel) || {}).role
+      setTour({ perfis, role: null, master })
+      if (first) await selectTourPerfil(first, { perfis, master, role: null })
+      else addToast('Nenhum perfil com usuário cadastrado para demonstrar.', 'warning')
+    } catch (e) { addToast(e.message || 'Falha ao iniciar apresentação.', 'error') }
+  }
+
+  const selectTourPerfil = async (role, ctx) => {
+    const t = ctx || tour
+    if (!t) return
+    try {
+      const data = await postTour(role, t.master.token)
+      token.value = data.token
+      tourMode.active = true
+      setUser({ ...data.user })
+      setPage('dashboard')
+      setMenuOpen(false)
+      setTour({ ...t, role })
+    } catch (e) { addToast(e.message || 'Falha ao carregar o perfil.', 'error') }
+  }
+
+  const exitTour = () => {
+    tourMode.active = false
+    if (tour && tour.master) { token.value = tour.master.token; setUser(tour.master.user) }
+    setTour(null)
+    setPage('dashboard')
+  }
 
   useEffect(() => {
     if (token.value) {
@@ -4502,7 +4611,7 @@ function App() {
   }, [user])
 
   const navigate = p => { setPage(p); setMenuOpen(false) }
-  const logout = () => { token.value = null; localStorage.removeItem('cf_token'); setUser(null); setPage('dashboard') }
+  const logout = () => { tourMode.active = false; setTour(null); token.value = null; localStorage.removeItem('cf_token'); setUser(null); setPage('dashboard') }
 
   if (checking) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',fontSize:'1.2rem',color:'#6b7280'}}>Carregando...</div>
   if (!user) return <LoginPage onLogin={u=>{ setUser(u); setPage('dashboard') }} />
@@ -4529,7 +4638,8 @@ function App() {
 
   return (
     <div className="layout">
-      <Sidebar user={user} page={page} navigate={navigate} onLogout={logout} notif={notif} open={menuOpen} />
+      <Sidebar user={user} page={page} navigate={navigate} onLogout={logout} notif={notif} open={menuOpen}
+        tour={tour} canPresent={canPresent} onTourEnter={enterTour} onTourSelect={selectTourPerfil} />
       <div className={`sidebar-overlay ${menuOpen?'open':''}`} onClick={()=>setMenuOpen(false)} />
       <div className="main-content">
         <header className="mobile-topbar">
@@ -4542,6 +4652,16 @@ function App() {
             <button className="mtb-logout" onClick={logout}><Icon name="logout" size={15}/> Sair</button>
           </div>
         </header>
+        {tour && (
+          <div className="tour-banner">
+            <span className="tb-dot" />
+            <div>
+              <strong>MODO APRESENTAÇÃO</strong>
+              <span className="tb-sub"> · visão de <b>{ROLE_LABEL[user.role] || user.role}</b>{user.nome ? ` (${user.nome})` : ''} — somente leitura</span>
+            </div>
+            <button className="tb-exit" onClick={exitTour}><Icon name="x" size={14}/> Sair da apresentação</button>
+          </div>
+        )}
         {renderPage()}
       </div>
       <Toast toasts={toasts} />
